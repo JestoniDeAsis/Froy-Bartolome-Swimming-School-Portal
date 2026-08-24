@@ -41,6 +41,7 @@
 .sales-tabs .btn-tab { min-width: 150px; }
 
 .sales-stats { flex: 0 0 auto; margin-bottom: 1rem; }
+.sales-stats[hidden] { display: none; }
 
 .sales-stat {
     display: flex;
@@ -68,6 +69,12 @@
 
 .sales-panel { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .sales-panel[hidden] { display: none; }
+.sales-field[hidden] { display: none; }
+
+/* Long student names must not push the dropdown out of the dialog. */
+#coursePaymentEnrollmentDropdown .registerDropdownToggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+#coursePaymentEnrollmentDropdown .registerDropdownOptions { max-height: 220px; overflow-y: auto; }
+#coursePaymentEnrollmentDropdown .registerDropdownOption { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sales-table-wrap {
     --sales-row-height: 49px;
@@ -539,19 +546,20 @@
 <section class="sales-page" id="salesPage" aria-labelledby="salesTitle">
     <header class="sales-heading">
         <div>
-            <h2 class="mb-1" id="salesTitle">Purchases</h2>
-            <p class="text-muted mb-0">Track fees, collections, and balances</p>
+            <h2 class="mb-1" id="salesTitle">Billing &amp; Receipts</h2>
+            <p class="text-muted mb-0">Course payments, item sales, and receipts in one place</p>
         </div>
         <button class="btn btn-primary btn-icon-label" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
     </header>
 
-    <nav class="btn-tab-group sales-tabs" aria-label="Purchase sections" role="tablist">
+    <nav class="btn-tab-group sales-tabs" aria-label="Billing sections" role="tablist">
+        <button class="btn btn-outline-primary btn-tab" id="salesTabAll" type="button" role="tab" aria-selected="false" aria-controls="salesPanelAll" data-sales-tab="all">All</button>
         <button class="btn btn-outline-primary btn-tab active" id="salesTabCourse" type="button" role="tab" aria-selected="true" aria-controls="salesPanelCourse" data-sales-tab="course">Course payment</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabLogs" type="button" role="tab" aria-selected="false" aria-controls="salesPanelLogs" data-sales-tab="logs">Item logs</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabItems" type="button" role="tab" aria-selected="false" aria-controls="salesPanelItems" data-sales-tab="items">Items</button>
     </nav>
 
-    <div class="sales-stats" aria-label="Payment totals">
+    <div class="sales-stats" id="salesStats" aria-label="Payment totals">
         <article class="sales-stat"><div><p class="sales-stat-label">Total collected</p><p class="sales-stat-value" id="salesTotalCollected">₱0</p></div><span class="sales-stat-icon sales-stat-icon--blue"><i class="bi bi-cash-stack"></i></span></article>
         <article class="sales-stat"><div><p class="sales-stat-label">Outstanding</p><p class="sales-stat-value" id="salesOutstanding">₱0</p></div><span class="sales-stat-icon sales-stat-icon--amber"><i class="bi bi-hourglass-split"></i></span></article>
         <article class="sales-stat"><div><p class="sales-stat-label">Paid</p><p class="sales-stat-value" id="salesPaid">₱0</p></div><span class="sales-stat-icon sales-stat-icon--green"><i class="bi bi-check-circle"></i></span></article>
@@ -577,6 +585,9 @@
         </div>
     </div>
 
+    <section class="sales-panel" id="salesPanelAll" role="tabpanel" aria-labelledby="salesTabAll" data-sales-panel="all" hidden>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Type</th><th>Name</th><th>Client</th><th>Total</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Receipt</th></tr></thead><tbody id="allRows"></tbody></table></div>
+    </section>
     <section class="sales-panel" id="salesPanelCourse" role="tabpanel" aria-labelledby="salesTabCourse" data-sales-panel="course">
         <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
     </section>
@@ -594,6 +605,7 @@
         <form class="sales-form" id="coursePaymentForm">
             <input type="hidden" name="id">
             <input type="hidden" name="paymentId">
+            <div class="sales-field" id="coursePaymentEnrollmentGroup" hidden><label for="coursePaymentEnrollmentToggle">Student <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="coursePaymentEnrollmentDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="coursePaymentEnrollmentToggle" type="button" aria-expanded="false" aria-controls="coursePaymentEnrollmentOptions"><span>Select student</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="coursePaymentEnrollmentOptions" hidden></div><input id="coursePaymentEnrollment" type="hidden" value=""></div></div>
             <div class="sales-balance-line"><strong>Balance</strong><strong id="coursePaymentBalance">₱0</strong></div>
             <div class="sales-field"><label for="coursePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
             <div class="sales-field"><label for="coursePaymentMethodToggle">Payment Method <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="coursePaymentMethodDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="coursePaymentMethodToggle" type="button" aria-expanded="false" aria-controls="coursePaymentMethodOptions"><span>Select method</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="coursePaymentMethodOptions" hidden>
@@ -666,6 +678,7 @@
     let activeTab = 'course';
     let pendingRemoval = null;
     const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
+    const nowStamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
     const dateLabel = () => {
         const date = new Date();
         const month = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
@@ -701,21 +714,50 @@
         return { text: search.value.trim().toLocaleLowerCase(), status: statusFilter.value };
     }
 
-    function updateStats() {
+    // Each box means the same thing on every tab:
+    //   Total collected = money received      Outstanding = still owed
+    //   Paid            = value of fully paid  Unpaid      = value of untouched (nothing paid yet)
+    function courseStats() {
         // Course rows are one per payment, so the balance-based totals are
         // taken once per enrollment (not once per payment row).
         const enrollments = new Map();
         courseRows.forEach(row => enrollments.set(row.enrollmentId, { toPay: Number(row.toPay), paid: Number(row.enrollmentPaid) }));
         const list = [...enrollments.values()];
+        return {
+            collected: courseRows.reduce((total, row) => total + Number(row.paid), 0),
+            outstanding: list.reduce((total, e) => total + Math.max(e.toPay - e.paid, 0), 0),
+            paid: list.reduce((total, e) => total + (e.paid > 0 && e.paid >= e.toPay ? e.paid : 0), 0),
+            unpaid: list.reduce((total, e) => total + (e.paid <= 0 ? e.toPay : 0), 0)
+        };
+    }
 
-        const paidTotal = courseRows.reduce((total, row) => total + Number(row.paid), 0);
-        const outstanding = list.reduce((total, e) => total + Math.max(e.toPay - e.paid, 0), 0);
-        const paidAmount = list.reduce((total, e) => total + (e.paid > 0 && e.paid >= e.toPay ? e.paid : 0), 0);
-        const unpaidAmount = list.reduce((total, e) => total + (e.paid <= 0 ? e.toPay : 0), 0);
-        document.getElementById('salesTotalCollected').textContent = money(paidTotal);
-        document.getElementById('salesOutstanding').textContent = money(outstanding);
-        document.getElementById('salesPaid').textContent = money(paidAmount);
-        document.getElementById('salesUnpaid').textContent = money(unpaidAmount);
+    function itemStats() {
+        // One item log = one sale: to pay = unit price x quantity.
+        const sales = logs.map(row => ({ total: Number(row.price) * Number(row.quantity), paid: Number(row.paid) }));
+        return {
+            collected: sales.reduce((total, s) => total + s.paid, 0),
+            outstanding: sales.reduce((total, s) => total + Math.max(s.total - s.paid, 0), 0),
+            paid: sales.reduce((total, s) => total + (s.paid > 0 && s.paid >= s.total ? s.paid : 0), 0),
+            unpaid: sales.reduce((total, s) => total + (s.paid <= 0 ? s.total : 0), 0)
+        };
+    }
+
+    function updateStats() {
+        document.getElementById('salesStats').hidden = activeTab === 'items';
+        const course = courseStats();
+        const item = itemStats();
+        const stats = activeTab === 'course' ? course
+            : activeTab === 'logs' ? item
+            : {
+                collected: course.collected + item.collected,
+                outstanding: course.outstanding + item.outstanding,
+                paid: course.paid + item.paid,
+                unpaid: course.unpaid + item.unpaid
+            };
+        document.getElementById('salesTotalCollected').textContent = money(stats.collected);
+        document.getElementById('salesOutstanding').textContent = money(stats.outstanding);
+        document.getElementById('salesPaid').textContent = money(stats.paid);
+        document.getElementById('salesUnpaid').textContent = money(stats.unpaid);
     }
 
     function renderCourseRows() {
@@ -729,7 +771,6 @@
             const balance = Number(row.balance);
             return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-delete="${row.id}" aria-label="Remove ${escapeHtml(row.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td class="sales-empty" colspan="11">No course payments match your search.</td></tr>';
-        updateStats();
     }
 
     function renderLogs() {
@@ -753,7 +794,32 @@
         document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-item-edit="${item.id}" aria-label="Edit ${escapeHtml(item.name)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-item-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td></tr>`).join('') : '<tr><td class="sales-empty" colspan="5">No items match your search.</td></tr>';
     }
 
-    function render() { renderCourseRows(); renderLogs(); renderItems(); }
+    // "All": course payments and item sales merged, newest first. Read-only; edit from their own tab.
+    function renderAll() {
+        const { text, status } = currentFilter();
+        const rows = courseRows.map(row => ({
+            kind: 'course', id: row.id, type: 'Course', name: row.course, client: row.name,
+            total: Number(row.toPay), paid: Number(row.paid), balance: Number(row.balance),
+            method: row.method, status: row.status, date: row.date, sortAt: row.sortAt || ''
+        })).concat(logs.map(row => {
+            const total = Number(row.price) * Number(row.quantity);
+            return {
+                kind: 'item', id: row.id, type: 'Item', name: row.item, client: row.client || 'Walk-in',
+                total, paid: Number(row.paid), balance: Math.max(total - Number(row.paid), 0),
+                method: row.method, status: statusFor(row.paid, total), date: row.date, sortAt: row.sortAt || ''
+            };
+        })).sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
+
+        const visible = rows.filter(row => {
+            const haystack = `${row.type} ${row.name} ${row.client} ${row.method} ${row.date}`.toLocaleLowerCase();
+            return (!status || status === row.status) && (!text || haystack.includes(text));
+        });
+        document.getElementById('allRows').innerHTML = visible.length ? visible.map(row =>
+            `<tr><td>${row.type}</td><td class="sales-name">${escapeHtml(row.name)}</td><td>${escapeHtml(row.client)}</td><td>${money(row.total)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-all-receipt="${row.id}" data-all-kind="${row.kind}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="10">No records match your search.</td></tr>';
+    }
+
+    function render() { renderAll(); renderCourseRows(); renderLogs(); renderItems(); updateStats(); }
 
     function setTab(tab) {
         activeTab = tab;
@@ -765,16 +831,18 @@
         document.querySelectorAll('[data-sales-panel]').forEach(panel => { panel.hidden = panel.dataset.salesPanel !== tab; });
         search.value = '';
         setDropdown(statusFilterRoot, '');
-        const labels = { course: 'Add New Purchase', logs: 'Add New Purchase', items: 'Add New Item' };
+        const labels = { all: '', course: 'Record Course Payment', logs: 'Add New Purchase', items: 'Add New Item' };
         addButton.querySelector('span').textContent = labels[tab];
-        addButton.hidden = tab === 'course';
+        addButton.hidden = tab === 'all';   // nothing to add from the combined view
         statusFilterRoot.hidden = tab === 'items';
+        render();   // new tab: re-apply the (now cleared) search/filter and refresh the totals
     }
 
     // State of the open payment dialog. `others` = everything already paid on
     // this enrollment EXCLUDING the payment log being edited, so the most this
     // payment can be is  toPay (course_price_at_enrollment) - others.
     let paymentDialog = { toPay: 0, others: 0, available: 0 };
+    let paymentSubmitLabel = 'Update';
     const round2 = value => Math.round(Number(value) * 100) / 100;
 
     function showCoursePayment(row) {
@@ -784,7 +852,10 @@
         const available = Math.max(round2(Number(row.toPay) - others), 0);
 
         paymentDialog = { toPay: Number(row.toPay), others, available };
+        paymentSubmitLabel = editing ? 'Update' : 'Record';
 
+        document.getElementById('coursePaymentEnrollmentGroup').hidden = true;
+        document.getElementById('coursePaymentSubmit').textContent = paymentSubmitLabel;
         form.elements.id.value = row.enrollmentId;
         form.elements.paymentId.value = editing ? row.id : '';
         form.elements.amount.value = editing ? row.paid : '';
@@ -800,6 +871,78 @@
 
         refreshPaymentPreview();
         document.getElementById('coursePaymentDialog').showModal();
+    }
+
+    // Enrollments that still owe something. Course rows are one per payment,
+    // so take each enrollment once (every row of it carries the same totals).
+    function outstandingEnrollments() {
+        const seen = new Map();
+        courseRows.forEach(row => { if (!seen.has(row.enrollmentId)) seen.set(row.enrollmentId, row); });
+        return [...seen.values()]
+            .map(row => ({
+                enrollmentId: row.enrollmentId,
+                name: row.name,
+                course: row.course,
+                toPay: Number(row.toPay),
+                paid: Number(row.enrollmentPaid),
+                remaining: Math.max(round2(Number(row.toPay) - Number(row.enrollmentPaid)), 0)
+            }))
+            .filter(e => e.remaining > 0)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // "Record Course Payment" (top button): pick a student, then log a new payment.
+    function showRecordPayment() {
+        const owing = outstandingEnrollments();
+        if (!owing.length) { notify('Every enrolled student is already fully paid.'); return; }
+
+        const form = document.getElementById('coursePaymentForm');
+        paymentDialog = { toPay: 0, others: 0, available: 0 };
+        paymentSubmitLabel = 'Record';
+
+        form.elements.id.value = '';
+        form.elements.paymentId.value = '';
+        form.elements.amount.value = '';
+        setDropdown(document.getElementById('coursePaymentMethodDropdown'), '');
+        document.getElementById('coursePaymentMethodDropdown').classList.remove('isInvalid');
+        form.elements.reference.value = '';
+
+        document.getElementById('coursePaymentEnrollmentGroup').hidden = false;
+        document.getElementById('coursePaymentEnrollmentDropdown').classList.remove('isInvalid');
+        window.FBSSDropdown.setOptions(
+            document.getElementById('coursePaymentEnrollmentDropdown'),
+            [{ value: '', label: 'Select student' }].concat(owing.map(e => ({
+                value: e.enrollmentId,
+                // Just the name. Only when two people share a name, add the course to tell them apart.
+                label: owing.filter(o => o.name === e.name).length > 1 ? `${e.name} (${e.course})` : e.name
+            }))),
+            ''
+        );
+
+        document.getElementById('coursePaymentTitle').textContent = 'Recording course payment';
+        document.getElementById('coursePaymentStudent').textContent = 'Choose the student who is paying.';
+        document.getElementById('coursePaymentLimit').textContent = '';
+        document.getElementById('coursePaymentSubmit').textContent = paymentSubmitLabel;
+
+        refreshPaymentPreview();
+        document.getElementById('coursePaymentDialog').showModal();
+    }
+
+    // The student picked in the "Record Course Payment" dialog: the most this
+    // payment can be is that enrollment's remaining balance.
+    function applyPickedEnrollment() {
+        const form = document.getElementById('coursePaymentForm');
+        const id = Number(document.getElementById('coursePaymentEnrollment').value) || 0;
+        const picked = outstandingEnrollments().find(e => e.enrollmentId === id);
+
+        form.elements.id.value = picked ? picked.enrollmentId : '';
+        paymentDialog = picked
+            ? { toPay: picked.toPay, others: round2(picked.paid), available: picked.remaining }
+            : { toPay: 0, others: 0, available: 0 };
+
+        document.getElementById('coursePaymentStudent').textContent = picked ? `Student name: ${picked.name} (${picked.course})` : 'Choose the student who is paying.';
+        document.getElementById('coursePaymentLimit').textContent = picked ? `Up to ${money(picked.remaining)} (the remaining balance).` : '';
+        refreshPaymentPreview();
     }
 
     // Live check while typing, like the Registers modal: remaining balance,
@@ -913,7 +1056,7 @@
     document.querySelectorAll('[data-sales-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.salesTab)));
     search.addEventListener('input', render);
     statusFilterRoot.addEventListener('dropdown:change', render);
-    addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : notify('Record a payment from a course row.'));
+    addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : showRecordPayment());
     document.getElementById('purchaseItemDropdown').addEventListener('dropdown:change', refreshPurchasePrice);
     document.getElementById('purchaseQuantity').addEventListener('input', refreshPurchasePrice);
 
@@ -921,6 +1064,10 @@
         const target = event.target.closest('button');
         if (!target) return;
         if (target.matches('[data-course-edit]')) showCoursePayment(byId(courseRows, target.dataset.courseEdit));
+        if (target.matches('[data-all-receipt]')) {
+            const isCourse = target.dataset.allKind === 'course';
+            showReceipt(byId(isCourse ? courseRows : logs, target.dataset.allReceipt), isCourse ? 'course' : 'item');
+        }
         if (target.matches('[data-course-receipt]')) showReceipt(byId(courseRows, target.dataset.courseReceipt), 'course');
         if (target.matches('[data-course-delete]')) {
             const row = byId(courseRows, target.dataset.courseDelete);
@@ -945,6 +1092,14 @@
         const submitButton = document.getElementById('coursePaymentSubmit');
         const enrollmentId = Number(form.elements.id.value);
         const paymentId = Number(form.elements.paymentId.value) || null;
+
+        if (!enrollmentId) {
+            document.getElementById('coursePaymentEnrollmentDropdown').classList.add('isInvalid');
+            document.getElementById('coursePaymentEnrollmentToggle').focus();
+            notify('Select a student.', 'danger');
+            return;
+        }
+
         const row = courseRows.find(item => item.enrollmentId === enrollmentId);
         if (!row) { notify('This enrollment is no longer in the list.', 'danger'); return; }
 
@@ -960,13 +1115,13 @@
         if (round2(amount) > paymentDialog.available) { notify(`Payment exceeds the limit of ${money(paymentDialog.available)}.`, 'danger'); return; }
 
         submitButton.disabled = true;
-        submitButton.textContent = 'Updating...';
+        submitButton.textContent = paymentId ? 'Updating...' : 'Recording...';
 
-        // Editing a payment log -> PUT that payment; first payment of an unpaid
-        // enrollment -> the same endpoint the Registers page uses.
+        // Editing a payment log -> PUT that payment; a new payment ("Record
+        // Course Payment" or an unpaid row) -> POST a new log row.
         const url = paymentId
             ? `{{ url('/sales/payments') }}/${paymentId}`
-            : `{{ url('/registers/students') }}/${enrollmentId}/payments`;
+            : `{{ url('/sales/enrollments') }}/${enrollmentId}/payments`;
 
         try {
             const response = await fetch(url, {
@@ -987,7 +1142,7 @@
             if (response.ok && data.success) {
                 document.getElementById('coursePaymentDialog').close();
                 await loadData();
-                notify(`Successfully updated the payment for ${row.name}.`);
+                notify(paymentId ? `Successfully updated the payment for ${row.name}.` : `Successfully recorded the payment for ${row.name}.`);
             } else {
                 const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
                 notify(firstError || data.message || `Could not update the payment (error ${response.status}).`, 'danger');
@@ -996,12 +1151,16 @@
             console.error(error);
             notify('Something went wrong while updating the payment.', 'danger');
         } finally {
-            submitButton.textContent = 'Update';
+            submitButton.textContent = paymentSubmitLabel;
             refreshPaymentPreview();
         }
     });
 
     document.getElementById('coursePaymentAmount').addEventListener('input', refreshPaymentPreview);
+    document.getElementById('coursePaymentEnrollmentDropdown').addEventListener('dropdown:change', event => {
+        event.currentTarget.classList.remove('isInvalid');
+        applyPickedEnrollment();
+    });
     document.getElementById('coursePaymentMethodDropdown').addEventListener('dropdown:change', event => event.currentTarget.classList.remove('isInvalid'));
 
     document.getElementById('purchaseForm').addEventListener('submit', event => {
@@ -1019,7 +1178,7 @@
         const previousQuantity = existing?.quantity || 0;
         const stockAfterReversal = Number(item.stock) + (originalItem?.id === item.id ? previousQuantity : 0);
         if (quantity > stockAfterReversal) { notify(`Only ${stockAfterReversal} ${item.name} available.`); return; }
-        const record = { id: existing?.id || Date.now(), itemId: item.id, item: item.name, description: form.elements.description.value.trim(), quantity, price: Number(item.price), paid, method: form.elements.method.value, date: dateLabel(), client: existing?.client || '', receipt: existing?.receipt || `ITEM-${new Date().getFullYear()}-${String(logs.length + 1).padStart(3, '0')}` };
+        const record = { id: existing?.id || Date.now(), itemId: item.id, item: item.name, description: form.elements.description.value.trim(), quantity, price: Number(item.price), paid, method: form.elements.method.value, date: dateLabel(), client: existing?.client || '', sortAt: existing?.sortAt || nowStamp(), receipt: existing?.receipt || `ITEM-${new Date().getFullYear()}-${String(logs.length + 1).padStart(3, '0')}` };
         if (originalItem && originalItem.id !== item.id) originalItem.stock += previousQuantity;
         item.stock = stockAfterReversal - quantity;
         if (existing) Object.assign(existing, record); else logs.unshift(record);

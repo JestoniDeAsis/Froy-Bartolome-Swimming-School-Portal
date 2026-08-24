@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
-use App\Models\CoursePayment;
 use App\Models\Enrollment;
 use App\Models\User;
 use App\Models\UserProfile;
@@ -13,7 +12,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Admin Registers page.
@@ -107,14 +105,27 @@ class RegistersController extends Controller
             return response()->json(['success' => false, 'message' => $reason], 422);
         }
 
-        $enrollment = Enrollment::create([
-            'user_id' => $validated['user_id'],
-            'course_id' => $course->course_id,
-            'course_price_at_enrollment' => $course->course_price,
-            'enrollment_at' => now(),
-            'scheduled_time' => $validated['scheduled_time'] ?? null,
-            'notes' => $validated['notes'] ?? null,
-        ]);
+        // Create the enrollment and promote an applicant (role 5) to student
+        // (role 3) together, so one can't succeed without the other.
+        $enrollment = DB::transaction(function () use ($validated, $course) {
+            $enrollment = Enrollment::create([
+                'user_id' => $validated['user_id'],
+                'course_id' => $course->course_id,
+                'course_price_at_enrollment' => $course->course_price,
+                'enrollment_at' => now(),
+                'scheduled_time' => $validated['scheduled_time'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            // Only applicants are promoted. Graduates are already role 3,
+            // and athletes (role 4) were rejected by enrollBlockReason().
+            DB::table('tbl_users')
+                ->where('user_id', $validated['user_id'])
+                ->where('role_id', self::APPLICANT_ROLE_ID)
+                ->update(['role_id' => self::STUDENT_ROLE_ID]);
+
+            return $enrollment;
+        });
 
         return response()->json([
             'success' => true,
@@ -174,71 +185,6 @@ class RegistersController extends Controller
         return response()->json([
             'success' => true,
             'price' => $enrollment->course_price_at_enrollment,
-            'balance' => $balance,
-            'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
-        ]);
-    }
-
-    /**
-     * POST /registers/students/{enrollment}/payments
-     * Called via fetch() from the Students tab's "Payment update" button.
-     * Each call records one payment row — it never edits a past payment,
-     * so balance/status are always recomputed as (price - sum of payments).
-     * A payment larger than the remaining balance is rejected (422).
-     */
-    public function addPayment(Request $request, Enrollment $enrollment): JsonResponse
-    {
-        if ($denied = $this->denyUnlessAdmin()) {
-            return $denied;
-        }
-
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
-        ]);
-
-        $amount = round((float) $validated['amount'], 2);
-
-        // Lock the enrollment row so two simultaneous payments can't both
-        // pass the balance check and together overpay.
-        DB::transaction(function () use ($enrollment, $validated, $amount) {
-            $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
-
-            $remaining = round(
-                (float) $locked->course_price_at_enrollment - (float) $locked->payments()->sum('amount'),
-                2
-            );
-
-            if ($remaining <= 0) {
-                throw ValidationException::withMessages([
-                    'amount' => ['This enrollment is already fully paid.'],
-                ]);
-            }
-
-            if ($amount > $remaining) {
-                throw ValidationException::withMessages([
-                    'amount' => ['Payment of ₱' . number_format($amount, 2)
-                        . ' exceeds the remaining balance of ₱' . number_format($remaining, 2) . '.'],
-                ]);
-            }
-
-            CoursePayment::create([
-                'student_id' => $locked->enrollment_id,
-                'enrollment_id' => $locked->enrollment_id,
-                'amount' => $amount,
-                'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
-                'paid_at' => now(),
-                'received_by' => Auth::id(),
-            ]);
-        });
-
-        $totalPaid = $enrollment->payments()->sum('amount');
-        $balance = max($enrollment->course_price_at_enrollment - $totalPaid, 0);
-
-        return response()->json([
-            'success' => true,
             'balance' => $balance,
             'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
         ]);

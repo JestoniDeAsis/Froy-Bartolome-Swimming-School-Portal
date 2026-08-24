@@ -102,8 +102,9 @@ Route::get('/payments/data', [PaymentHistoryController::class, 'data'])->middlew
 
 use App\Http\Controllers\SalesInvoiceController;
 
-Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');
-Route::put('/sales/payments/{payment}', [SalesInvoiceController::class, 'updatePayment'])->name('sales.payments.update');
+Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->middleware('auth')->name('sales.data');
+Route::post('/sales/enrollments/{enrollment}/payments', [SalesInvoiceController::class, 'recordPayment'])->middleware('auth')->whereNumber('enrollment')->name('sales.payments.store');
+Route::put('/sales/payments/{payment}', [SalesInvoiceController::class, 'updatePayment'])->middleware('auth')->name('sales.payments.update');
 
 use App\Http\Controllers\AdminGraduationController;
 use App\Http\Controllers\CertificateController;
@@ -126,7 +127,7 @@ use App\Http\Controllers\RegistersController;
 
 Route::post('/registers/enroll', [RegistersController::class, 'enroll'])->middleware('auth');
 Route::put('/registers/students/{enrollment}', [RegistersController::class, 'updateCourse'])->middleware('auth');
-Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');
+// Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');
 Route::post('/registers/athletes', [RegistersController::class, 'addAthletes'])->middleware('auth');
 Route::post('/registers/athletes/{user}/revoke', [RegistersController::class, 'revokeAthlete'])->middleware('auth')->whereNumber('user');
 

@@ -34,6 +34,13 @@
     white-space: nowrap;
 }
 
+#registersTabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1rem;
+}
+
 .registersTab {
     min-width: 140px;
     flex-shrink: 0;
@@ -49,7 +56,8 @@
     align-items: center;
     gap: .75rem;
     flex-wrap: wrap;
-    margin-bottom: .75rem;
+    margin-top: .25rem;
+    margin-bottom: 1rem;
 }
 
 .registersSearchContainer {
@@ -179,7 +187,7 @@
 }
 
 /* Students tab rows are clickable — selecting one enables the
-   "Course update" / "Payment update" toolbar buttons above. */
+   "Course update" toolbar button above. */
 .studentRow {
     cursor: pointer;
     transition: background-color .1s ease;
@@ -616,7 +624,6 @@
         <!-- Student Actions (enabled once a student row is selected) -->
         <div class="registersToolbarActions" id="registersToolbarActions" hidden>
             <button class="btn btn-primary" id="courseUpdateButton" type="button" disabled>Course update</button>
-            <button class="btn btn-primary" id="paymentUpdateButton" type="button" disabled>Payment update</button>
         </div>
 
     </div>
@@ -688,7 +695,6 @@
                 <div class="registerDropdownOptions" id="scheduleOptions" hidden>
                     <button class="registerDropdownOption active" type="button" data-value="Morning">Morning</button>
                     <button class="registerDropdownOption" type="button" data-value="Afternoon">Afternoon</button>
-                    <button class="registerDropdownOption" type="button" data-value="Evening">Evening</button>
                 </div>
 
                 <input id="scheduleInput" name="scheduleTime" type="hidden" value="Morning">
@@ -706,55 +712,6 @@
                 <button type="button" class="dayButton">FRI</button>
                 <button type="button" class="dayButton">SAT</button>
                 <button type="button" class="dayButton">SUN</button>
-            </div>
-        </div>
-
-        <!-- Balance -->
-        <div class="formGroup" id="modalBalanceGroup" hidden>
-            <div class="modalPaymentInfo">
-                <strong>Balance:</strong>
-                <span id="modalBalance">₱9,000.00</span>
-            </div>
-        </div>
-
-        <!-- Payment -->
-        <div class="formGroup" id="modalPaymentGroup" hidden>
-            <label for="paymentInput">Payment <span class="requiredMark">*</span></label>
-            <input class="form-control" id="paymentInput" name="payment" type="number" min="0" step="0.01" placeholder="₱2,000">
-        </div>
-
-        <!-- Payment Method -->
-        <div class="formGroup" id="modalPaymentMethodGroup" hidden>
-            <label for="paymentMethodToggle">Payment Method <span class="requiredMark">*</span></label>
-            <div class="registerDropdown ddBlock" id="paymentMethodDropdown" data-fbss-dropdown>
-                <button class="registerDropdownToggle" id="paymentMethodToggle" type="button" aria-expanded="false" aria-controls="paymentMethodOptions">
-                    <span>Select method</span>
-                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
-                </button>
-
-                <div class="registerDropdownOptions" id="paymentMethodOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="">Select method</button>
-                    <button class="registerDropdownOption" type="button" data-value="Cash">Cash</button>
-                    <button class="registerDropdownOption" type="button" data-value="GCash">GCash</button>
-                    <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
-                    <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
-                </div>
-
-                <input id="paymentMethodInput" name="paymentMethod" type="hidden" value="">
-            </div>
-        </div>
-
-        <!-- Reference Number -->
-        <div class="formGroup" id="modalReferenceNumberGroup" hidden>
-            <label for="referenceNumberInput">Reference Number</label>
-            <input class="form-control" id="referenceNumberInput" type="text" placeholder="e.g. GCash reference number" maxlength="100">
-        </div>
-
-        <!-- Payment Status -->
-        <div class="formGroup" id="modalPaymentStatusGroup" hidden>
-            <label>New payment status:</label>
-            <div>
-                <span class="paymentBadge paid" id="modalPaymentStatus">Paid</span>
             </div>
         </div>
 
@@ -961,25 +918,13 @@
         modalScheduleGroup: document.getElementById('modalScheduleGroup'),
         modalDaysGroup: document.getElementById('modalDaysGroup'),
         modalNotesGroup: document.getElementById('modalNotesGroup'),
-        modalBalanceGroup: document.getElementById('modalBalanceGroup'),
         modalPriceChangeGroup: document.getElementById('modalPriceChangeGroup'),
         modalPriceChange: document.getElementById('modalPriceChange'),
-        modalPaymentGroup: document.getElementById('modalPaymentGroup'),
-        modalPaymentStatusGroup: document.getElementById('modalPaymentStatusGroup'),
-        modalBalance: document.getElementById('modalBalance'),
-        modalPaymentStatus: document.getElementById('modalPaymentStatus'),
-        paymentInput: document.getElementById('paymentInput'),
-        modalPaymentMethodGroup: document.getElementById('modalPaymentMethodGroup'),
-        modalReferenceNumberGroup: document.getElementById('modalReferenceNumberGroup'),
-        paymentMethodInput: document.getElementById('paymentMethodInput'),
-        paymentMethodDropdown: document.getElementById('paymentMethodDropdown'),
-        referenceNumberInput: document.getElementById('referenceNumberInput'),
         studentNotes: document.getElementById('studentNotes'),
         courseInput: document.getElementById('courseInput'),
         scheduleInput: document.getElementById('scheduleInput'),
 
         courseUpdateButton: document.getElementById('courseUpdateButton'),
-        paymentUpdateButton: document.getElementById('paymentUpdateButton'),
 
         notesModal: document.getElementById('notesModal'),
         notesModalStudentName: document.getElementById('notesModalStudentName'),
@@ -1008,7 +953,7 @@
 
     let activeTab = 'registrations';
     let selectedStudentId = null;   // currently selected row on the Students tab
-    let modalContext = null;        // { mode: 'enroll' | 'course-update' | 'payment-update', ... }
+    let modalContext = null;        // { mode: 'enroll' | 'course-update', ... }
     let pendingConfirmAction = null; // callback fired by the confirm modal's Confirm/OK button
 
     /* =========================================================
@@ -1055,24 +1000,18 @@
         })}`;
     }
 
-    function computeStatus(remaining, payment, currentStatus) {
-        if (remaining <= 0) return 'Paid';
-        if (payment > 0) return 'Partial';
-        return currentStatus;
-    }
-
     function parseSchedule(schedule) {
         if (!schedule) return { scheduleTime: 'Morning', days: [] };
 
         const [prefix, dayPart] = schedule.split(' - ');
-        const scheduleTime = prefix === 'AM' ? 'Morning' : prefix === 'PM' ? 'Afternoon' : 'Evening';
+        const scheduleTime = prefix === 'PM' ? 'Afternoon' : 'Morning';
         const days = dayPart ? dayPart.split('/') : [];
 
         return { scheduleTime, days };
     }
 
     function buildScheduleString(scheduleTime, days) {
-        const prefix = scheduleTime === 'Morning' ? 'AM' : scheduleTime === 'Afternoon' ? 'PM' : 'EVE';
+        const prefix = scheduleTime === 'Afternoon' ? 'PM' : 'AM';
         return days.length ? `${prefix} - ${days.join('/')}` : prefix;
     }
 
@@ -1116,11 +1055,6 @@
             className: `paymentBadge ${status}`,
             text: value
         });
-    }
-
-    function setPaymentBadge(status) {
-        elements.modalPaymentStatus.textContent = status;
-        elements.modalPaymentStatus.className = `paymentBadge ${status.toLowerCase()}`;
     }
 
     /* =========================================================
@@ -1310,7 +1244,6 @@
     function updateStudentToolbarState() {
         const hasSelection = selectedStudentId !== null;
         elements.courseUpdateButton.disabled = !hasSelection;
-        elements.paymentUpdateButton.disabled = !hasSelection;
     }
 
     /* =========================================================
@@ -1481,7 +1414,7 @@
     });
 
     /* =========================================================
-       STUDENT MODAL — RESET / OPEN (enroll, course-update, payment-update)
+       STUDENT MODAL — RESET / OPEN (enroll, course-update)
     ========================================================= */
 
     function resetStudentModal() {
@@ -1489,17 +1422,8 @@
         elements.modalScheduleGroup.hidden = false;
         elements.modalDaysGroup.hidden = false;
         elements.modalNotesGroup.hidden = false;
-        elements.modalBalanceGroup.hidden = true;
         elements.modalPriceChangeGroup.hidden = true;
-        elements.modalPaymentGroup.hidden = true;
-        elements.modalPaymentMethodGroup.hidden = true;
-        elements.modalReferenceNumberGroup.hidden = true;
-        elements.modalPaymentStatusGroup.hidden = true;
 
-        elements.paymentInput.value = '';
-        window.FBSSDropdown.set(elements.paymentMethodDropdown, '');
-        elements.paymentMethodDropdown.classList.remove('isInvalid');
-        elements.referenceNumberInput.value = '';
         elements.studentNotes.value = '';
 
         setActiveDays([]);
@@ -1589,60 +1513,9 @@
         openModal(elements.studentModal);
     }
 
-    function openPaymentUpdateModal(studentId) {
-        const student = students.find(s => s.id === studentId);
-        if (!student) return;
-
-        modalContext = { mode: 'payment-update', studentId };
-
-        resetStudentModal();
-        elements.modalTitle.textContent = 'Updating course payment';
-        elements.modalSubmitButton.textContent = 'Update';
-        elements.modalStudentName.textContent = getPersonName(student);
-
-        elements.modalCourseGroup.hidden = true;
-        elements.modalScheduleGroup.hidden = true;
-        elements.modalDaysGroup.hidden = true;
-        elements.modalNotesGroup.hidden = true;
-
-        elements.modalBalanceGroup.hidden = false;
-        elements.modalPaymentGroup.hidden = false;
-        elements.modalPaymentMethodGroup.hidden = false;
-        elements.modalReferenceNumberGroup.hidden = false;
-        elements.modalPaymentStatusGroup.hidden = false;
-
-        elements.modalBalance.textContent = formatCurrency(student.balance);
-        elements.paymentInput.value = '';
-        setPaymentBadge(student.paymentStatus);
-
-        openModal(elements.studentModal);
-    }
-
     elements.courseUpdateButton.addEventListener('click', () => {
         if (selectedStudentId === null) return;
         openCourseUpdateModal(selectedStudentId);
-    });
-
-    elements.paymentUpdateButton.addEventListener('click', () => {
-        if (selectedStudentId === null) return;
-        openPaymentUpdateModal(selectedStudentId);
-    });
-
-    elements.paymentMethodDropdown.addEventListener('dropdown:change', () => {
-        elements.paymentMethodDropdown.classList.remove('isInvalid');
-    });
-
-    elements.paymentInput.addEventListener('input', () => {
-        if (!modalContext || modalContext.mode !== 'payment-update') return;
-
-        const student = students.find(s => s.id === modalContext.studentId);
-        if (!student) return;
-
-        const payment = Math.max(Number(elements.paymentInput.value) || 0, 0);
-        const remaining = Math.max(student.balance - payment, 0);
-
-        elements.modalBalance.textContent = formatCurrency(remaining);
-        setPaymentBadge(computeStatus(remaining, payment, student.paymentStatus));
     });
 
     elements.modalCancelButton.addEventListener('click', () => {
@@ -1774,80 +1647,14 @@
         }
     }
 
-    async function submitPaymentUpdate(student) {
-        const amount = Math.max(Number(elements.paymentInput.value) || 0, 0);
-
-        if (!elements.paymentMethodInput.value) {
-            elements.paymentMethodDropdown.classList.add('isInvalid');
-            document.getElementById('paymentMethodToggle').focus();
-            showToast('Select a payment method.', 'danger');
-            return;
-        }
-
-        if (amount <= 0) {
-            showToast('Enter a payment amount greater than zero.', 'danger');
-            return;
-        }
-
-        if (student.balance <= 0) {
-            showToast('This student is already fully paid.', 'danger');
-            return;
-        }
-
-        if (amount > student.balance) {
-            showToast(`Payment exceeds the remaining balance of ${formatCurrency(student.balance)}.`, 'danger');
-            return;
-        }
-
-        elements.modalSubmitButton.disabled = true;
-        elements.modalSubmitButton.textContent = 'Updating...';
-
-        try {
-            const response = await fetch(`{{ url('/registers/students') }}/${student.id}/payments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    amount: amount,
-                    payment_method: elements.paymentMethodInput.value || null,
-                    reference_number: elements.referenceNumberInput.value.trim() || null
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                student.balance = data.balance;
-                student.paymentStatus = data.paymentStatus;
-
-                modalContext = null;
-                closeModal(elements.studentModal);
-                renderTable(activeTab);
-                showToast(`Successfully updated the payment for ${getPersonName(student)}.`, 'success');
-            } else {
-                const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
-                showToast(firstError || data.message || 'Something went wrong while updating the payment.', 'danger');
-            }
-        } catch (error) {
-            console.error(error);
-            showToast('Something went wrong while updating the payment.', 'danger');
-        } finally {
-            elements.modalSubmitButton.disabled = false;
-            elements.modalSubmitButton.textContent = 'Update';
-        }
-    }
-
     elements.modalSubmitButton.addEventListener('click', async () => {
         if (!modalContext) {
             closeModal(elements.studentModal);
             return;
         }
 
-        // Enrolling (applicants and graduates), course-update and payment-update
-        // all save real rows via RegistersController.
+        // Enrolling (applicants and graduates) and course-update
+        // save real rows via RegistersController.
         if (modalContext.mode === 'enroll') {
             const source = modalContext.sourceTab === 'graduates' ? graduates : registrations;
             const person = source.find(p => p.id === modalContext.personId);
@@ -1864,17 +1671,6 @@
             const student = students.find(s => s.id === modalContext.studentId);
             if (student) {
                 await submitCourseUpdate(student);
-            } else {
-                modalContext = null;
-                closeModal(elements.studentModal);
-            }
-            return;
-        }
-
-        if (modalContext.mode === 'payment-update') {
-            const student = students.find(s => s.id === modalContext.studentId);
-            if (student) {
-                await submitPaymentUpdate(student);
             } else {
                 modalContext = null;
                 closeModal(elements.studentModal);

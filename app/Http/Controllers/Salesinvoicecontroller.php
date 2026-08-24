@@ -8,14 +8,17 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SalesInvoiceController extends Controller
 {
+    private const ADMIN_ROLE_ID = 1;
+
     /**
      * GET /sales/data
-     * The Sales & Invoice page loads its three datasets from here with
+     * The Billing & Receipts page loads its three datasets from here with
      * fetch(), so the page works no matter how the blade gets included.
      */
     public function data(): JsonResponse
@@ -34,6 +37,75 @@ class SalesInvoiceController extends Controller
             'itemCatalog' => $this->itemCatalog(),
             'itemLogs' => $this->itemLogs(),
         ];
+    }
+
+    /**
+     * POST /sales/enrollments/{enrollment}/payments
+     * "Record Course Payment": logs ONE new payment row for an enrollment.
+     * It never edits a past payment, so balance/status are always
+     * (price - sum of payments). Same rules the Registers page used to have:
+     *   - admin only
+     *   - amount > 0, method required, reference optional
+     *   - a fully paid enrollment can't take another payment
+     *   - a payment larger than the remaining balance is rejected (422)
+     */
+    public function recordPayment(Request $request, Enrollment $enrollment): JsonResponse
+    {
+        if ((int) Auth::user()->role_id !== self::ADMIN_ROLE_ID) {
+            return response()->json(['success' => false, 'message' => 'Only the admin can do this.'], 403);
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $amount = round((float) $validated['amount'], 2);
+
+        // Lock the enrollment row so two simultaneous payments can't both
+        // pass the balance check and together overpay.
+        DB::transaction(function () use ($enrollment, $validated, $amount) {
+            $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
+
+            // COALESCE keeps old rows (saved before enrollment_id existed) counted.
+            $alreadyPaid = (float) CoursePayment::whereRaw('COALESCE(enrollment_id, student_id) = ?', [$locked->enrollment_id])
+                ->sum('amount');
+
+            $remaining = round((float) $locked->course_price_at_enrollment - $alreadyPaid, 2);
+
+            if ($remaining <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['This enrollment is already fully paid.'],
+                ]);
+            }
+
+            if ($amount > $remaining) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Payment of ₱' . number_format($amount, 2)
+                        . ' exceeds the remaining balance of ₱' . number_format($remaining, 2) . '.'],
+                ]);
+            }
+
+            CoursePayment::create([
+                'student_id' => $locked->enrollment_id,
+                'enrollment_id' => $locked->enrollment_id,
+                'amount' => $amount,
+                'payment_method' => $validated['payment_method'],
+                'reference_number' => $validated['reference_number'] ?? null,
+                'paid_at' => now(),
+                'received_by' => Auth::id(),
+            ]);
+        });
+
+        $totalPaid = (float) CoursePayment::whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollment->enrollment_id])->sum('amount');
+        $balance = max(round((float) $enrollment->course_price_at_enrollment - $totalPaid, 2), 0);
+
+        return response()->json([
+            'success' => true,
+            'balance' => $balance,
+            'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
+        ]);
     }
 
     /**
@@ -175,11 +247,6 @@ class SalesInvoiceController extends Controller
         return $payments
             ->concat($unpaid)
             ->sort(fn ($a, $b) => [$b['sortAt'], $b['id']] <=> [$a['sortAt'], $a['id']])
-            ->map(function ($row) {
-                unset($row['sortAt']);
-
-                return $row;
-            })
             ->values();
     }
 
@@ -226,7 +293,7 @@ class SalesInvoiceController extends Controller
             ->join('tbl_items as i', 'i.item_id', '=', 'l.item_id')
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'l.user_id')
             ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
-            ->select('l.item_log_id as id', 'l.item_id as itemId', 'i.item_name as item', 'l.quantity', 'l.unit_price as price', 'l.amount_paid as paid', 'l.payment_method as method', 'l.receipt_number as receipt')
+            ->select('l.item_log_id as id', 'l.item_id as itemId', 'i.item_name as item', 'l.quantity', 'l.unit_price as price', 'l.amount_paid as paid', 'l.payment_method as method', 'l.receipt_number as receipt', 'l.sold_at as sortAt')
             ->selectRaw("COALESCE(NULLIF(l.description, ''), i.description, '') as description")
             ->selectRaw("DATE_FORMAT(l.sold_at, '%b-%d-%Y') as date")
             ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.name_suffix)), ''), u.username, '') as client")
@@ -245,6 +312,7 @@ class SalesInvoiceController extends Controller
                 'date' => $row->date ?? '',
                 'client' => $row->client,
                 'receipt' => $row->receipt,
+                'sortAt' => (string) $row->sortAt,
             ]);
     }
 }
