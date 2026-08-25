@@ -96,15 +96,15 @@ class AdminGraduationController extends Controller
                 ->get()
                 ->keyBy('enrollment_id');
 
-        // Total paid per enrollment. A payment belongs to COALESCE(enrollment_id, student_id)
-        // (student_id has always held the enrollment id), same rule as Sales & Invoice.
+        // Total paid per enrollment. A payment belongs to its enrollment_id
+        // (foreign key to tbl_enrollments), same rule as Sales & Invoice.
         $paidByEnrollment = $allIds->isEmpty()
             ? collect()
             : DB::table('tbl_course_payments')
                 ->whereNull('archived_at')   // archived payments don't count toward what was paid
-                ->whereIn(DB::raw('COALESCE(enrollment_id, student_id)'), $allIds)
-                ->groupBy(DB::raw('COALESCE(enrollment_id, student_id)'))
-                ->selectRaw('COALESCE(enrollment_id, student_id) as eid, SUM(amount) as paid')
+                ->whereIn('enrollment_id', $allIds)
+                ->groupBy('enrollment_id')
+                ->selectRaw('enrollment_id as eid, SUM(amount) as paid')
                 ->pluck('paid', 'eid');
 
         // Archived payments per enrollment: not counted, but the popup says how many were set aside.
@@ -112,9 +112,9 @@ class AdminGraduationController extends Controller
             ? collect()
             : DB::table('tbl_course_payments')
                 ->whereNotNull('archived_at')
-                ->whereIn(DB::raw('COALESCE(enrollment_id, student_id)'), $allIds)
-                ->groupBy(DB::raw('COALESCE(enrollment_id, student_id)'))
-                ->selectRaw('COALESCE(enrollment_id, student_id) as eid, COUNT(*) as n, SUM(amount) as total')
+                ->whereIn('enrollment_id', $allIds)
+                ->groupBy('enrollment_id')
+                ->selectRaw('enrollment_id as eid, COUNT(*) as n, SUM(amount) as total')
                 ->get()
                 ->keyBy('eid');
 
@@ -356,7 +356,7 @@ class AdminGraduationController extends Controller
 
         $paid = (float) DB::table('tbl_course_payments')
             ->whereNull('archived_at')
-            ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollment->enrollment_id])
+            ->whereRaw('enrollment_id = ?', [$enrollment->enrollment_id])
             ->sum('amount');
 
         return max(round($price - $paid, 2), 0);

@@ -40,6 +40,6 @@ class Enrollment extends Model
 
     public function payments()
     {
-        return $this->hasMany(CoursePayment::class, 'student_id', 'enrollment_id');
+        return $this->hasMany(CoursePayment::class, 'enrollment_id', 'enrollment_id');
     }
 }

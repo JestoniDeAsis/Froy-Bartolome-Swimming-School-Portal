@@ -448,7 +448,7 @@
             <input class="form-control registersSearchInput" id="registersSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search registers">
         </div>
 
-        <!-- Course Filter -->
+        <!-- Course Filter (Students and Graduates) -->
         <div class="registerDropdown registerCourseFilter" id="courseFilterDropdown" data-fbss-dropdown hidden>
             <button class="registerDropdownToggle" id="courseFilterToggle" type="button" aria-expanded="false" aria-controls="courseFilterOptions">
                 <span id="courseFilterSelected">Filter by Course</span>
@@ -462,9 +462,61 @@
             <input id="courseFilterInput" name="courseFilter" type="hidden" value="">
         </div>
 
-        <!-- Student Actions (enabled once a student row is selected) -->
-        <div class="registersToolbarActions" id="registersToolbarActions" hidden>
+        <!-- Payment Filter (Students) -->
+        <div class="registerDropdown registerCourseFilter" id="paymentFilterDropdown" data-fbss-dropdown hidden>
+            <button class="registerDropdownToggle" id="paymentFilterToggle" type="button" aria-expanded="false" aria-controls="paymentFilterOptions">
+                <span id="paymentFilterSelected">All Payments</span>
+                <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+            </button>
+
+            <div class="registerDropdownOptions" id="paymentFilterOptions" hidden>
+                <button class="registerDropdownOption active" type="button" data-value="">All Payments</button>
+                <button class="registerDropdownOption" type="button" data-value="paid">Paid</button>
+                <button class="registerDropdownOption" type="button" data-value="partial">Partial</button>
+                <button class="registerDropdownOption" type="button" data-value="unpaid">Unpaid</button>
+            </div>
+
+            <input id="paymentFilterInput" name="paymentFilter" type="hidden" value="">
+        </div>
+
+        <!-- Added (created_at) Filter -->
+        <div class="registerDropdown registerCourseFilter" id="addedFilterDropdown" data-fbss-dropdown>
+            <button class="registerDropdownToggle" id="addedFilterToggle" type="button" aria-expanded="false" aria-controls="addedFilterOptions">
+                <span id="addedFilterSelected">Any Time</span>
+                <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+            </button>
+
+            <div class="registerDropdownOptions" id="addedFilterOptions" hidden>
+                <button class="registerDropdownOption active" type="button" data-value="">Any Time</button>
+                <button class="registerDropdownOption" type="button" data-value="today">Today</button>
+                <button class="registerDropdownOption" type="button" data-value="week">Last 7 Days</button>
+                <button class="registerDropdownOption" type="button" data-value="month">This Month</button>
+            </div>
+
+            <input id="addedFilterInput" name="addedFilter" type="hidden" value="">
+        </div>
+
+        <!-- Sort (created_at) -->
+        <div class="registerDropdown registerCourseFilter" id="sortFilterDropdown" data-fbss-dropdown>
+            <button class="registerDropdownToggle" id="sortFilterToggle" type="button" aria-expanded="false" aria-controls="sortFilterOptions">
+                <span id="sortFilterSelected">Newest First</span>
+                <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+            </button>
+
+            <div class="registerDropdownOptions" id="sortFilterOptions" hidden>
+                <button class="registerDropdownOption active" type="button" data-value="desc">Newest First</button>
+                <button class="registerDropdownOption" type="button" data-value="asc">Oldest First</button>
+            </div>
+
+            <input id="sortFilterInput" name="sortFilter" type="hidden" value="desc">
+        </div>
+
+        <!-- Actions (enabled once a row is selected) -->
+        <div class="registersToolbarActions" id="registersToolbarActions">
+            <button class="btn btn-primary" id="enrollButton" type="button" disabled>Enroll</button>
+            <button class="btn btn-outline-danger" id="deleteApplicantButton" type="button" disabled>Delete</button>
             <button class="btn btn-primary" id="courseUpdateButton" type="button" disabled>Course update</button>
+            <button class="btn btn-outline-danger" id="cancelEnrollmentButton" type="button" disabled>Cancel Enrollment</button>
         </div>
 
     </div>
@@ -656,9 +708,9 @@
                 { label: 'Middle Name', key: 'middleName' },
                 { label: 'Email Address', key: 'email' },
                 { label: 'Birthdate', key: 'birthdate' },
-                { label: 'Age', key: 'age' }
-            ],
-            actions: ['Enroll', 'Delete']
+                { label: 'Age', key: 'age' },
+                { label: 'Date Added', key: 'createdAt' }
+            ]
         },
         students: {
             getRows: () => students,
@@ -669,9 +721,9 @@
                 { label: 'Current Course', key: 'course' },
                 { label: 'Schedule', key: 'schedule' },
                 { label: 'Payment Status', key: 'paymentStatus' },
-                { label: 'Notes', key: 'notes' }
-            ],
-            actions: []
+                { label: 'Notes', key: 'notes' },
+                { label: 'Date Added', key: 'createdAt' }
+            ]
         },
         graduates: {
             getRows: () => graduates,
@@ -683,9 +735,9 @@
                 { label: 'Last Course', key: 'lastCourse' },
                 { label: 'Graduated On', key: 'graduatedAt' },
                 { label: 'Birthdate', key: 'birthdate' },
-                { label: 'Age', key: 'age' }
-            ],
-            actions: ['Enroll']
+                { label: 'Age', key: 'age' },
+                { label: 'Date Added', key: 'createdAt' }
+            ]
         }
     };
 
@@ -699,9 +751,14 @@
         tableContainer: document.getElementById('registersTableContainer'),
         tableHead: document.getElementById('registersTableHead'),
         tableBody: document.getElementById('registersTableBody'),
-        toolbarActions: document.getElementById('registersToolbarActions'),
         courseFilterDropdown: document.getElementById('courseFilterDropdown'),
         courseFilterInput: document.getElementById('courseFilterInput'),
+        paymentFilterDropdown: document.getElementById('paymentFilterDropdown'),
+        paymentFilterInput: document.getElementById('paymentFilterInput'),
+        addedFilterDropdown: document.getElementById('addedFilterDropdown'),
+        addedFilterInput: document.getElementById('addedFilterInput'),
+        sortFilterDropdown: document.getElementById('sortFilterDropdown'),
+        sortFilterInput: document.getElementById('sortFilterInput'),
 
         studentModal: document.getElementById('studentModal'),
         modalTitle: document.getElementById('studentModalTitle'),
@@ -718,7 +775,10 @@
         courseInput: document.getElementById('courseInput'),
         scheduleInput: document.getElementById('scheduleInput'),
 
+        enrollButton: document.getElementById('enrollButton'),
+        deleteApplicantButton: document.getElementById('deleteApplicantButton'),
         courseUpdateButton: document.getElementById('courseUpdateButton'),
+        cancelEnrollmentButton: document.getElementById('cancelEnrollmentButton'),
 
         notesModal: document.getElementById('notesModal'),
         notesModalStudentName: document.getElementById('notesModalStudentName'),
@@ -738,7 +798,7 @@
     ========================================================= */
 
     let activeTab = 'registrations';
-    let selectedStudentId = null;   // currently selected row on the Students tab
+    let selectedId = null;          // currently selected row on the active tab
     let modalContext = null;        // { mode: 'enroll' | 'course-update', ... }
     let pendingConfirmAction = null; // callback fired by the confirm modal's Confirm/OK button
 
@@ -940,83 +1000,66 @@
 
         if (key === 'paymentStatus') return renderPaymentStatus(value);
         if (key === 'notes') return renderNotesCell(person, value);
+        if (key === 'createdAt') return document.createTextNode(formatAddedDate(value));
 
         return document.createTextNode(value);
     }
 
     /* =========================================================
-       TABLE ACTIONS
+       ROW SELECTION + TOOLBAR BUTTONS
+       Every tab is selectable. The toolbar buttons turn on once a
+       row is selected (same idea as the Attendance page).
     ========================================================= */
 
-    function handleTableAction(tabName, action, personId) {
-        if (tabName === 'registrations' && action === 'Enroll') {
-            openEnrollModal('registrations', personId);
-            return;
-        }
-
-        if (tabName === 'registrations' && action === 'Delete') {
-            const person = registrations.find(p => p.id === personId);
-            if (!person) return;
-
-            openConfirmModal({
-                title: 'Remove registrant?',
-                message: `Remove ${getPersonName(person)} from New Registers?`,
-                confirmLabel: 'Remove',
-                onConfirm: () => {
-                    registrations = registrations.filter(p => p.id !== personId);
-                    renderTable(activeTab);
-                }
-            });
-            return;
-        }
-
-        if (tabName === 'graduates' && action === 'Enroll') {
-            openEnrollModal('graduates', personId);
-            return;
-        }
+    function formatAddedDate(value) {
+        if (!value) return '';
+        return new Date(value).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
     }
 
-    function renderActionCell(tabName, actions, person, rowIndex) {
-        const cell = createElement('td', {
-            id: `registerAction${capitalize(tabName)}${rowIndex}`
-        });
+    // Start of the chosen "Added" range, or null for any time.
+    function getAddedCutoff(range) {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-        actions.forEach(action => {
-            const buttonClass = (action === 'Delete' || action === 'Revoke')
-                ? 'btn btn-outline-danger btn-sm me-1'
-                : 'btn btn-success btn-sm me-1';
+        if (range === 'today') return start;
+        if (range === 'week') { start.setDate(start.getDate() - 6); return start; }
+        if (range === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
 
-            const button = createElement('button', {
-                id: `registerActionButton${capitalize(tabName)}${rowIndex}${capitalize(action)}`,
-                className: buttonClass,
-                text: action,
-                attributes: { type: 'button' }
-            });
-
-            button.addEventListener('click', event => {
-                event.stopPropagation();
-                handleTableAction(tabName, action, person.id);
-            });
-
-            cell.append(button);
-        });
-
-        return cell;
+        return null;
     }
 
-    /* =========================================================
-       STUDENT ROW SELECTION
-    ========================================================= */
-
-    function selectStudentRow(personId) {
-        selectedStudentId = (selectedStudentId === personId) ? null : personId;
-        updateStudentToolbarState();
-        renderTable('students');
+    function getSelectedPerson() {
+        if (selectedId === null) return null;
+        return tabConfigs[activeTab].getRows().find(p => p.id === selectedId) || null;
     }
 
-    function updateStudentToolbarState() {
-        const hasSelection = selectedStudentId !== null;
+    function selectRow(personId) {
+        selectedId = (selectedId === personId) ? null : personId;
+        updateToolbarState();
+        renderTable(activeTab);
+    }
+
+    function updateToolbarState() {
+        const person = getSelectedPerson();
+        const hasSelection = person !== null;
+
+        // Which buttons show on which tab.
+        elements.enrollButton.hidden = activeTab === 'students';
+        elements.deleteApplicantButton.hidden = activeTab !== 'registrations';
+        elements.courseUpdateButton.hidden = activeTab !== 'students';
+        elements.cancelEnrollmentButton.hidden = activeTab !== 'students';
+
+        // Enabled only when a row is selected.
+        elements.enrollButton.disabled = !hasSelection;
+        elements.deleteApplicantButton.disabled = !hasSelection;
         elements.courseUpdateButton.disabled = !hasSelection;
+
+        // Cancel Enrollment is also off when the enrollment has payments or attendance.
+        const canCancel = hasSelection && person.canCancel !== false;
+        elements.cancelEnrollmentButton.disabled = !canCancel;
+        elements.cancelEnrollmentButton.title = hasSelection && !canCancel
+            ? 'This enrollment has payment or attendance records, so it cannot be cancelled.'
+            : 'Cancel this enrollment';
     }
 
     /* =========================================================
@@ -1029,19 +1072,40 @@
 
         const searchTerm = elements.search.value.trim().toLowerCase();
         const courseFilter = elements.courseFilterInput.value.trim().toLowerCase();
+        const paymentFilter = elements.paymentFilterInput.value.trim().toLowerCase();
+        const addedCutoff = getAddedCutoff(elements.addedFilterInput.value);
+        const direction = elements.sortFilterInput.value === 'asc' ? 1 : -1;
 
         const rows = config.getRows().filter(person => {
             const haystack = config.columns.map(col => person[col.key] ?? '').join(' ').toLowerCase();
-            const matchesSearch = haystack.includes(searchTerm);
+            if (!haystack.includes(searchTerm)) return false;
 
-            // On Graduates the filter matches any course the person graduated from.
-            const graduatedCourses = tabName === 'graduates'
-                ? (person.graduatedCourses || []).map(name => String(name).toLowerCase())
-                : [];
-            const matchesCourse = !courseFilter || graduatedCourses.includes(courseFilter);
+            if (courseFilter) {
+                // Graduates: any course they graduated from. Students: their current course.
+                const courseNames = tabName === 'graduates'
+                    ? (person.graduatedCourses || []).map(name => String(name).toLowerCase())
+                    : [String(person.course || '').toLowerCase()];
 
-            return matchesSearch && matchesCourse;
-        });
+                if (!courseNames.includes(courseFilter)) return false;
+            }
+
+            if (tabName === 'students' && paymentFilter
+                && String(person.paymentStatus || '').toLowerCase() !== paymentFilter) {
+                return false;
+            }
+
+            if (addedCutoff && !(person.createdAt && new Date(person.createdAt) >= addedCutoff)) {
+                return false;
+            }
+
+            return true;
+        }).sort((a, b) => direction * (new Date(a.createdAt || 0) - new Date(b.createdAt || 0)));
+
+        // A selected row that got filtered out or removed is no longer selected.
+        if (selectedId !== null && !rows.some(p => p.id === selectedId)) {
+            selectedId = null;
+            updateToolbarState();
+        }
 
         elements.tableHead.replaceChildren();
         elements.tableBody.replaceChildren();
@@ -1058,14 +1122,6 @@
             }));
         });
 
-        if (config.actions.length) {
-            headerRow.append(createElement('th', {
-                id: 'registerActionHeader',
-                text: 'Action',
-                attributes: { scope: 'col' }
-            }));
-        }
-
         elements.tableHead.append(headerRow);
 
         /* EMPTY STATE */
@@ -1077,9 +1133,7 @@
                 id: 'registersEmptyCell',
                 className: 'registersEmptyState',
                 text: 'No matching records found.',
-                attributes: {
-                    colSpan: config.columns.length + (config.actions.length ? 1 : 0)
-                }
+                attributes: { colSpan: config.columns.length }
             }));
 
             elements.tableBody.append(emptyRow);
@@ -1094,15 +1148,13 @@
             });
             tableRow.dataset.id = person.id;
 
-            if (tabName === 'students') {
-                tableRow.classList.add('studentRow');
-                if (selectedStudentId === person.id) tableRow.classList.add('selectedRow');
+            tableRow.classList.add('studentRow');   // existing hover / selected styling
+            if (selectedId === person.id) tableRow.classList.add('selectedRow');
 
-                tableRow.addEventListener('click', event => {
-                    if (event.target.closest('.notesLink')) return;
-                    selectStudentRow(person.id);
-                });
-            }
+            tableRow.addEventListener('click', event => {
+                if (event.target.closest('.notesLink')) return;
+                selectRow(person.id);
+            });
 
             config.columns.forEach((col, cellIndex) => {
                 const tableCell = createElement('td', {
@@ -1112,10 +1164,6 @@
                 tableCell.append(renderCell(col.key, person));
                 tableRow.append(tableCell);
             });
-
-            if (config.actions.length) {
-                tableRow.append(renderActionCell(tabName, config.actions, person, rowIndex));
-            }
 
             elements.tableBody.append(tableRow);
         });
@@ -1135,8 +1183,9 @@
     }
 
     function updateToolbar(tabName) {
-        elements.toolbarActions.hidden = tabName !== 'students';
-        elements.courseFilterDropdown.hidden = tabName !== 'graduates';
+        elements.courseFilterDropdown.hidden = tabName === 'registrations';
+        elements.paymentFilterDropdown.hidden = tabName !== 'students';
+        updateToolbarState();
     }
 
     /* =========================================================
@@ -1150,10 +1199,10 @@
 
         window.setTimeout(() => {
             activeTab = tabName;
-            selectedStudentId = null;
-            updateStudentToolbarState();
+            selectedId = null;
 
             window.FBSSDropdown.set(elements.courseFilterDropdown, '');
+            window.FBSSDropdown.set(elements.paymentFilterDropdown, '');
             // back to the placeholder wording until a course is chosen
             const filterLabel = elements.courseFilterDropdown.querySelector('.registerDropdownToggle span');
             if (filterLabel) filterLabel.textContent = 'Filter by Course';
@@ -1282,9 +1331,77 @@
     }
 
     elements.courseUpdateButton.addEventListener('click', () => {
-        if (selectedStudentId === null) return;
-        openCourseUpdateModal(selectedStudentId);
+        if (activeTab !== 'students' || selectedId === null) return;
+        openCourseUpdateModal(selectedId);
     });
+
+    elements.enrollButton.addEventListener('click', () => {
+        const person = getSelectedPerson();
+        if (!person || activeTab === 'students') return;
+        openEnrollModal(activeTab, person.id);   // 'registrations' or 'graduates'
+    });
+
+    elements.deleteApplicantButton.addEventListener('click', () => {
+        const person = getSelectedPerson();
+        if (!person || activeTab !== 'registrations') return;
+
+        openConfirmModal({
+            title: 'Remove registrant?',
+            message: `Remove ${getPersonName(person)} from New Registers?`,
+            confirmLabel: 'Remove',
+            onConfirm: () => {
+                registrations = registrations.filter(p => p.id !== person.id);
+                selectedId = null;
+                updateToolbarState();
+                renderTable(activeTab);
+            }
+        });
+    });
+
+    elements.cancelEnrollmentButton.addEventListener('click', () => {
+        const student = getSelectedPerson();
+        if (!student || activeTab !== 'students' || student.canCancel === false) return;
+
+        openConfirmModal({
+            title: 'Cancel enrollment?',
+            message: `Cancel ${getPersonName(student)}'s enrollment in ${student.course}? This deletes the enrollment and cannot be undone.`,
+            confirmLabel: 'Cancel Enrollment',
+            cancelLabel: 'Keep',
+            onConfirm: () => submitCancelEnrollment(student)
+        });
+    });
+
+    async function submitCancelEnrollment(student) {
+        try {
+            const response = await fetch(`{{ url('/registers/students') }}/${student.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                students = students.filter(s => s.id !== student.id);
+
+                // The server says where the person landed (applicant, graduate, or neither).
+                if (data.applicant) registrations.push(data.applicant);
+                if (data.graduate) graduates.push(data.graduate);
+
+                selectedId = null;
+                updateToolbarState();
+                renderTable(activeTab);
+                showToast(`Cancelled the enrollment of ${getPersonName(student)}.`, 'success');
+            } else {
+                showToast(data.message || 'Something went wrong while cancelling the enrollment.', 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while cancelling the enrollment.', 'danger');
+        }
+    }
 
     elements.modalCancelButton.addEventListener('click', () => {
         modalContext = null;
@@ -1467,6 +1584,9 @@
     ========================================================= */
 
     elements.courseFilterDropdown.addEventListener('dropdown:change', () => renderTable(activeTab));
+
+    [elements.paymentFilterDropdown, elements.addedFilterDropdown, elements.sortFilterDropdown]
+        .forEach(dropdown => dropdown.addEventListener('dropdown:change', () => renderTable(activeTab)));
     document.getElementById('courseDropdown').addEventListener('dropdown:change', updatePriceChange);
 
     document.addEventListener('keydown', event => {
@@ -1527,7 +1647,6 @@
 
     updateTabButtons(activeTab);
     updateToolbar(activeTab);
-    updateStudentToolbarState();
     renderTable(activeTab);
     fitRegistersContainer();
 

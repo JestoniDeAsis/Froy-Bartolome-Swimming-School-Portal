@@ -114,10 +114,10 @@ class StudentDashboardController extends Controller
         $ready    = (bool) ($assessment->ready_to_graduate ?? false);
         $eligible = $assessment && ($ready || ($skillsTotal > 0 && $skillsPassed === $skillsTotal));
 
-        // Payments: tbl_course_payments.student_id points at the enrollment.
+        // Payments: tbl_course_payments.enrollment_id points at the enrollment.
         // Archived payments (archived_at set by the admin) don't count.
         $price = (float) ($enrollment->course_price_at_enrollment ?? $course->course_price ?? 0);
-        $paid  = (float) DB::table('tbl_course_payments')->where('student_id', $id)->whereNull('archived_at')->sum('amount');
+        $paid  = (float) DB::table('tbl_course_payments')->where('enrollment_id', $id)->whereNull('archived_at')->sum('amount');
 
         return [
             'courseName'   => $course->course_name ?? 'Course not assigned',

@@ -157,15 +157,15 @@ class AdminDashboardController extends Controller
 
     /**
      * Every enrollment with course, student name, paid-to-date, sessions attended
-     * and assessment flag. Payments are matched on tbl_course_payments.student_id
-     * (which holds the enrollment id), the same way StudentDashboardController does.
+     * and assessment flag. Payments are matched on tbl_course_payments.enrollment_id
+     * (a foreign key to tbl_enrollments.enrollment_id).
      */
     private function enrollments(): Collection
     {
         $paid = DB::table('tbl_course_payments')
             ->whereNull('archived_at')
-            ->selectRaw('student_id, SUM(amount) AS paid')
-            ->groupBy('student_id');
+            ->selectRaw('enrollment_id, SUM(amount) AS paid')
+            ->groupBy('enrollment_id');
 
         $sessions = DB::table('tbl_attendances')
             ->selectRaw('enrollment_id, COUNT(*) AS sessions_done, MAX(attendance_at) AS last_session')
@@ -178,7 +178,7 @@ class AdminDashboardController extends Controller
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'e.user_id')
             ->leftJoin('tbl_user_profile as pr', 'pr.user_id', '=', 'e.user_id')
             ->leftJoin('tbl_skill_assessments as sa', 'sa.enrollment_id', '=', 'e.enrollment_id')
-            ->leftJoinSub($paid, 'pay', 'pay.student_id', '=', 'e.enrollment_id')
+            ->leftJoinSub($paid, 'pay', 'pay.enrollment_id', '=', 'e.enrollment_id')
             ->leftJoinSub($sessions, 'att', 'att.enrollment_id', '=', 'e.enrollment_id')
             ->select([
                 'e.enrollment_id', 'e.user_id', 'e.course_id', 'e.enrollment_at',
@@ -324,7 +324,7 @@ class AdminDashboardController extends Controller
         $limit = 6;
 
         $course = DB::table('tbl_course_payments as p')
-            ->leftJoin('tbl_enrollments as e', 'e.enrollment_id', '=', 'p.student_id')
+            ->leftJoin('tbl_enrollments as e', 'e.enrollment_id', '=', 'p.enrollment_id')
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'e.user_id')
             ->leftJoin('tbl_user_profile as pr', 'pr.user_id', '=', 'e.user_id')
             ->whereNull('p.archived_at')

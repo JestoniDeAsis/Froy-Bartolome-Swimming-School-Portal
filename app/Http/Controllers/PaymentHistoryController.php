@@ -16,8 +16,7 @@ use Illuminate\Support\Facades\DB;
  * Archived payments (archived_at set by the admin) are never listed or counted.
  *
  * Same rules as the admin Sales & Invoice page (SalesInvoiceController):
- *  - a payment belongs to COALESCE(enrollment_id, student_id), because
- *    student_id has always held the enrollment id
+ *  - a payment belongs to its enrollment_id (foreign key to tbl_enrollments)
  *  - the price is course_price_at_enrollment (falls back to the course price)
  *  - each payment's balance/status is the enrollment's balance right AFTER it
  *  - the receipt number is derived: OR-<year of paid_at>-<payment id, 4 digits>
@@ -67,17 +66,14 @@ class PaymentHistoryController extends Controller
             : CoursePayment::query()
                 ->with('receivedBy.profile')
                 ->whereNull('archived_at')   // archived payments are hidden from the student
-                ->where(function ($query) use ($enrollmentIds) {
-                    $query->whereIn('enrollment_id', $enrollmentIds)
-                        ->orWhere(fn ($q) => $q->whereNull('enrollment_id')->whereIn('student_id', $enrollmentIds));
-                })
+                ->whereIn('enrollment_id', $enrollmentIds)
                 ->orderBy('course_payment_id')
                 ->get();
 
         $running = [];   // enrollment id => paid so far
 
         $rows = $payments->map(function ($payment) use ($prices, $courseNames, &$running) {
-            $enrollmentId = (int) ($payment->enrollment_id ?? $payment->student_id);
+            $enrollmentId = (int) $payment->enrollment_id;
             $price        = (float) ($prices[$enrollmentId] ?? 0);
 
             $running[$enrollmentId] = round(($running[$enrollmentId] ?? 0) + (float) $payment->amount, 2);

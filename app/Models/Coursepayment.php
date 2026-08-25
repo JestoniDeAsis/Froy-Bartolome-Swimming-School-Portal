@@ -11,7 +11,6 @@ class CoursePayment extends Model
     protected $primaryKey = 'course_payment_id';
 
     protected $fillable = [
-        'student_id',
         'enrollment_id',
         'amount',
         'payment_method',
@@ -26,14 +25,14 @@ class CoursePayment extends Model
     ];
 
     /**
-     * student_id on tbl_course_payments points at an enrollment
-     * (tbl_enrollments.enrollment_id), not a user — a payment belongs to
-     * a specific course enrollment, since the same person could have
-     * separate enrollments (and separate balances) over time.
+     * enrollment_id on tbl_course_payments is a foreign key to
+     * tbl_enrollments.enrollment_id — a payment belongs to a specific
+     * course enrollment, since the same person could have separate
+     * enrollments (and separate balances) over time.
      */
     public function enrollment()
     {
-        return $this->belongsTo(Enrollment::class, 'student_id', 'enrollment_id');
+        return $this->belongsTo(Enrollment::class, 'enrollment_id', 'enrollment_id');
     }
 
     public function receivedBy()

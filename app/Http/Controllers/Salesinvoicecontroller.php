@@ -78,9 +78,8 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($enrollment, $validated, $amount) {
             $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
 
-            // COALESCE keeps old rows (saved before enrollment_id existed) counted.
             $alreadyPaid = (float) CoursePayment::whereNull('archived_at')
-                ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$locked->enrollment_id])
+                ->whereRaw('enrollment_id = ?', [$locked->enrollment_id])
                 ->sum('amount');
 
             $remaining = round((float) $locked->course_price_at_enrollment - $alreadyPaid, 2);
@@ -99,7 +98,6 @@ class SalesInvoiceController extends Controller
             }
 
             CoursePayment::create([
-                'student_id' => $locked->enrollment_id,
                 'enrollment_id' => $locked->enrollment_id,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
@@ -110,7 +108,7 @@ class SalesInvoiceController extends Controller
         });
 
         $totalPaid = (float) CoursePayment::whereNull('archived_at')
-            ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollment->enrollment_id])
+            ->whereRaw('enrollment_id = ?', [$enrollment->enrollment_id])
             ->sum('amount');
         $balance = max(round((float) $enrollment->course_price_at_enrollment - $totalPaid, 2), 0);
 
@@ -142,14 +140,14 @@ class SalesInvoiceController extends Controller
         ]);
 
         $amount = round((float) $validated['amount'], 2);
-        $enrollmentId = $payment->enrollment_id ?? $payment->student_id;
+        $enrollmentId = $payment->enrollment_id;
 
         DB::transaction(function () use ($payment, $validated, $amount, $enrollmentId) {
             // Lock the enrollment so concurrent edits can't overpay together.
             $enrollment = Enrollment::whereKey($enrollmentId)->lockForUpdate()->firstOrFail();
 
             $others = (float) CoursePayment::whereNull('archived_at')
-                ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollmentId])
+                ->whereRaw('enrollment_id = ?', [$enrollmentId])
                 ->where('course_payment_id', '!=', $payment->getKey())
                 ->sum('amount');
 
@@ -187,7 +185,7 @@ class SalesInvoiceController extends Controller
             return $denied;
         }
 
-        $enrollmentId = $payment->enrollment_id ?? $payment->student_id;
+        $enrollmentId = $payment->enrollment_id;
 
         $archived = DB::transaction(function () use ($payment, $enrollmentId) {
             // Same lock the other payment endpoints take, so a payment being
@@ -235,7 +233,7 @@ class SalesInvoiceController extends Controller
         ]);
 
         $amount = round((float) $validated['amount'], 2);
-        $enrollmentId = $payment->enrollment_id ?? $payment->student_id;
+        $enrollmentId = $payment->enrollment_id;
 
         $balance = DB::transaction(function () use ($payment, $validated, $amount, $enrollmentId) {
             $enrollment = Enrollment::whereKey($enrollmentId)->lockForUpdate()->firstOrFail();
@@ -251,7 +249,7 @@ class SalesInvoiceController extends Controller
             }
 
             $alreadyPaid = (float) CoursePayment::whereNull('archived_at')
-                ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollmentId])
+                ->whereRaw('enrollment_id = ?', [$enrollmentId])
                 ->sum('amount');
 
             $remaining = round((float) $enrollment->course_price_at_enrollment - $alreadyPaid, 2);
@@ -304,9 +302,7 @@ class SalesInvoiceController extends Controller
      * Enrollments with no payment yet get a single Unpaid row (negative id)
      * so they can still be seen and paid.
      *
-     * A payment is matched to its enrollment with COALESCE(enrollment_id,
-     * student_id): student_id has always held the enrollment id, so rows saved
-     * before the enrollment_id column existed still show up.
+     * A payment is matched to its enrollment with tbl_course_payments.enrollment_id.
      *
      * There's no stored receipt number: each payment's receipt is derived as
      * OR-<year>-<payment id>; unpaid enrollments show ENR-<enrollment id>.
@@ -315,12 +311,12 @@ class SalesInvoiceController extends Controller
     {
         $payments = $this->withEnrollmentDetails(
             DB::table('tbl_course_payments as cp')
-                ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('COALESCE(cp.enrollment_id, cp.student_id)'))
+                ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNull('cp.archived_at')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
-            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL AND x.course_payment_id <= cp.course_payment_id) as runningPaid')
-            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL) as totalPaid')
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL AND x.course_payment_id <= cp.course_payment_id) as runningPaid')
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL) as totalPaid')
             ->selectRaw("DATE_FORMAT(cp.paid_at, '%b-%d-%Y') as date")
             ->selectRaw("DATE_FORMAT(cp.updated_at, '%b-%d-%Y') as updatedAt")
             ->selectRaw("CONCAT('OR-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
@@ -355,7 +351,7 @@ class SalesInvoiceController extends Controller
                 ->select('e.enrollment_id as enrollmentId', 'e.enrollment_at as sortAt')
         )
             ->selectRaw("DATE_FORMAT(e.enrollment_at, '%b-%d-%Y') as date")
-            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL)')
+            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL)')
             ->get()
             ->map(function ($r) {
                 $price = (float) $r->price;
@@ -397,11 +393,11 @@ class SalesInvoiceController extends Controller
     {
         return $this->withEnrollmentDetails(
             DB::table('tbl_course_payments as cp')
-                ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('COALESCE(cp.enrollment_id, cp.student_id)'))
+                ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNotNull('cp.archived_at')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
-            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL) as activePaid')
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL) as activePaid')
             ->selectRaw("DATE_FORMAT(cp.paid_at, '%b-%d-%Y') as date")
             ->selectRaw("DATE_FORMAT(cp.archived_at, '%b-%d-%Y') as archivedAt")
             ->selectRaw("CONCAT('OR-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
