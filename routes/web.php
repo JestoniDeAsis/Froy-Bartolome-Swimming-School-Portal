@@ -97,9 +97,9 @@ Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::c
    Route::post('/athletes', [AdminAthleteController::class, 'store'])->middleware('auth');
    Route::post('/athletes/{user}/revoke', [AdminAthleteController::class, 'revoke'])->middleware('auth')->whereNumber('user');
 
-use App\Http\Controllers\StudentAttendanceController;
+use App\Http\Controllers\SharedAttendanceController;
  
-Route::get('/student/attendance/data', [StudentAttendanceController::class, 'data'])->middleware('auth');
+Route::get('/student/attendance/data', [SharedAttendanceController::class, 'data'])->middleware('auth');
 
 use App\Http\Controllers\PaymentHistoryController;
 

@@ -2,7 +2,7 @@
 
 <style>
 /* =========================================================
-   Attendance (student, view only)
+   Attendance (student/athlete, view only)
    Same look as the admin / coach pages. Dropdowns use the shared
    .registerDropdown + assets/js/fbss-dropdown.js (data-fbss-dropdown).
 ========================================================= */
@@ -148,7 +148,7 @@
         <p class="text-muted small mb-0">View only. Your coach records your Time In and Time Out for each session.</p>
     </header>
 
-    <!-- SUMMARY -->
+    <!-- SUMMARY (Hidden automatically if user is an athlete) -->
     <div class="attendanceSummary" id="attendanceSummary">
         <div class="attendanceCard">
             <div class="attendanceCardLabel">Course</div>
@@ -174,8 +174,9 @@
     <!-- TOOLBAR -->
     <div class="attendanceToolbar">
 
-        <div class="attendanceFilterGroup">
-            <label class="attendanceFilterLabel">Course</label>
+        <!-- Course Filter (Hidden automatically if user is an athlete) -->
+        <div class="attendanceFilterGroup" id="courseFilterGroupWrapper">
+            <label class="attendanceFilterLabel" id="courseFilterLabelText">Course</label>
 
             <div class="registerDropdown attendanceCourseFilter" id="courseFilterDropdown" data-fbss-dropdown>
                 <button class="registerDropdownToggle" id="courseFilterToggle" type="button" aria-expanded="false" aria-controls="courseFilterOptions" aria-label="Filter by course">
@@ -233,6 +234,8 @@
 
     const el = {
         description: $('attendanceDescription'),
+        summaryContainer: $('attendanceSummary'),
+        courseFilterGroup: $('courseFilterGroupWrapper'),
         courseFilter: $('courseFilterDropdown'),
         monthFilter: $('monthFilterDropdown'),
         count: $('attendanceResultCount'),
@@ -249,6 +252,7 @@
     let enrollments = [];
     let logs = [];
     let loading = true;
+    let isAthlete = false;
 
     /* ---------- helpers ---------- */
 
@@ -268,7 +272,6 @@
     const formatLongDate = d => d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const formatShortDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
-    // "HH:MM" (24h) -> "8:05 AM"
     function formatTimeLabel(value) {
         if (!value) return '';
         const [h, m] = value.split(':').map(Number);
@@ -287,8 +290,8 @@
 
     /* ---------- filters ---------- */
 
-    // Logs for the chosen course ('all' = everything, including older logs with no course).
     function logsForCourse() {
+        if (isAthlete) return logs; // Athletes don't filter by course dropdown
         const course = dropdownValue(el.courseFilter);
         return course === 'all' || course === ''
             ? logs
@@ -309,11 +312,11 @@
             return { value, label: new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
         }));
 
-        // Keeps the current month when it still has logs, else "All Dates".
         window.FBSSDropdown.setOptions(el.monthFilter, items, dropdownValue(el.monthFilter));
     }
 
     function buildCourseOptions(defaultId) {
+        if (isAthlete) return;
         const items = [{ value: 'all', label: 'All Courses' }]
             .concat(enrollments.map(e => ({ value: String(e.id), label: e.label })));
 
@@ -323,6 +326,8 @@
     /* ---------- render ---------- */
 
     function renderSummary() {
+        if (isAthlete) return;
+
         const course = dropdownValue(el.courseFilter);
         const enrollment = enrollments.find(e => String(e.id) === course);
 
@@ -343,7 +348,6 @@
             return;
         }
 
-        // All courses
         const attended = logs.filter(l => l.time_in);
         const last = attended.map(l => l.date).sort().pop();
 
@@ -366,12 +370,21 @@
         el.tableHead.append(headerRow);
 
         if (loading || !list.length) {
+            let emptyMessage = 'You are not enrolled in a course yet.';
+            if (loading) {
+                emptyMessage = 'Loading...';
+            } else if (!isAthlete && (enrollments.length || logs.length)) {
+                emptyMessage = 'No attendance has been logged for this selection.';
+            } else if (isAthlete && logs.length) {
+                emptyMessage = 'No attendance has been logged for this selection.';
+            } else if (isAthlete) {
+                emptyMessage = 'No logged attendance yet.';
+            }
+
             const emptyRow = make('tr');
             emptyRow.append(make('td', {
                 className: 'attendanceEmptyState',
-                text: loading
-                    ? 'Loading...'
-                    : (enrollments.length || logs.length ? 'No attendance has been logged for this selection.' : 'You are not enrolled in a course yet.'),
+                text: emptyMessage,
                 attributes: { colSpan: HEADERS.length + 1 }
             }));
             el.tableBody.append(emptyRow);
@@ -424,7 +437,7 @@
         try {
             const response = await fetch(URL_DATA, { headers: { 'Accept': 'application/json' } });
             let data = {};
-            try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+            try { data = await response.json(); } catch (e) {}
 
             loading = false;
 
@@ -434,10 +447,20 @@
                 return;
             }
 
+            isAthlete = !!data.is_athlete;
+
+            // Remove summary cards & course filter wrapper entirely for athletes
+            if (isAthlete) {
+                if (el.summaryContainer) el.summaryContainer.remove();
+                if (el.courseFilterGroup) el.courseFilterGroup.remove();
+            }
+
             enrollments = data.enrollments || [];
             logs = data.logs || [];
 
-            buildCourseOptions(data.default_enrollment_id);
+            if (!isAthlete) {
+                buildCourseOptions(data.default_enrollment_id);
+            }
             buildMonthOptions();
         } catch (error) {
             console.error(error);
@@ -448,8 +471,9 @@
         render();
     }
 
-    // Fired by the shared dropdown (assets/js/fbss-dropdown.js) when an option is picked.
-    el.courseFilter.addEventListener('dropdown:change', () => { buildMonthOptions(); render(); });
+    if (el.courseFilterGroup && el.courseFilter) {
+        el.courseFilter.addEventListener('dropdown:change', () => { buildMonthOptions(); render(); });
+    }
     el.monthFilter.addEventListener('dropdown:change', render);
 
     el.description.textContent = `Current date: ${formatLongDate(new Date())}`;

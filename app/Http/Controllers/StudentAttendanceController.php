@@ -11,18 +11,23 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Student > Attendance (view only).
+ * Student / Athlete > Attendance (view only).
  *
- * Returns the signed-in student's OWN enrollments and attendance logs.
- * Nothing here accepts a user id from the request, so a student can never
- * see anybody else's attendance.
+ * Returns the signed-in user's OWN enrollments and attendance logs.
+ * Supports both students and athletes based on shared role definitions.
  */
 class StudentAttendanceController extends Controller
 {
     use HandlesAttendanceData;
 
-    /** Roles that have the Attendance page in config/role_menus.php (3 and 5 = student). */
-    public const STUDENT_ROLES = [3, 5];
+    /** 
+     * Roles allowed to view this attendance page.
+     * 3 and 5 = Student roles, 4 = Athlete role (adjust if your athlete role ID differs).
+     */
+    public const SHARED_ROLES = [3, 4, 5];
+    
+    /** Define which role ID specifically represents the athlete. */
+    public const ATHLETE_ROLE_ID = 4; // Adjust this if your athlete role ID is different
 
     /* =========================================================
      * GET /student/attendance/data
@@ -30,12 +35,14 @@ class StudentAttendanceController extends Controller
     public function data(Request $request): JsonResponse
     {
         $user = $request->user();
+        $roleId = (int) ($user->{CoachController::ROLE_COL} ?? 0);
 
-        if (!$user || !in_array((int) ($user->{CoachController::ROLE_COL} ?? 0), self::STUDENT_ROLES, true)) {
+        if (!$user || !in_array($roleId, self::SHARED_ROLES, true)) {
             return $this->fail('You are not allowed to do that.', 403);
         }
 
         $userId = (int) Auth::id();
+        $isAthlete = ($roleId === self::ATHLETE_ROLE_ID);
 
         $enrollments = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
             ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id')
@@ -75,6 +82,7 @@ class StudentAttendanceController extends Controller
 
         return response()->json([
             'success' => true,
+            'is_athlete' => $isAthlete,
             'default_enrollment_id' => $active ? (int) $active->id : null,
             'enrollments' => $enrollments->map(function ($e) use ($summary) {
                 $start = $e->enrollment_at ? Carbon::parse($e->enrollment_at)->format('M d, Y') : '?';
