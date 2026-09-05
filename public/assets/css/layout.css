@@ -1,0 +1,207 @@
+:root {
+    --topbar-height: 56px;
+    --sidebar-width: 220px;
+    --topbar-bg: #045199;
+    --sidebar-bg: #E1EAE4;
+    --sidebar-text: #33453A;
+    --sidebar-text-muted: #5C6F63;
+    --sidebar-hover-bg: #CFE0D6;
+    --sidebar-active-bg: #045199;
+    --sidebar-active-text: #FFFFFF;
+}
+
+body {
+    background-color: #f8f9fa;
+    padding-top: var(--topbar-height);
+}
+
+.topbar {
+    height: var(--topbar-height);
+    background-color: var(--topbar-bg) !important;
+    z-index: 1035;
+}
+
+.app-body {
+    display: flex;
+}
+
+.side-menu {
+    width: var(--sidebar-width);
+    height: calc(100vh - var(--topbar-height));
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0;
+    background-color: var(--sidebar-bg);
+    overflow-y: auto;
+    transition: transform 0.25s ease, width 0.25s ease;
+    z-index: 1020;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06);
+    padding-top: 1rem;
+}
+
+.side-menu .nav {
+    gap: 2px;
+}
+
+.side-menu .nav-link {
+    display: flex;
+    align-items: center;
+    color: var(--sidebar-text);
+    padding: 0.65rem 1.25rem;
+    margin: 0 10px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    border-left: 3px solid transparent;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.side-menu .nav-link i {
+    font-size: 1.05rem;
+    width: 20px;
+    text-align: center;
+    color: var(--sidebar-text-muted);
+    transition: color 0.15s ease;
+}
+
+/* Hover — only real links (<a>), spans (active/disabled) never get this */
+.side-menu a.nav-link:hover {
+    color: var(--topbar-bg);
+    background-color: var(--sidebar-hover-bg);
+}
+
+.side-menu a.nav-link:hover i {
+    color: var(--topbar-bg);
+}
+
+/* Active / current page */
+.side-menu .nav-link.active {
+    color: var(--sidebar-active-text);
+    background-color: var(--sidebar-active-bg);
+    border-left-color: #033a6e;
+    font-weight: 500;
+    pointer-events: none;
+    cursor: default;
+}
+
+.side-menu .nav-link.active i {
+    color: var(--sidebar-active-text);
+}
+
+/* Logout item stays visually separated + keeps its own red, unaffected by theme */
+.side-menu .nav-item.mt-3 {
+    margin-top: 0.75rem !important;
+}
+
+.side-menu .nav-link.text-danger:hover {
+    background-color: #f8d7da;
+    color: #b02a37 !important;
+}
+
+.side-menu .nav-link.text-danger:hover i {
+    color: #b02a37;
+}
+
+.display-container {
+    margin-left: var(--sidebar-width);
+    padding: 2rem;
+    width: calc(100% - var(--sidebar-width));
+    transition: margin-left 0.25s ease, width 0.25s ease;
+}
+
+/* Collapsed state, toggled via JS */
+.side-menu.collapsed {
+    transform: translateX(-100%);
+}
+
+.display-container.expanded {
+    margin-left: 0;
+    width: 100%;
+}
+
+.side-menu a.nav-link:not(.active) {
+    color: var(--sidebar-text) !important;
+}
+
+.side-menu a.nav-link:not(.active) i {
+    color: var(--sidebar-text-muted) !important;
+}
+
+
+@media (max-width: 768px) {
+    .app-body {
+        display: block;
+    }
+
+    /* Sidebar keeps its normal fixed-left, slide-from-left behavior —
+       same transform as desktop. Only difference: it overlays instead
+       of sharing layout space with the content. */
+    .side-menu {
+        width: 260px;
+        max-width: 80vw;
+        z-index: 1025; /* below topbar, above content */
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Content never reserves space for the sidebar on mobile —
+       it's full width whether the sidebar is open or closed. */
+    .display-container,
+    .display-container.expanded {
+        margin-left: 0;
+        width: 100%;
+        padding: 1.25rem;
+    }
+
+    /* Dim backdrop behind the open sidebar, above the content */
+    .sidebar-backdrop {
+        display: none;
+        position: fixed;
+        top: var(--topbar-height);
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.35);
+        z-index: 1020; /* between content and sidebar */
+    }
+
+    .sidebar-backdrop.show {
+        display: block;
+    }
+}
+
+.side-menu {
+    display: flex;
+    flex-direction: column;
+    /* ...keep all your existing .side-menu properties (width, position, background, etc.) */
+}
+
+.sidebar-footer {
+    margin-top: auto;
+}
+
+.profile-circle {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    border-radius: 50%;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.profile-name {
+    font-size: 0.85rem;
+}
+
+.profile-role {
+    font-size: 0.75rem;
+}
+
+.sidebar-profile {
+    min-width: 0; /* allows child overflow-hidden truncation to actually work in a flex row */
+}
+
+.profile-info {
+    min-width: 0;
+    flex: 1 1 auto;
+}

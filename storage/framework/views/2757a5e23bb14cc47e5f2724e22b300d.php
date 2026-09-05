@@ -1,0 +1,1 @@
+COURSES NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/courses/courses.blade.php ENDPATH**/ ?>

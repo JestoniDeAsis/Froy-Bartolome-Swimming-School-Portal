@@ -1,0 +1,1 @@
+DASHBOARD NI STUDENT<?php /**PATH /var/www/html/resources/views/pages/student/dashboard.blade.php ENDPATH**/ ?>
