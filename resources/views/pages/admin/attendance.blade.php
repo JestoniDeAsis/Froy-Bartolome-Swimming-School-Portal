@@ -164,7 +164,7 @@
 .attendanceRow { transition: background-color .1s ease; }
 .attendanceRow:hover { background: #f8fafb; }
 
-/* Only the coaches tab has selectable rows. */
+/* Only selectable tabs have selectable rows. */
 .attendanceRow.isSelectable { cursor: pointer; }
 
 .attendanceRow.selectedRow,
@@ -298,14 +298,6 @@
     font-size: .8125rem;
     color: #667085;
 }
-
-.attendanceLogTableContainer {
-    max-height: 50vh;
-    overflow: auto;
-    background: #fff;
-    border: 1px solid #e7ebef;
-    border-radius: 12px;
-}
 </style>
 
 
@@ -324,6 +316,9 @@
         </button>
         <button class="btn btn-outline-primary attendanceTab" type="button" id="activeStudentsTabButton" data-attendance-tab="students" aria-selected="false">
             Active Students
+        </button>
+        <button class="btn btn-outline-primary attendanceTab" type="button" id="activeAthletesTabButton" data-attendance-tab="athletes" aria-selected="false">
+            Active Athletes
         </button>
     </nav>
 
@@ -400,6 +395,7 @@
         <div class="attendanceToolbarActions" id="attendanceToolbarActions">
             <button class="btn btn-primary" id="recordTimeInButton" type="button" disabled>Time In</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled>Time Out</button>
+            <button class="btn btn-primary" id="coachViewLogsButton" type="button" disabled>View Logs</button>
         </div>
 
         <!-- Student actions (students tab only) -->
@@ -459,7 +455,7 @@
             <p class="attendanceModalName" id="logsModalStudent"></p>
 
             <div class="attendanceLogToolbar">
-                <div class="attendanceFilterGroup">
+                <div class="attendanceFilterGroup" id="logCourseFilterGroup">
                     <label class="attendanceFilterLabel">Course</label>
 
                     <div class="registerDropdown attendanceLogFilter" id="logFilterDropdown" data-fbss-dropdown>
@@ -492,7 +488,6 @@
     </div>
 </div>
 
-
 <script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
@@ -506,13 +501,15 @@
         data: '/admin/attendance/data',
         timeIn: '/admin/attendance/coaches/time-in',
         timeOut: '/admin/attendance/coaches/time-out',
-        studentLogs: '/admin/attendance/student-logs'
+        studentLogs: '/admin/attendance/student-logs',
+        athleteLogs: '/admin/attendance/athlete-logs',
+        coachLogs: '/admin/attendance/coach-logs'
     };
 
     // Per-tab columns. "key" matches the field names the server returns.
     const TAB_CONFIGS = {
         coaches: {
-            hint: 'Record the Time In and Time Out of each coach. Select a coach to enable the buttons.',
+            hint: 'Record the Time In and Time Out of each coach, or view the full attendance log. Select a coach to enable the buttons.',
             selectable: true,
             columns: [
                 { label: 'Coach Name', key: 'name', isNameColumn: true },
@@ -537,6 +534,17 @@
                 { label: 'Status', key: 'state' }
             ],
             searchKeys: ['name', 'coach', 'course', 'state']
+        },
+        athletes: {
+            hint: 'View only. Review attendance records for athletes.',
+            selectable: true,
+            columns: [
+                { label: 'Athlete Name', key: 'name', isNameColumn: true },
+                { label: 'Time In', key: 'time_in', isTime: true },
+                { label: 'Time Out', key: 'time_out', isTime: true },
+                { label: 'Status', key: 'state' }
+            ],
+            searchKeys: ['name', 'state']
         }
     };
 
@@ -554,6 +562,7 @@
         tableHead: $('attendanceTableHead'),
         tableBody: $('attendanceTableBody'),
 
+        classFilterGroup: $('classFilterGroup'),
         classFilter: $('classFilterDropdown'),
         classFilterInput: $('classFilterInput'),
 
@@ -578,10 +587,12 @@
         logFilterInput: $('logFilterInput'),
         logsClose: $('logsModalCloseButton'),
         logsDone: $('logsModalDoneButton'),
+        logCourseFilterGroup: $('logCourseFilterGroup'),
 
         timeActions: $('attendanceToolbarActions'),
         timeInButton: $('recordTimeInButton'),
         timeOutButton: $('recordTimeOutButton'),
+        coachViewLogsButton: $('coachViewLogsButton'),
 
         modalOverlay: $('timeModalOverlay'),
         modalTitle: $('timeModalTitle'),
@@ -597,13 +608,13 @@
     let activeTab = 'coaches';
     let rows = [];
     let loading = false;
-    let loadSeq = 0;            // ignores out-of-order responses
-    let selectedId = null;      // coaches tab only
-    let pendingAction = null;   // 'in' | 'out'
+    let loadSeq = 0;
+    let selectedId = null;
+    let pendingAction = null;
     let classOptionsBuilt = false;
     let busy = false;
-    let logsAnchorId = null;    // enrollment the log modal was opened from
-    let logsSeq = 0;            // ignores out-of-order log responses
+    let logsAnchorId = null;
+    let logsSeq = 0;
     let logFilterBuilt = false;
 
     /* =========================================================
@@ -634,11 +645,20 @@
     }
 
     function formatLongDate(date) {
-        return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
     }
 
     function formatShortDate(date) {
-        return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+        });
     }
 
     function currentTimeInputValue() {
@@ -652,7 +672,10 @@
         const [h, m] = value.split(':').map(Number);
         const ref = new Date();
         ref.setHours(h, m, 0, 0);
-        return ref.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        return ref.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
     }
 
     async function api(url, { method = 'GET', body } = {}) {
@@ -669,7 +692,11 @@
         });
 
         let data = {};
-        try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+        try {
+            data = await response.json();
+        } catch (e) {
+            /* non-JSON error page */
+        }
 
         return { ok: response.ok, status: response.status, data };
     }
@@ -678,7 +705,9 @@
         const errors = result.data.errors;
 
         if (errors) {
-            [...new Set(Object.values(errors).flat())].slice(0, 3).forEach(m => showToast(m, 'danger'));
+            [...new Set(Object.values(errors).flat())]
+                .slice(0, 3)
+                .forEach(m => showToast(m, 'danger'));
             return;
         }
 
@@ -709,7 +738,7 @@
 
     function initDatePicker() {
         const today = toLocalISODate(new Date());
-        el.dateInput.max = today;          // no future dates
+        el.dateInput.max = today;
         el.dateInput.value = today;
         updateDateLabel();
 
@@ -723,7 +752,6 @@
         });
 
         el.dateInput.addEventListener('change', () => {
-            // Cleared or future date -> fall back to today.
             if (!el.dateInput.value || el.dateInput.value > el.dateInput.max) {
                 el.dateInput.value = el.dateInput.max;
             }
@@ -739,10 +767,16 @@
 
     function buildClassOptions(courses) {
         const items = [{ value: '', label: 'All Classes' }]
-            .concat(courses.map(course => ({ value: String(course.id), label: course.name })));
+            .concat(courses.map(course => ({
+                value: String(course.id),
+                label: course.name
+            })));
 
-        // Keeps the current pick when it is still in the list.
-        window.FBSSDropdown.setOptions(el.classFilter, items, el.classFilterInput.value);
+        window.FBSSDropdown.setOptions(
+            el.classFilter,
+            items,
+            el.classFilterInput.value
+        );
 
         classOptionsBuilt = true;
     }
@@ -752,13 +786,17 @@
     ========================================================= */
 
     function getSelectedRecord() {
-        return selectedId === null ? null : rows.find(r => r.id === selectedId) || null;
+        if (selectedId === null) return null;
+
+        return rows.find(r => String(r.id) === String(selectedId)) || null;
     }
 
     function renderNameCell(record) {
         const wrapper = make('span', { className: 'attendanceNameCell' });
         wrapper.append(
-            make('span', { className: `attendanceStatusDot ${record.time_in ? 'present' : 'absent'}` }),
+            make('span', {
+                className: `attendanceStatusDot ${record.time_in ? 'present' : 'absent'}`
+            }),
             document.createTextNode(record.name)
         );
         return wrapper;
@@ -767,36 +805,47 @@
     function renderCell(column, record) {
         if (column.isNameColumn) return renderNameCell(record);
 
-        const value = column.isTime ? formatTimeLabel(record[column.key]) : (record[column.key] ?? '');
+        const value = column.isTime
+            ? formatTimeLabel(record[column.key])
+            : (record[column.key] ?? '');
 
         return value
             ? document.createTextNode(value)
-            : make('span', { className: 'attendanceEmptyValue', text: column.isTime ? '-' : '--' });
+            : make('span', {
+                className: 'attendanceEmptyValue',
+                text: column.isTime ? '-' : '--'
+            });
     }
 
     function visibleRows() {
         const config = TAB_CONFIGS[activeTab];
         const term = el.search.value.trim().toLowerCase();
-        const logged = el.loggedFilterInput.value;   // 'all' | 'in' | 'out'
+        const logged = el.loggedFilterInput.value;
 
         let list = rows;
 
         // Students tab: green dot = logged in that day, red dot = not.
         if (activeTab === 'students' && logged !== 'all') {
-            list = list.filter(record => logged === 'in' ? Boolean(record.time_in) : !record.time_in);
+            list = list.filter(record =>
+                logged === 'in' ? Boolean(record.time_in) : !record.time_in
+            );
         }
 
         if (!term) return list;
 
         return list.filter(record =>
-            config.searchKeys.some(key => String(record[key] ?? '').toLowerCase().includes(term))
+            config.searchKeys.some(key =>
+                String(record[key] ?? '').toLowerCase().includes(term)
+            )
         );
     }
 
     // Search / attendance filter: re-filter what is already loaded, and drop
     // the selection if that row is no longer visible.
     function applyLocalFilters() {
-        if (selectedId !== null && !visibleRows().some(r => r.id === selectedId)) selectedId = null;
+        if (selectedId !== null && !visibleRows().some(r => String(r.id) === String(selectedId))) {
+            selectedId = null;
+        }
 
         updateToolbarState();
         renderTable();
@@ -810,15 +859,27 @@
         el.tableBody.replaceChildren();
 
         const headerRow = make('tr');
-        headerRow.append(make('th', { text: 'No.', attributes: { scope: 'col' } }));
-        config.columns.forEach(c => headerRow.append(make('th', { text: c.label, attributes: { scope: 'col' } })));
+        headerRow.append(make('th', {
+            text: 'No.',
+            attributes: { scope: 'col' }
+        }));
+
+        config.columns.forEach(c => {
+            headerRow.append(make('th', {
+                text: c.label,
+                attributes: { scope: 'col' }
+            }));
+        });
+
         el.tableHead.append(headerRow);
 
         if (loading || !list.length) {
             const emptyRow = make('tr');
             emptyRow.append(make('td', {
                 className: 'attendanceEmptyState',
-                text: loading ? 'Loading...' : (rows.length ? 'No matching records found.' : 'No records found.'),
+                text: loading
+                    ? 'Loading...'
+                    : (rows.length ? 'No matching records found.' : 'No records found.'),
                 attributes: { colSpan: config.columns.length + 1 }
             }));
             el.tableBody.append(emptyRow);
@@ -830,8 +891,15 @@
 
             if (config.selectable) {
                 tableRow.classList.add('isSelectable');
-                if (selectedId === record.id) tableRow.classList.add('selectedRow');
-                tableRow.addEventListener('click', () => selectRow(record.id));
+
+                if (String(selectedId) === String(record.id)) {
+                    tableRow.classList.add('selectedRow');
+                }
+
+                tableRow.dataset.recordId = String(record.id);
+                tableRow.setAttribute('aria-selected', String(
+                    String(selectedId) === String(record.id)
+                ));
             }
 
             tableRow.append(make('td', { text: String(index + 1) }));
@@ -846,8 +914,19 @@
         });
     }
 
+    el.tableBody.addEventListener('click', event => {
+        const tableRow = event.target.closest('tr[data-record-id]');
+
+        if (!tableRow || !el.tableBody.contains(tableRow)) return;
+        if (!TAB_CONFIGS[activeTab].selectable) return;
+
+        selectRow(tableRow.dataset.recordId);
+    });
+
     function selectRow(id) {
-        selectedId = selectedId === id ? null : id;
+        const clickedId = String(id);
+        selectedId = String(selectedId) === clickedId ? null : clickedId;
+
         updateToolbarState();
         renderTable();
     }
@@ -856,14 +935,19 @@
         const record = getSelectedRecord();
 
         const isCoaches = activeTab === 'coaches';
+        const canViewLogs = activeTab === 'students' || activeTab === 'athletes';
 
         el.timeInButton.disabled = busy || !record || Boolean(record.time_in);
         el.timeOutButton.disabled = busy || !record || !record.time_in || Boolean(record.time_out);
-        el.viewLogsButton.disabled = busy || !record;
+        el.viewLogsButton.disabled = busy || !record || !canViewLogs;
+        el.coachViewLogsButton.disabled = busy || !record || !isCoaches;
 
         el.timeActions.style.display = isCoaches ? '' : 'none';
-        el.studentActions.style.display = isCoaches ? 'none' : '';
-        el.loggedFilterGroup.style.display = isCoaches ? 'none' : '';
+        el.studentActions.style.display = canViewLogs ? '' : 'none';
+        el.loggedFilterGroup.style.display = activeTab === 'students' ? '' : 'none';
+
+        // Athletes have no registered courses, so the class filter is hidden there.
+        el.classFilterGroup.style.display = activeTab === 'athletes' ? 'none' : '';
     }
 
     /* =========================================================
@@ -873,19 +957,29 @@
     async function loadRows({ keepSelection = false } = {}) {
         const seq = ++loadSeq;
 
-        if (!el.dateInput.value) el.dateInput.value = el.dateInput.max;
+        if (!el.dateInput.value) {
+            el.dateInput.value = el.dateInput.max;
+        }
+
         if (!keepSelection) selectedId = null;
 
         loading = true;
         updateToolbarState();
         renderTable();
 
-        const params = new URLSearchParams({ tab: activeTab, date: el.dateInput.value });
-        if (el.classFilterInput.value) params.set('course_id', el.classFilterInput.value);
+        const params = new URLSearchParams({
+            tab: activeTab,
+            date: el.dateInput.value
+        });
+
+        if (activeTab !== 'athletes' && el.classFilterInput.value) {
+            params.set('course_id', el.classFilterInput.value);
+        }
 
         try {
             const result = await api(`${URLS.data}?${params}`);
-            if (seq !== loadSeq) return;   // a newer request replaced this one
+
+            if (seq !== loadSeq) return;
 
             loading = false;
 
@@ -893,12 +987,19 @@
                 rows = [];
                 toastServerErrors(result, 'Unable to load attendance.');
             } else {
-                rows = result.data.rows || [];
-                if (!classOptionsBuilt) buildClassOptions(result.data.courses || []);
-                if (selectedId !== null && !rows.some(r => r.id === selectedId)) selectedId = null;
+                rows = (result.data.rows || []).map(r => ({ ...r, id: String(r.id) }));
+
+                if (!classOptionsBuilt) {
+                    buildClassOptions(result.data.courses || []);
+                }
+
+                if (selectedId !== null && !rows.some(r => String(r.id) === String(selectedId))) {
+                    selectedId = null;
+                }
             }
         } catch (error) {
             if (seq !== loadSeq) return;
+
             console.error(error);
             loading = false;
             rows = [];
@@ -918,6 +1019,7 @@
     function updateTabButtons() {
         el.tabs.querySelectorAll('[data-attendance-tab]').forEach(button => {
             const isSelected = button.dataset.attendanceTab === activeTab;
+
             button.classList.toggle('btn-primary', isSelected);
             button.classList.toggle('btn-outline-primary', !isSelected);
             button.classList.toggle('active', isSelected);
@@ -935,6 +1037,7 @@
         rows = [];
 
         updateTabButtons();
+        updateToolbarState();
         loadRows();
     }
 
@@ -949,12 +1052,18 @@
 
     function openTimeModal(action) {
         const record = getSelectedRecord();
-        if (!record) return;
+        if (!record || activeTab !== 'coaches') return;
 
         pendingAction = action;
 
-        el.modalTitle.textContent = action === 'in' ? 'Record Time In' : 'Record Time Out';
-        el.modalName.replaceChildren(document.createTextNode('Recording for '), make('strong', { text: record.name }));
+        el.modalTitle.textContent = action === 'in'
+            ? 'Record Time In'
+            : 'Record Time Out';
+
+        el.modalName.replaceChildren(
+            document.createTextNode('Recording for '),
+            make('strong', { text: record.name })
+        );
 
         if (action === 'out' && record.time_in) {
             el.modalMeta.textContent = `Time In: ${formatTimeLabel(record.time_in)}`;
@@ -982,12 +1091,12 @@
         const record = getSelectedRecord();
         const action = pendingAction;
 
-        if (!record || !action) {
+        if (!record || !action || activeTab !== 'coaches') {
             closeTimeModal();
             return;
         }
 
-        const time = el.modalInput.value;   // "HH:MM"
+        const time = el.modalInput.value;
 
         if (!time) {
             showToast('Please choose a time.', 'danger');
@@ -1005,14 +1114,26 @@
         updateToolbarState();
 
         try {
-            const result = await api(action === 'in' ? URLS.timeIn : URLS.timeOut, {
-                method: 'POST',
-                body: { coach_id: record.id, date: el.dateInput.value, time }
-            });
+            const result = await api(
+                action === 'in' ? URLS.timeIn : URLS.timeOut,
+                {
+                    method: 'POST',
+                    body: {
+                        coach_id: record.id,
+                        date: el.dateInput.value,
+                        time
+                    }
+                }
+            );
 
             if (result.ok) {
                 closeTimeModal();
-                showToast(`${action === 'in' ? 'Time In' : 'Time Out'} recorded for ${record.name}.`, 'success');
+
+                showToast(
+                    `${action === 'in' ? 'Time In' : 'Time Out'} recorded for ${record.name}.`,
+                    'success'
+                );
+
                 await loadRows({ keepSelection: true });
             } else {
                 toastServerErrors(result, 'Unable to save the time.');
@@ -1030,12 +1151,21 @@
 
     el.timeInButton.addEventListener('click', () => openTimeModal('in'));
     el.timeOutButton.addEventListener('click', () => openTimeModal('out'));
-    el.modalClose.addEventListener('click', () => { if (!busy) closeTimeModal(); });
-    el.modalCancel.addEventListener('click', () => { if (!busy) closeTimeModal(); });
+
+    el.modalClose.addEventListener('click', () => {
+        if (!busy) closeTimeModal();
+    });
+
+    el.modalCancel.addEventListener('click', () => {
+        if (!busy) closeTimeModal();
+    });
+
     el.modalSave.addEventListener('click', saveTimeModal);
 
     // Greys out "Current Time" once the admin edits the field.
-    el.modalInput.addEventListener('input', () => el.modalLabel.classList.add('isDimmed'));
+    el.modalInput.addEventListener('input', () => {
+        el.modalLabel.classList.add('isDimmed');
+    });
 
     // Clicking outside the card does NOT close the modal; Escape does.
     document.addEventListener('keydown', event => {
@@ -1043,7 +1173,6 @@
 
         if (!el.logsOverlay.hidden) closeLogsModal();
         if (!el.modalOverlay.hidden && !busy) closeTimeModal();
-        // open dropdowns are closed by the shared script on Escape
     });
 
     /* =========================================================
@@ -1059,23 +1188,36 @@
             : make('span', { className: 'attendanceEmptyValue', text: dash });
     }
 
-    function renderLogs(list, isLoading) {
-        const headers = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
+    function renderLogs(list, isLoading, isAthlete = false) {
+        const headers = isAthlete
+            ? ['Date', 'Time In', 'Time Out', 'Status', 'Logged By']
+            : ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
 
         el.logsTableHead.replaceChildren();
         el.logsTableBody.replaceChildren();
 
         const headerRow = make('tr');
-        headers.forEach(h => headerRow.append(make('th', { text: h, attributes: { scope: 'col' } })));
+
+        headers.forEach(h => {
+            headerRow.append(make('th', {
+                text: h,
+                attributes: { scope: 'col' }
+            }));
+        });
+
         el.logsTableHead.append(headerRow);
 
         if (isLoading || !list.length) {
             const emptyRow = make('tr');
+
             emptyRow.append(make('td', {
                 className: 'attendanceEmptyState',
-                text: isLoading ? 'Loading...' : 'No attendance has been logged for this selection.',
+                text: isLoading
+                    ? 'Loading...'
+                    : 'No attendance has been logged for this selection.',
                 attributes: { colSpan: headers.length }
             }));
+
             el.logsTableBody.append(emptyRow);
             el.logsSummary.textContent = '';
             return;
@@ -1083,25 +1225,41 @@
 
         list.forEach(log => {
             const row = make('tr', { className: 'attendanceRow' });
-
             const dateCell = make('td');
             const wrapper = make('span', { className: 'attendanceNameCell' });
+
             wrapper.append(
-                make('span', { className: `attendanceStatusDot ${log.time_in ? 'present' : 'absent'}` }),
-                document.createTextNode(formatShortDate(parseISODate(log.date)))
+                make('span', {
+                    className: `attendanceStatusDot ${log.time_in ? 'present' : 'absent'}`
+                }),
+                document.createTextNode(
+                    formatShortDate(parseISODate(log.date))
+                )
             );
+
             dateCell.append(wrapper);
             row.append(dateCell);
 
-            [
-                logCell(log.course),
-                logCell(formatTimeLabel(log.time_in), '-'),
-                logCell(formatTimeLabel(log.time_out), '-'),
-                logCell(log.state),
-                logCell(log.logged_by)
-            ].forEach(content => {
+            const values = [];
+
+            if (!isAthlete) {
+                values.push(log.course);
+            }
+
+            values.push(
+                formatTimeLabel(log.time_in),
+                formatTimeLabel(log.time_out),
+                log.state,
+                log.logged_by
+            );
+
+            values.forEach((value, index) => {
                 const cell = make('td');
-                cell.append(content);
+                const isTimeColumn = isAthlete
+                    ? index === 0 || index === 1
+                    : index === 1 || index === 2;
+
+                cell.append(logCell(value, isTimeColumn ? '-' : '--'));
                 row.append(cell);
             });
 
@@ -1109,16 +1267,25 @@
         });
 
         const attended = list.filter(log => log.time_in).length;
-        el.logsSummary.textContent = `${list.length} log${list.length === 1 ? '' : 's'} · ${attended} attended`;
+
+        el.logsSummary.textContent =
+            `${list.length} log${list.length === 1 ? '' : 's'} · ${attended} attended`;
     }
 
     function buildLogFilter(enrollments) {
         const choices = [{ value: 'all', label: 'All courses' }]
-            .concat(enrollments.map(e => ({ value: String(e.id), label: e.label })));
+            .concat(enrollments.map(e => ({
+                value: String(e.id),
+                label: e.label
+            })));
 
-        // Keeps the current pick when it is still in the list, else "All courses".
         const current = choices.find(c => c.value === el.logFilterInput.value) || choices[0];
-        window.FBSSDropdown.setOptions(el.logFilter, choices, current.value);
+
+        window.FBSSDropdown.setOptions(
+            el.logFilter,
+            choices,
+            current.value
+        );
 
         logFilterBuilt = true;
     }
@@ -1135,7 +1302,8 @@
 
         try {
             const result = await api(`${URLS.studentLogs}?${params}`);
-            if (seq !== logsSeq) return;   // modal closed or a newer request replaced this one
+
+            if (seq !== logsSeq) return;
 
             if (!result.ok) {
                 renderLogs([], false);
@@ -1143,43 +1311,96 @@
                 return;
             }
 
-            if (!logFilterBuilt) buildLogFilter(result.data.enrollments || []);
+            if (!logFilterBuilt) {
+                buildLogFilter(result.data.enrollments || []);
+            }
+
             renderLogs(result.data.logs || [], false);
         } catch (error) {
             if (seq !== logsSeq) return;
+
             console.error(error);
             renderLogs([], false);
             showToast('Something went wrong while loading the attendance log.', 'danger');
         }
     }
 
+    async function loadAthleteLogs() {
+        const seq = ++logsSeq;
+
+        renderLogs([], true, true);
+
+        const params = new URLSearchParams({
+            [activeTab === 'coaches' ? 'coach_id' : 'athlete_id']: String(logsAnchorId)
+        });
+
+        try {
+            const result = await api(`${activeTab === 'coaches' ? URLS.coachLogs : URLS.athleteLogs}?${params}`);
+
+            if (seq !== logsSeq) return;
+
+            if (!result.ok) {
+                renderLogs([], false, true);
+                toastServerErrors(result, 'Unable to load the attendance log.');
+                return;
+            }
+
+            renderLogs(result.data.logs || [], false, true);
+        } catch (error) {
+            if (seq !== logsSeq) return;
+
+            console.error(error);
+            renderLogs([], false, true);
+            showToast('Something went wrong while loading the attendance log.', 'danger');
+        }
+    }
+
     function openLogsModal() {
         const record = getSelectedRecord();
-        if (!record || activeTab !== 'students') return;
 
+        if (!record || !['students', 'athletes', 'coaches'].includes(activeTab)) return;
+
+        const isAthlete = activeTab !== 'students';
+
+        logsSeq++;
         logsAnchorId = record.id;
         logFilterBuilt = false;
+        el.logFilterInput.value = '';
 
-        // Start on the enrollment the admin clicked; "All courses" is one pick away.
+        el.logsStudent.replaceChildren(
+            document.createTextNode(
+                activeTab === 'coaches' ? 'Coach: ' : (isAthlete ? 'Athlete: ' : 'Student: ')
+            ),
+            make('strong', { text: record.name })
+        );
+
+        el.logCourseFilterGroup.style.display = isAthlete ? 'none' : '';
+
+        if (isAthlete) {
+            el.logsOverlay.hidden = false;
+            loadAthleteLogs();
+            return;
+        }
+
+        // Preserve existing student enrollment filtering.
         window.FBSSDropdown.setOptions(
             el.logFilter,
             [{ value: String(record.id), label: record.course || 'Loading...' }],
             String(record.id)
         );
 
-        el.logsStudent.replaceChildren(document.createTextNode('Student: '), make('strong', { text: record.name }));
-
         el.logsOverlay.hidden = false;
         loadStudentLogs();
     }
 
     function closeLogsModal() {
-        logsSeq++;   // discard any response still in flight
+        logsSeq++;
         el.logsOverlay.hidden = true;
         window.FBSSDropdown.close();
     }
 
     el.viewLogsButton.addEventListener('click', openLogsModal);
+    el.coachViewLogsButton.addEventListener('click', openLogsModal);
     el.logsClose.addEventListener('click', closeLogsModal);
     el.logsDone.addEventListener('click', closeLogsModal);
 
@@ -1189,9 +1410,16 @@
        `dropdown:change` event it fires.
     ========================================================= */
 
-    el.classFilter.addEventListener('dropdown:change', () => loadRows());
+    el.classFilter.addEventListener('dropdown:change', () => {
+        if (activeTab !== 'athletes') loadRows();
+    });
+
     $('loggedFilterDropdown').addEventListener('dropdown:change', applyLocalFilters);
-    el.logFilter.addEventListener('dropdown:change', loadStudentLogs);
+    el.logFilter.addEventListener('dropdown:change', () => {
+        if (activeTab === 'students' && !el.logsOverlay.hidden) {
+            loadStudentLogs();
+        }
+    });
 
     /* =========================================================
        INIT
@@ -1200,6 +1428,7 @@
     renderCurrentDateLine();
     initDatePicker();
     updateTabButtons();
+    updateToolbarState();
     loadRows();
 
 })();
