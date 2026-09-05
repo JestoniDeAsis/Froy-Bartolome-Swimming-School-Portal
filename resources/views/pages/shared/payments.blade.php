@@ -220,14 +220,6 @@
     gap: .5rem;
     padding: .75rem 1.4rem 1.1rem;
 }
-
-/* Print only the receipt */
-@media print {
-    body * { visibility: hidden !important; }
-    #receiptCard, #receiptCard * { visibility: visible !important; }
-    #receiptCard { position: fixed; top: 0; left: 0; width: 100%; max-width: none; box-shadow: none; }
-    #receiptActions { display: none !important; }
-}
 </style>
 
 
@@ -239,7 +231,8 @@
         <p class="text-muted small mb-0">View only. Payments are recorded by the school when you pay.</p>
     </header>
 
-    <!-- SUMMARY -->
+    <!-- SUMMARY (course totals: not shown to athletes) -->
+    @unless ($isAthlete)
     <div class="paymentsSummary" id="paymentsSummary">
         <div class="paymentsCard">
             <div class="paymentsCardLabel">Course</div>
@@ -262,6 +255,7 @@
             <div class="paymentsCardValue" id="summaryStatus">--</div>
         </div>
     </div>
+    @endunless
 
     <!-- TOOLBAR -->
     <div class="paymentsToolbar">
@@ -319,10 +313,10 @@
             <div class="paymentsReceiptLine"><span>Receipt #</span><strong id="receiptNumber">--</strong></div>
             <div class="paymentsReceiptLine"><span>Date</span><strong id="receiptDate">--</strong></div>
             <div class="paymentsReceiptLine"><span>Client</span><strong id="receiptClient">--</strong></div>
-            <div class="paymentsReceiptLine"><span>Course</span><strong id="receiptCourse">--</strong></div>
+            <div class="paymentsReceiptLine"><span id="receiptCourseLabel">Course</span><strong id="receiptCourse">--</strong></div>
             <div class="paymentsReceiptLine"><span>Received by</span><strong id="receiptReceivedBy">--</strong></div>
 
-            <div class="paymentsReceiptTotal"><span>Course Fee</span><span id="receiptFee">--</span></div>
+            <div class="paymentsReceiptTotal"><span id="receiptFeeLabel">Course Fee</span><span id="receiptFee">--</span></div>
 
             <div class="paymentsReceiptAmounts">
                 <div><small>This Payment</small><strong id="receiptAmount">--</strong></div>
@@ -342,7 +336,6 @@
         </div>
 
         <div class="paymentsReceiptActions" id="receiptActions">
-            <button class="btn btn-primary btn-sm" id="receiptPrintButton" type="button"><i class="bi bi-printer me-1" aria-hidden="true"></i>Print</button>
             <button class="btn btn-outline-secondary btn-sm" id="receiptCloseButton" type="button">Close</button>
         </div>
 
@@ -364,9 +357,9 @@
         unpaid: { text: 'Unpaid', cls: 'is-unpaid' }
     };
 
-    // Athletes have no Course column to filter by, so it is left out of the table too.
+    // Athletes pay fees, not courses: the third column shows the fee instead.
     const HEADERS = IS_ATHLETE
-        ? ['Date', 'Receipt No.', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt']
+        ? ['Date', 'Receipt No.', 'Fee', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt']
         : ['Date', 'Receipt No.', 'Course', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt'];
 
     const $ = id => document.getElementById(id);
@@ -456,6 +449,8 @@
     /* ---------- render ---------- */
 
     function renderSummary() {
+        if (IS_ATHLETE) return;   // the summary cards aren't rendered for athletes
+
         const one = selectedEnrollment();
         const list = one ? [one] : enrollments;
 
@@ -498,7 +493,9 @@
                 className: 'paymentsEmptyState',
                 text: loading
                     ? 'Loading...'
-                    : (enrollments.length ? 'No payments have been recorded for this selection.' : 'You are not enrolled in a course yet.'),
+                    : IS_ATHLETE
+                        ? 'No athlete payments have been recorded for you yet.'
+                        : (enrollments.length ? 'No payments have been recorded for this selection.' : 'You are not enrolled in a course yet.'),
                 attributes: { colSpan: HEADERS.length + 1 }
             }));
             el.tableBody.append(emptyRow);
@@ -522,7 +519,7 @@
             const cells = [
                 cell(dateLabel(payment.date)),
                 cell(payment.receipt),
-                ...(IS_ATHLETE ? [] : [cell(payment.course)]),
+                cell(payment.course),   // course name, or the fee name for athletes
                 amount,
                 cell(payment.method),
                 cell(payment.reference, '-'),
@@ -578,8 +575,12 @@
         el.overlay.hidden = true;
     }
 
+    if (IS_ATHLETE) {
+        $('receiptCourseLabel').textContent = 'Fee';
+        $('receiptFeeLabel').textContent = 'Fee Amount';
+    }
+
     $('receiptCloseButton').addEventListener('click', closeReceipt);
-    $('receiptPrintButton').addEventListener('click', () => window.print());
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && !el.overlay.hidden) closeReceipt();
     });

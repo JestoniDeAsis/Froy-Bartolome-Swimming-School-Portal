@@ -7,6 +7,8 @@ use App\Models\Enrollment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Payment history for the logged-in swimmer (student, applicant or athlete).
@@ -26,12 +28,19 @@ class PaymentHistoryController extends Controller
     /** 3 = student, 4 = athlete, 5 = applicant (see config/role_menus.php). */
     private const ALLOWED_ROLE_IDS = [3, 4, 5];
 
+    private const ATHLETE_ROLE_ID = 4;
+
     public function data(Request $request): JsonResponse
     {
         $user = $request->user();
 
         if (! in_array((int) $user->role_id, self::ALLOWED_ROLE_IDS, true)) {
             return response()->json(['success' => false, 'message' => 'Payments are only available to swimmers.'], 403);
+        }
+
+        // Athletes pay athlete fees (tbl_athlete_payments), not course enrollments.
+        if ((int) $user->role_id === self::ATHLETE_ROLE_ID) {
+            return $this->athleteData($user);
         }
 
         $enrollments = Enrollment::query()
@@ -129,6 +138,75 @@ class PaymentHistoryController extends Controller
             'payments'              => $rows,
             'default_enrollment_id' => $default?->enrollment_id,
         ]);
+    }
+
+    /**
+     * Payment history of a logged-in athlete: one row per payment in
+     * tbl_athlete_payments (same row shape as the course rows, so the page
+     * renders them the same way). "course" holds the fee name + billing period.
+     * balance/status = the due's balance right AFTER that payment; the receipt
+     * number matches the admin page: AR-<year of paid_at>-<payment id, 4 digits>.
+     */
+    private function athleteData(User $user): JsonResponse
+    {
+        $sumOfDue = 'SELECT COALESCE(SUM(x.amount), 0) FROM tbl_athlete_payments x'
+            . ' WHERE x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
+
+        $rows = DB::table('tbl_athlete_payments as ap')
+            ->join('tbl_athlete_fees as f', 'f.athlete_fee_id', '=', 'ap.athlete_fee_id')
+            ->leftJoin('tbl_users as rb', 'rb.user_id', '=', 'ap.received_by')
+            ->leftJoin('tbl_user_profile as rp', 'rp.user_id', '=', 'rb.user_id')
+            ->where('ap.user_id', $user->getKey())
+            ->select('ap.athlete_payment_id as id', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as paidAt')
+            ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', rp.first_name, rp.middle_name, rp.last_name, rp.name_suffix)), ''), rb.username, '') as receivedBy")
+            ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')
+            ->orderByDesc('ap.paid_at')
+            ->orderByDesc('ap.athlete_payment_id')
+            ->get()
+            ->map(function ($r) {
+                $due     = (float) $r->due;
+                $paidAt  = Carbon::parse($r->paidAt);
+                $balance = max(round($due - (float) $r->runningPaid, 2), 0);
+                $period  = $this->periodLabel($r->cycle, (string) $r->periodKey);
+
+                return [
+                    'id'            => (int) $r->id,
+                    'enrollment_id' => null,
+                    'course'        => $period === 'One-time' ? $r->fee : $r->fee . ' (' . $period . ')',
+                    'amount'        => (float) $r->amount,
+                    'method'        => $r->method ?? '',
+                    'reference'     => $r->reference ?? '',
+                    'date'          => $paidAt->format('Y-m-d'),
+                    'receipt'       => 'AR-' . $paidAt->format('Y') . '-' . str_pad((string) $r->id, 4, '0', STR_PAD_LEFT),
+                    'price'         => $due,
+                    'paid_to_date'  => round((float) $r->runningPaid, 2),
+                    'balance'       => $balance,
+                    'status'        => $balance <= 0 ? 'paid' : 'partial',
+                    'received_by'   => $r->receivedBy ?? '',
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success'               => true,
+            'client'                => $this->fullName($user),
+            'enrollments'           => [],
+            'payments'              => $rows,
+            'default_enrollment_id' => null,
+        ]);
+    }
+
+    private function periodLabel(string $cycle, string $key): string
+    {
+        if ($cycle === 'monthly' && $key !== '') {
+            return Carbon::createFromFormat('!Y-m', $key)->format('M Y');
+        }
+
+        if ($cycle === 'yearly' && $key !== '') {
+            return $key;
+        }
+
+        return 'One-time';
     }
 
     /** Full name from the profile; falls back to the username. */

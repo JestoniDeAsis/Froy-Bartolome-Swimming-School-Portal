@@ -131,6 +131,11 @@ use App\Http\Controllers\SalesInvoiceController;
 Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->middleware('auth')->name('sales.data');
 Route::post('/sales/enrollments/{enrollment}/payments', [SalesInvoiceController::class, 'recordPayment'])->middleware('auth')->whereNumber('enrollment')->name('sales.payments.store');
 Route::put('/sales/payments/{payment}', [SalesInvoiceController::class, 'updatePayment'])->middleware('auth')->name('sales.payments.update');
+Route::post('/sales/athlete-payments', [SalesInvoiceController::class, 'recordAthletePayment'])->middleware('auth');
+Route::put('/sales/athlete-payments/{payment}', [SalesInvoiceController::class, 'updateAthletePayment'])->middleware('auth')->whereNumber('payment');
+Route::post('/sales/athlete-fees', [SalesInvoiceController::class, 'storeAthleteFee'])->middleware('auth');
+Route::put('/sales/athlete-fees/{fee}', [SalesInvoiceController::class, 'updateAthleteFee'])->middleware('auth')->whereNumber('fee');
+Route::delete('/sales/athlete-fees/{fee}', [SalesInvoiceController::class, 'deleteAthleteFee'])->middleware('auth')->whereNumber('fee');
 
 use App\Http\Controllers\AdminGraduationController;
 use App\Http\Controllers\CertificateController;

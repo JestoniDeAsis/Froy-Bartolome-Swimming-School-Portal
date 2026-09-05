@@ -7,6 +7,7 @@ use App\Models\Enrollment;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,11 @@ use Illuminate\Validation\ValidationException;
 class SalesInvoiceController extends Controller
 {
     private const ADMIN_ROLE_ID = 1;
+
+    // role_id that athletes have in tbl_users.
+    private const ATHLETE_ROLE_ID = 4;
+
+    private const PERSON_NAME_SQL = "COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.name_suffix)), ''), u.username, '')";
 
     /**
      * GET /sales/data
@@ -36,6 +42,8 @@ class SalesInvoiceController extends Controller
             'coursePayments' => $this->courseLog(),
             'itemCatalog' => $this->itemCatalog(),
             'itemLogs' => $this->itemLogs(),
+            'athletePayments' => $this->athleteLog(),
+            'athleteFees' => $this->athleteFees(),
         ];
     }
 
@@ -313,6 +321,443 @@ class SalesInvoiceController extends Controller
                 'client' => $row->client,
                 'receipt' => $row->receipt,
                 'sortAt' => (string) $row->sortAt,
+            ]);
+    }
+
+    // =====================================================================
+    // ATHLETE FEES (the "payment setting") + ATHLETE PAYMENTS
+    //
+    //   tbl_athlete_fees      what athletes need to pay: name, amount, and how
+    //                         often (one_time / monthly / yearly)
+    //   tbl_athlete_payments  ONE ROW PER PAYMENT, like tbl_course_payments.
+    //                         A "due" = athlete + fee + billing period, e.g.
+    //                         (Juan, Monthly fee, 2026-10). amount_due is the fee
+    //                         amount frozen when the due got its first payment,
+    //                         so changing a fee later never rewrites history.
+    //                         period_key: '2026-10' monthly, '2026' yearly,
+    //                         '' one-time.
+    // =====================================================================
+
+    private function denyUnlessAdmin(): ?JsonResponse
+    {
+        if ((int) Auth::user()->role_id !== self::ADMIN_ROLE_ID) {
+            return response()->json(['success' => false, 'message' => 'Only the admin can do this.'], 403);
+        }
+
+        return null;
+    }
+
+    private function feeRules(): array
+    {
+        return [
+            'fee_name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'billing_cycle' => ['required', 'in:one_time,monthly,yearly'],
+            'is_active' => ['nullable', 'boolean'],
+        ];
+    }
+
+    /**
+     * POST /sales/athlete-fees
+     */
+    public function storeAthleteFee(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate($this->feeRules());
+
+        $id = DB::table('tbl_athlete_fees')->insertGetId([
+            'fee_name' => trim($validated['fee_name']),
+            'description' => $validated['description'] ?? null,
+            'amount' => round((float) $validated['amount'], 2),
+            'billing_cycle' => $validated['billing_cycle'],
+            'is_active' => $request->boolean('is_active', true) ? 1 : 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'athlete_fee_id');
+
+        return response()->json(['success' => true, 'id' => $id]);
+    }
+
+    /**
+     * PUT /sales/athlete-fees/{fee}
+     * A new amount only affects dues that have no payment yet; dues that
+     * already took a payment keep the amount_due they were frozen with.
+     */
+    public function updateAthleteFee(Request $request, int $fee): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate($this->feeRules());
+        $row = DB::table('tbl_athlete_fees')->where('athlete_fee_id', $fee)->first();
+
+        if (! $row) {
+            return response()->json(['success' => false, 'message' => 'Fee not found.'], 404);
+        }
+
+        // Period keys depend on the cycle, so it is locked once payments exist.
+        $hasPayments = DB::table('tbl_athlete_payments')->where('athlete_fee_id', $fee)->exists();
+        if ($hasPayments && $validated['billing_cycle'] !== $row->billing_cycle) {
+            throw ValidationException::withMessages([
+                'billing_cycle' => ['The billing cycle can\'t be changed once athletes have paid this fee.'],
+            ]);
+        }
+
+        DB::table('tbl_athlete_fees')->where('athlete_fee_id', $fee)->update([
+            'fee_name' => trim($validated['fee_name']),
+            'description' => $validated['description'] ?? null,
+            'amount' => round((float) $validated['amount'], 2),
+            'billing_cycle' => $validated['billing_cycle'],
+            'is_active' => $request->boolean('is_active', (bool) $row->is_active) ? 1 : 0,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * DELETE /sales/athlete-fees/{fee}
+     * A fee nobody has paid is deleted. A fee with payments is archived
+     * (is_active = 0) so the payment history keeps its fee name.
+     */
+    public function deleteAthleteFee(int $fee): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        if (! DB::table('tbl_athlete_fees')->where('athlete_fee_id', $fee)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Fee not found.'], 404);
+        }
+
+        if (DB::table('tbl_athlete_payments')->where('athlete_fee_id', $fee)->exists()) {
+            DB::table('tbl_athlete_fees')->where('athlete_fee_id', $fee)->update(['is_active' => 0, 'updated_at' => now()]);
+
+            return response()->json(['success' => true, 'archived' => true]);
+        }
+
+        DB::table('tbl_athlete_fees')->where('athlete_fee_id', $fee)->delete();
+
+        return response()->json(['success' => true, 'archived' => false]);
+    }
+
+    /**
+     * POST /sales/athlete-payments
+     * Logs ONE new payment for an athlete's due (athlete + fee + period).
+     * Same rules as course payments: admin only, amount > 0, method required,
+     * can't pay a fully paid due, can't pay more than the remaining balance.
+     */
+    public function recordAthletePayment(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer'],
+            'athlete_fee_id' => ['required', 'integer', 'exists:tbl_athlete_fees,athlete_fee_id'],
+            'period_key' => ['nullable', 'string', 'max:7'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $amount = round((float) $validated['amount'], 2);
+        $userId = (int) $validated['user_id'];
+        $feeId = (int) $validated['athlete_fee_id'];
+
+        $balance = DB::transaction(function () use ($validated, $amount, $userId, $feeId) {
+            // Lock the athlete row so two simultaneous payments can't overpay together.
+            $athlete = DB::table('tbl_users')
+                ->where('user_id', $userId)
+                ->where('role_id', self::ATHLETE_ROLE_ID)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $athlete) {
+                throw ValidationException::withMessages(['user_id' => ['This user is not an athlete.']]);
+            }
+
+            $fee = DB::table('tbl_athlete_fees')->where('athlete_fee_id', $feeId)->first();
+            $periodKey = $this->resolvePeriodKey($fee->billing_cycle, $validated['period_key'] ?? null);
+
+            $existing = DB::table('tbl_athlete_payments')
+                ->where('user_id', $userId)
+                ->where('athlete_fee_id', $feeId)
+                ->where('period_key', $periodKey)
+                ->orderBy('athlete_payment_id');
+
+            $first = (clone $existing)->first();
+
+            if (! $first && ! $fee->is_active) {
+                throw ValidationException::withMessages(['athlete_fee_id' => ['This fee is archived.']]);
+            }
+
+            $due = $first ? (float) $first->amount_due : (float) $fee->amount;
+            $alreadyPaid = (float) (clone $existing)->sum('amount');
+            $remaining = round($due - $alreadyPaid, 2);
+
+            if ($remaining <= 0) {
+                throw ValidationException::withMessages(['amount' => ['This fee is already fully paid.']]);
+            }
+
+            if ($amount > $remaining) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Payment of ₱' . number_format($amount, 2)
+                        . ' exceeds the remaining balance of ₱' . number_format($remaining, 2) . '.'],
+                ]);
+            }
+
+            DB::table('tbl_athlete_payments')->insert([
+                'user_id' => $userId,
+                'athlete_fee_id' => $feeId,
+                'period_key' => $periodKey,
+                'amount_due' => $due,
+                'amount' => $amount,
+                'payment_method' => $validated['payment_method'],
+                'reference_number' => $validated['reference_number'] ?? null,
+                'paid_at' => now(),
+                'received_by' => Auth::id(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return round($remaining - $amount, 2);
+        });
+
+        return response()->json([
+            'success' => true,
+            'balance' => $balance,
+            'paymentStatus' => $balance <= 0 ? 'Paid' : 'Partial',
+        ]);
+    }
+
+    /**
+     * PUT /sales/athlete-payments/{payment}
+     * Edits ONE payment row. Most it can be: amount_due - the OTHER payments
+     * of the same due (the row being edited is left out of the total).
+     */
+    public function updateAthletePayment(Request $request, int $payment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
+
+        if (! $row) {
+            return response()->json(['success' => false, 'message' => 'Payment not found.'], 404);
+        }
+
+        $amount = round((float) $validated['amount'], 2);
+
+        DB::transaction(function () use ($row, $validated, $amount, $payment) {
+            DB::table('tbl_users')->where('user_id', $row->user_id)->lockForUpdate()->first();
+
+            $others = (float) DB::table('tbl_athlete_payments')
+                ->where('user_id', $row->user_id)
+                ->where('athlete_fee_id', $row->athlete_fee_id)
+                ->where('period_key', $row->period_key)
+                ->where('athlete_payment_id', '!=', $payment)
+                ->sum('amount');
+
+            $maximum = round((float) $row->amount_due - $others, 2);
+
+            if ($amount > $maximum) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Payment of ₱' . number_format($amount, 2)
+                        . ' exceeds the maximum of ₱' . number_format(max($maximum, 0), 2)
+                        . ' (fee amount minus the other payments).'],
+                ]);
+            }
+
+            DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->update([
+                'amount' => $amount,
+                'payment_method' => $validated['payment_method'],
+                'reference_number' => $validated['reference_number'] ?? null,
+                'updated_at' => now(),
+            ]);
+        });
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Billing period a payment belongs to. No key sent = the current period.
+     */
+    private function resolvePeriodKey(string $cycle, ?string $key): string
+    {
+        $key = $key ?? '';
+
+        if ($cycle === 'one_time') {
+            return '';
+        }
+
+        if ($cycle === 'monthly') {
+            if ($key === '') {
+                return now()->format('Y-m');
+            }
+            if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $key)) {
+                return $key;
+            }
+        }
+
+        if ($cycle === 'yearly') {
+            if ($key === '') {
+                return now()->format('Y');
+            }
+            if (preg_match('/^\d{4}$/', $key)) {
+                return $key;
+            }
+        }
+
+        throw ValidationException::withMessages(['period_key' => ['Invalid billing period.']]);
+    }
+
+    private function periodLabel(string $cycle, string $key): string
+    {
+        if ($cycle === 'monthly' && $key !== '') {
+            return Carbon::createFromFormat('!Y-m', $key)->format('M Y');
+        }
+
+        if ($cycle === 'yearly' && $key !== '') {
+            return $key;
+        }
+
+        return 'One-time';
+    }
+
+    /**
+     * Athlete payment log: ONE ROW PER PAYMENT (same shape as courseLog()).
+     * paid = this payment, balance/status = the due right AFTER this payment,
+     * duePaid = everything paid on that due so far.
+     * Every athlete x every ACTIVE fee that has no payment yet for the
+     * current period also gets one Unpaid row (negative id), so the admin sees
+     * who still owes and can pay it.
+     * Receipt is derived: AR-<year>-<payment id>.
+     */
+    private function athleteLog(): Collection
+    {
+        $month = now()->format('Y-m');
+        $year = now()->format('Y');
+        $sumOfDue = 'SELECT COALESCE(SUM(x.amount), 0) FROM tbl_athlete_payments x'
+            . ' WHERE x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
+
+        $payments = DB::table('tbl_athlete_payments as ap')
+            ->join('tbl_athlete_fees as f', 'f.athlete_fee_id', '=', 'ap.athlete_fee_id')
+            ->leftJoin('tbl_users as u', 'u.user_id', '=', 'ap.user_id')
+            ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
+            ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
+            ->selectRaw(self::PERSON_NAME_SQL . ' as name')
+            ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')
+            ->selectRaw('(' . $sumOfDue . ') as totalPaid')
+            ->selectRaw("DATE_FORMAT(ap.paid_at, '%b-%d-%Y') as date")
+            ->selectRaw("DATE_FORMAT(ap.updated_at, '%b-%d-%Y') as updatedAt")
+            ->selectRaw("CONCAT('AR-', YEAR(ap.paid_at), '-', LPAD(ap.athlete_payment_id, 4, '0')) as receipt")
+            ->get()
+            ->map(function ($r) {
+                $due = (float) $r->due;
+                $balance = max(round($due - (float) $r->runningPaid, 2), 0);
+
+                return [
+                    'id' => (int) $r->id,
+                    'userId' => (int) $r->userId,
+                    'feeId' => (int) $r->feeId,
+                    'periodKey' => (string) $r->periodKey,
+                    'dueKey' => $r->userId . '-' . $r->feeId . '-' . $r->periodKey,
+                    'fee' => $r->fee,
+                    'cycle' => $r->cycle,
+                    'period' => $this->periodLabel($r->cycle, (string) $r->periodKey),
+                    'name' => $r->name,
+                    'toPay' => $due,
+                    'paid' => (float) $r->amount,
+                    'balance' => $balance,
+                    'status' => $balance <= 0 ? 'paid' : 'partial',
+                    'paidToDate' => round((float) $r->runningPaid, 2),
+                    'duePaid' => (float) $r->totalPaid,
+                    'reference' => $r->reference ?? '',
+                    'method' => $r->method ?? '',
+                    'date' => $r->date ?? '',
+                    'updatedAt' => $r->updatedAt ?? '',
+                    'receipt' => $r->receipt,
+                    'sortAt' => (string) $r->sortAt,
+                ];
+            });
+
+        $periodCase = "CASE f.billing_cycle WHEN 'monthly' THEN ? WHEN 'yearly' THEN ? ELSE '' END";
+
+        $unpaid = DB::table('tbl_users as u')
+            ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
+            ->crossJoin('tbl_athlete_fees as f')
+            ->where('u.role_id', self::ATHLETE_ROLE_ID)
+            ->where('f.is_active', 1)
+            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_athlete_payments x WHERE x.user_id = u.user_id AND x.athlete_fee_id = f.athlete_fee_id AND x.period_key = ' . $periodCase . ')', [$month, $year])
+            ->select('u.user_id as userId', 'f.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'f.amount as due')
+            ->selectRaw(self::PERSON_NAME_SQL . ' as name')
+            ->selectRaw($periodCase . ' as periodKey', [$month, $year])
+            ->get()
+            ->values()
+            ->map(function ($r, $i) {
+                $due = (float) $r->due;
+
+                return [
+                    'id' => -($i + 1),
+                    'userId' => (int) $r->userId,
+                    'feeId' => (int) $r->feeId,
+                    'periodKey' => (string) $r->periodKey,
+                    'dueKey' => $r->userId . '-' . $r->feeId . '-' . $r->periodKey,
+                    'fee' => $r->fee,
+                    'cycle' => $r->cycle,
+                    'period' => $this->periodLabel($r->cycle, (string) $r->periodKey),
+                    'name' => $r->name,
+                    'toPay' => $due,
+                    'paid' => 0.0,
+                    'balance' => $due,
+                    'status' => 'unpaid',
+                    'paidToDate' => 0.0,
+                    'duePaid' => 0.0,
+                    'reference' => '',
+                    'method' => '',
+                    'date' => '',
+                    'updatedAt' => '',
+                    'receipt' => 'DUE-' . $r->userId . '-' . $r->feeId,
+                    'sortAt' => now()->toDateTimeString(),
+                ];
+            });
+
+        return $payments
+            ->concat($unpaid)
+            ->sort(fn ($a, $b) => [$b['sortAt'], $b['id']] <=> [$a['sortAt'], $a['id']])
+            ->values();
+    }
+
+    /**
+     * Fee settings for the "Athlete fees" tab (archived ones included).
+     */
+    private function athleteFees(): Collection
+    {
+        return DB::table('tbl_athlete_fees')
+            ->orderByDesc('is_active')
+            ->orderBy('fee_name')
+            ->get(['athlete_fee_id', 'fee_name', 'description', 'amount', 'billing_cycle', 'is_active'])
+            ->map(fn ($fee) => [
+                'id' => (int) $fee->athlete_fee_id,
+                'name' => $fee->fee_name,
+                'description' => $fee->description ?? '',
+                'amount' => (float) $fee->amount,
+                'cycle' => $fee->billing_cycle,
+                'active' => (bool) $fee->is_active,
             ]);
     }
 }

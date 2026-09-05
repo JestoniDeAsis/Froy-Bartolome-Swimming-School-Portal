@@ -75,6 +75,10 @@
 #coursePaymentEnrollmentDropdown .registerDropdownToggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 #coursePaymentEnrollmentDropdown .registerDropdownOptions { max-height: 220px; overflow-y: auto; }
 #coursePaymentEnrollmentDropdown .registerDropdownOption { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#athletePaymentDueDropdown .registerDropdownToggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+#athletePaymentDueDropdown .registerDropdownOptions { max-height: 220px; overflow-y: auto; }
+#athletePaymentDueDropdown .registerDropdownOption { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sales-check { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 600; }
 
 .sales-table-wrap {
     --sales-row-height: 49px;
@@ -555,6 +559,8 @@
     <nav class="btn-tab-group sales-tabs" aria-label="Billing sections" role="tablist">
         <button class="btn btn-outline-primary btn-tab" id="salesTabAll" type="button" role="tab" aria-selected="false" aria-controls="salesPanelAll" data-sales-tab="all">All</button>
         <button class="btn btn-outline-primary btn-tab active" id="salesTabCourse" type="button" role="tab" aria-selected="true" aria-controls="salesPanelCourse" data-sales-tab="course">Course payment</button>
+        <button class="btn btn-outline-primary btn-tab" id="salesTabAthletes" type="button" role="tab" aria-selected="false" aria-controls="salesPanelAthletes" data-sales-tab="athletes">Athlete payments</button>
+        <button class="btn btn-outline-primary btn-tab" id="salesTabFees" type="button" role="tab" aria-selected="false" aria-controls="salesPanelFees" data-sales-tab="fees">Athlete fees</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabLogs" type="button" role="tab" aria-selected="false" aria-controls="salesPanelLogs" data-sales-tab="logs">Item logs</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabItems" type="button" role="tab" aria-selected="false" aria-controls="salesPanelItems" data-sales-tab="items">Items</button>
     </nav>
@@ -590,6 +596,12 @@
     </section>
     <section class="sales-panel" id="salesPanelCourse" role="tabpanel" aria-labelledby="salesTabCourse" data-sales-panel="course">
         <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
+    </section>
+    <section class="sales-panel" id="salesPanelAthletes" role="tabpanel" aria-labelledby="salesTabAthletes" data-sales-panel="athletes" hidden>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee</th><th>Athlete</th><th>Period</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="athletePaymentRows"></tbody></table></div>
+    </section>
+    <section class="sales-panel" id="salesPanelFees" role="tabpanel" aria-labelledby="salesTabFees" data-sales-panel="fees" hidden>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee name</th><th>Description</th><th>Amount</th><th>Billing</th><th>Status</th><th>Actions</th></tr></thead><tbody id="athleteFeeRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelLogs" role="tabpanel" aria-labelledby="salesTabLogs" data-sales-panel="logs" hidden>
         <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
@@ -656,6 +668,53 @@
     </div>
 </dialog>
 
+<dialog class="sales-dialog" id="athletePaymentDialog" aria-labelledby="athletePaymentTitle">
+    <div class="sales-dialog-inner">
+        <h2 id="athletePaymentTitle">Recording athlete payment</h2><p class="sales-dialog-subtitle" id="athletePaymentSubtitle"></p>
+        <form class="sales-form" id="athletePaymentForm">
+            <input type="hidden" name="paymentId">
+            <input type="hidden" name="userId">
+            <input type="hidden" name="feeId">
+            <input type="hidden" name="periodKey">
+            <div class="sales-field" id="athletePaymentDueGroup" hidden><label for="athletePaymentDueToggle">Athlete &amp; fee <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="athletePaymentDueDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="athletePaymentDueToggle" type="button" aria-expanded="false" aria-controls="athletePaymentDueOptions"><span>Select athlete</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="athletePaymentDueOptions" hidden></div><input id="athletePaymentDue" type="hidden" value=""></div></div>
+            <div class="sales-balance-line"><strong>Balance</strong><strong id="athletePaymentBalance">₱0</strong></div>
+            <div class="sales-field"><label for="athletePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="athletePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱500" required><small id="athletePaymentLimit"></small><small class="sales-field-error" id="athletePaymentError" hidden></small></div>
+            <div class="sales-field"><label for="athletePaymentMethodToggle">Payment Method <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="athletePaymentMethodDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="athletePaymentMethodToggle" type="button" aria-expanded="false" aria-controls="athletePaymentMethodOptions"><span>Select method</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="athletePaymentMethodOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">Select method</button>
+                    <button class="registerDropdownOption" type="button" data-value="Cash">Cash</button>
+                    <button class="registerDropdownOption" type="button" data-value="GCash">GCash</button>
+                    <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
+                    <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
+                </div><input id="athletePaymentMethod" name="method" type="hidden" value=""></div></div>
+            <div class="sales-field"><label for="athletePaymentReference">Reference Number</label><input class="form-control" id="athletePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
+            <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="athletePaymentStatus"></span></div>
+            <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="athletePaymentSubmit">Record</button></div>
+        </form>
+    </div>
+</dialog>
+
+<dialog class="sales-dialog" id="feeDialog" aria-labelledby="feeDialogTitle">
+    <div class="sales-dialog-inner">
+        <h2 id="feeDialogTitle">Adding Athlete Fee</h2><p class="sales-dialog-subtitle" id="feeDialogSubtitle">What athletes need to pay</p>
+        <form class="sales-form" id="feeForm">
+            <input type="hidden" name="id">
+            <div class="sales-field"><label for="feeName">Fee name *</label><input class="form-control" id="feeName" name="name" maxlength="100" placeholder="e.g. Monthly training fee" required></div>
+            <div class="sales-field"><label for="feeDescription">Description</label><input class="form-control" id="feeDescription" name="description" maxlength="255"></div>
+            <div class="sales-form-grid">
+                <div class="sales-field"><label for="feeAmount">Amount *</label><input class="form-control" id="feeAmount" name="amount" type="number" min="0.01" step="0.01" required></div>
+                <div class="sales-field"><label for="feeCycleToggle">Billing *</label><div class="registerDropdown ddBlock" id="feeCycleDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="feeCycleToggle" type="button" aria-expanded="false" aria-controls="feeCycleOptions"><span>Monthly</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="feeCycleOptions" hidden>
+                    <button class="registerDropdownOption" type="button" data-value="one_time">One-time</button>
+                    <button class="registerDropdownOption active" type="button" data-value="monthly">Monthly</button>
+                    <button class="registerDropdownOption" type="button" data-value="yearly">Yearly</button>
+                </div><input id="feeCycle" name="cycle" type="hidden" value="monthly"></div></div>
+            </div>
+            <label class="sales-check"><input type="checkbox" name="active" checked> Active (every athlete owes it each period)</label>
+            <div class="sales-field"><small>Changing the amount only affects dues nobody has paid yet. Dues that already took a payment keep their old amount.</small></div>
+            <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="feeSubmit">Add</button></div>
+        </form>
+    </div>
+</dialog>
+
 <dialog class="sales-dialog sales-receipt-dialog" id="receiptDialog" aria-label="Receipt">
     <div class="sales-receipt-toolbar"><button class="btn btn-primary btn-sm btn-icon-label" type="button" id="printReceipt"><i class="bi bi-printer" aria-hidden="true"></i> Print</button><button class="btn btn-icon btn-icon-ghost btn-icon-sm" type="button" data-dialog-close aria-label="Close receipt"><i class="bi bi-x-lg"></i></button></div>
     <article class="sales-receipt" id="receiptContent"></article>
@@ -675,6 +734,8 @@
     let courseRows = [];
     let items = [];
     let logs = [];
+    let athleteRows = [];
+    let athleteFees = [];
     let activeTab = 'course';
     let pendingRemoval = null;
     const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
@@ -742,17 +803,33 @@
         };
     }
 
+    function athleteStats() {
+        // Rows are one per payment; balance-based totals are taken once per due
+        // (athlete + fee + period), not once per payment row.
+        const dues = new Map();
+        athleteRows.forEach(row => dues.set(row.dueKey, { toPay: Number(row.toPay), paid: Number(row.duePaid) }));
+        const list = [...dues.values()];
+        return {
+            collected: athleteRows.reduce((total, row) => total + Number(row.paid), 0),
+            outstanding: list.reduce((total, d) => total + Math.max(d.toPay - d.paid, 0), 0),
+            paid: list.reduce((total, d) => total + (d.paid > 0 && d.paid >= d.toPay ? d.paid : 0), 0),
+            unpaid: list.reduce((total, d) => total + (d.paid <= 0 ? d.toPay : 0), 0)
+        };
+    }
+
     function updateStats() {
-        document.getElementById('salesStats').hidden = activeTab === 'items';
+        document.getElementById('salesStats').hidden = activeTab === 'items' || activeTab === 'fees';
         const course = courseStats();
         const item = itemStats();
+        const athlete = athleteStats();
         const stats = activeTab === 'course' ? course
             : activeTab === 'logs' ? item
+            : activeTab === 'athletes' ? athlete
             : {
-                collected: course.collected + item.collected,
-                outstanding: course.outstanding + item.outstanding,
-                paid: course.paid + item.paid,
-                unpaid: course.unpaid + item.unpaid
+                collected: course.collected + item.collected + athlete.collected,
+                outstanding: course.outstanding + item.outstanding + athlete.outstanding,
+                paid: course.paid + item.paid + athlete.paid,
+                unpaid: course.unpaid + item.unpaid + athlete.unpaid
             };
         document.getElementById('salesTotalCollected').textContent = money(stats.collected);
         document.getElementById('salesOutstanding').textContent = money(stats.outstanding);
@@ -808,7 +885,11 @@
                 total, paid: Number(row.paid), balance: Math.max(total - Number(row.paid), 0),
                 method: row.method, status: statusFor(row.paid, total), date: row.date, sortAt: row.sortAt || ''
             };
-        })).sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
+        })).concat(athleteRows.map(row => ({
+            kind: 'athlete', id: row.id, type: 'Athlete', name: `${row.fee} (${row.period})`, client: row.name,
+            total: Number(row.toPay), paid: Number(row.paid), balance: Number(row.balance),
+            method: row.method, status: row.status, date: row.date, sortAt: row.sortAt || ''
+        }))).sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
 
         const visible = rows.filter(row => {
             const haystack = `${row.type} ${row.name} ${row.client} ${row.method} ${row.date}`.toLocaleLowerCase();
@@ -819,7 +900,7 @@
         ).join('') : '<tr><td class="sales-empty" colspan="10">No records match your search.</td></tr>';
     }
 
-    function render() { renderAll(); renderCourseRows(); renderLogs(); renderItems(); updateStats(); }
+    function render() { renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); }
 
     function setTab(tab) {
         activeTab = tab;
@@ -831,10 +912,10 @@
         document.querySelectorAll('[data-sales-panel]').forEach(panel => { panel.hidden = panel.dataset.salesPanel !== tab; });
         search.value = '';
         setDropdown(statusFilterRoot, '');
-        const labels = { all: '', course: 'Record Course Payment', logs: 'Add New Purchase', items: 'Add New Item' };
+        const labels = { all: '', course: 'Record Course Payment', logs: 'Add New Purchase', items: 'Add New Item', athletes: 'Record Athlete Payment', fees: 'Add Athlete Fee' };
         addButton.querySelector('span').textContent = labels[tab];
         addButton.hidden = tab === 'all';   // nothing to add from the combined view
-        statusFilterRoot.hidden = tab === 'items';
+        statusFilterRoot.hidden = tab === 'items' || tab === 'fees';
         render();   // new tab: re-apply the (now cleared) search/filter and refresh the totals
     }
 
@@ -1017,34 +1098,209 @@
 
     function showReceipt(row, type) {
         const isCourse = type === 'course';
-        const total = isCourse ? Number(row.toPay) : Number(row.price) * Number(row.quantity);
+        const isAthlete = type === 'athlete';
+        const isPlan = isCourse || isAthlete;   // one payment toward a bigger amount due
+        const total = isPlan ? Number(row.toPay) : Number(row.price) * Number(row.quantity);
         const paid = Number(row.paid);
-        const balance = isCourse ? Number(row.balance) : Math.max(total - paid, 0);
-        const status = isCourse ? row.status : statusFor(paid, total);
-        const client = isCourse ? row.name : (row.client || 'Walk-in customer');
-        const description = isCourse ? row.course : row.item;
-        const quantityLine = isCourse ? 'Course enrollment' : `${row.quantity} \u00d7 ${money(row.price)}`;
-        const invoice = row.receipt || `${isCourse ? 'INV' : 'ITEM'}-${new Date().getFullYear()}-${String(row.id).padStart(4, '0')}`;
-        const labels = isCourse ? ['Course price', 'This payment', 'Balance due'] : ['To pay', 'Amount paid', 'Balance due'];
+        const balance = isPlan ? Number(row.balance) : Math.max(total - paid, 0);
+        const status = isPlan ? row.status : statusFor(paid, total);
+        const client = isPlan ? row.name : (row.client || 'Walk-in customer');
+        const description = isCourse ? row.course : isAthlete ? row.fee : row.item;
+        const quantityLine = isCourse ? 'Course enrollment' : isAthlete ? `${cycleLabel(row.cycle)} fee - ${row.period}` : `${row.quantity} \u00d7 ${money(row.price)}`;
+        const invoice = row.receipt || `${isCourse ? 'INV' : isAthlete ? 'AR' : 'ITEM'}-${new Date().getFullYear()}-${String(row.id).padStart(4, '0')}`;
+        const labels = isCourse ? ['Course price', 'This payment', 'Balance due']
+            : isAthlete ? ['Fee amount', 'This payment', 'Balance due']
+            : ['To pay', 'Amount paid', 'Balance due'];
 
         const metaRows = [['Receipt #', invoice], ['Date', row.date], ['Client', client]];
-        if (isCourse && row.reference) metaRows.push(['Reference #', row.reference]);
+        if (isPlan && row.reference) metaRows.push(['Reference #', row.reference]);
         const meta = metaRows.map(([label, value]) => `<span>${label}</span><strong>${escapeHtml(value)}</strong>`).join('');
 
-        const paidToDate = isCourse
+        const paidToDate = isPlan
             ? `<div class="sales-receipt-line"><span>Total paid to date</span><strong>${money(row.paidToDate)}</strong></div>`
             : '';
 
         document.getElementById('receiptContent').innerHTML =
             `<header class="sales-receipt-head"><div class="sales-receipt-brand"><span class="sales-receipt-brand-mark">FB</span> FBSS SwimOS ${badge(status)}</div><strong>Froy Bartolome Swimming School</strong><small>R3M+2Q9, Del Monte - Norzagaray Rd, SJDM, Bulacan<br>(+63) 966 203 1918</small></header>` +
             `<div class="sales-receipt-body"><div class="sales-receipt-meta">${meta}</div>` +
-            `<p class="sales-receipt-section">${isCourse ? 'Course purchased' : 'Items purchased'}</p>` +
+            `<p class="sales-receipt-section">${isCourse ? 'Course purchased' : isAthlete ? 'Athlete fee' : 'Items purchased'}</p>` +
             `<div class="sales-receipt-line"><span>${escapeHtml(description)}<small>${escapeHtml(quantityLine)}</small></span><strong>${money(total)}</strong></div>` +
             paidToDate +
             `<div class="sales-receipt-amounts"><div class="sales-receipt-amount"><small>${labels[0]}</small><strong>${money(total)}</strong></div><div class="sales-receipt-amount"><small>${labels[1]}</small><strong>${money(paid)}</strong></div><div class="sales-receipt-amount"><small>${labels[2]}</small><strong>${money(balance)}</strong></div></div>` +
             `<div class="sales-receipt-method">Payment Method: <strong>${escapeHtml(row.method || '--')}</strong></div>` +
             `<p class="sales-receipt-thanks">Thank You for Your Payment!</p><p class="sales-receipt-footer">We look forward to seeing you at the pool</p></div>`;
         document.getElementById('receiptDialog').showModal();
+    }
+
+    // ------------------------------------------------------------------
+    // Athlete payments + athlete fees (the "payment setting")
+    // ------------------------------------------------------------------
+    const cycleLabel = cycle => ({ one_time: 'One-time', monthly: 'Monthly', yearly: 'Yearly' }[cycle] || cycle || '--');
+    const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+    async function sendJson(url, method, body) {
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+        });
+        const data = await response.json().catch(() => ({}));
+        return { ok: response.ok && data.success, status: response.status, data };
+    }
+
+    const errorText = (result, fallback) =>
+        (result.data.errors ? Object.values(result.data.errors)[0][0] : null) || result.data.message || `${fallback} (error ${result.status}).`;
+
+    function renderAthleteRows() {
+        const { text, status } = currentFilter();
+        const visible = athleteRows.filter(row => {
+            const haystack = `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date}`.toLocaleLowerCase();
+            return (!status || status === row.status) && (!text || haystack.includes(text));
+        });
+        document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
+            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="12">No athlete payments match your search.</td></tr>';
+    }
+
+    function renderFees() {
+        const text = search.value.trim().toLocaleLowerCase();
+        const visible = athleteFees.filter(fee => `${fee.name} ${fee.description} ${cycleLabel(fee.cycle)}`.toLocaleLowerCase().includes(text));
+        document.getElementById('athleteFeeRows').innerHTML = visible.length ? visible.map(fee =>
+            `<tr><td class="sales-name">${escapeHtml(fee.name)}</td><td>${escapeHtml(fee.description || '--')}</td><td>${money(fee.amount)}</td><td>${cycleLabel(fee.cycle)}</td><td><span class="sales-badge sales-badge--${fee.active ? 'paid' : 'unpaid'}">${fee.active ? 'Active' : 'Archived'}</span></td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-fee-edit="${fee.id}" aria-label="Edit ${escapeHtml(fee.name)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-fee-delete="${fee.id}" aria-label="Remove ${escapeHtml(fee.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="6">No athlete fees yet. Add one to start billing athletes.</td></tr>';
+    }
+
+    // Same idea as the course dialog: `others` = paid on this due EXCLUDING the
+    // payment being edited, so the most it can be is toPay - others.
+    let athleteDialog = { toPay: 0, others: 0, available: 0 };
+    let athleteSubmitLabel = 'Record';
+
+    function showAthletePayment(row) {
+        const form = document.getElementById('athletePaymentForm');
+        const editing = Number(row.id) > 0;   // negative id = a due with no payment yet
+        const others = editing ? round2(Number(row.duePaid) - Number(row.paid)) : round2(row.duePaid);
+        const available = Math.max(round2(Number(row.toPay) - others), 0);
+
+        athleteDialog = { toPay: Number(row.toPay), others, available };
+        athleteSubmitLabel = editing ? 'Update' : 'Record';
+
+        document.getElementById('athletePaymentDueGroup').hidden = true;
+        document.getElementById('athletePaymentSubmit').textContent = athleteSubmitLabel;
+        form.elements.paymentId.value = editing ? row.id : '';
+        form.elements.userId.value = row.userId;
+        form.elements.feeId.value = row.feeId;
+        form.elements.periodKey.value = row.periodKey;
+        form.elements.amount.value = editing ? row.paid : '';
+        setDropdown(document.getElementById('athletePaymentMethodDropdown'), editing ? (row.method || '') : '');
+        document.getElementById('athletePaymentMethodDropdown').classList.remove('isInvalid');
+        form.elements.reference.value = editing ? (row.reference || '') : '';
+
+        document.getElementById('athletePaymentTitle').textContent = editing ? 'Updating athlete payment' : 'Recording athlete payment';
+        document.getElementById('athletePaymentSubtitle').textContent = `Athlete: ${row.name} - ${row.fee} (${row.period})`;
+        document.getElementById('athletePaymentLimit').textContent = editing
+            ? `Up to ${money(available)} for this payment (fee amount minus the other payments).`
+            : `Up to ${money(available)} (the remaining balance).`;
+
+        refreshAthletePreview();
+        document.getElementById('athletePaymentDialog').showModal();
+    }
+
+    // Dues that still owe something (one entry per athlete + fee + period).
+    function outstandingDues() {
+        const seen = new Map();
+        athleteRows.forEach(row => { if (!seen.has(row.dueKey)) seen.set(row.dueKey, row); });
+        return [...seen.values()]
+            .map(row => ({
+                dueKey: row.dueKey, userId: row.userId, feeId: row.feeId, periodKey: row.periodKey,
+                name: row.name, fee: row.fee, period: row.period,
+                toPay: Number(row.toPay), paid: Number(row.duePaid),
+                remaining: Math.max(round2(Number(row.toPay) - Number(row.duePaid)), 0)
+            }))
+            .filter(d => d.remaining > 0)
+            .sort((a, b) => a.name.localeCompare(b.name) || a.fee.localeCompare(b.fee));
+    }
+
+    // "Record Athlete Payment" (top button): pick an athlete's due, then log a payment.
+    function showRecordAthletePayment() {
+        if (!athleteFees.some(fee => fee.active)) { notify('Add an athlete fee first (Athlete fees tab).'); return; }
+        const owing = outstandingDues();
+        if (!owing.length) { notify('Every athlete is already fully paid.'); return; }
+
+        const form = document.getElementById('athletePaymentForm');
+        athleteDialog = { toPay: 0, others: 0, available: 0 };
+        athleteSubmitLabel = 'Record';
+
+        ['paymentId', 'userId', 'feeId', 'periodKey', 'amount', 'reference'].forEach(name => { form.elements[name].value = ''; });
+        setDropdown(document.getElementById('athletePaymentMethodDropdown'), '');
+        document.getElementById('athletePaymentMethodDropdown').classList.remove('isInvalid');
+
+        document.getElementById('athletePaymentDueGroup').hidden = false;
+        document.getElementById('athletePaymentDueDropdown').classList.remove('isInvalid');
+        window.FBSSDropdown.setOptions(
+            document.getElementById('athletePaymentDueDropdown'),
+            [{ value: '', label: 'Select athlete' }].concat(owing.map(d => ({ value: d.dueKey, label: `${d.name} - ${d.fee} (${d.period})` }))),
+            ''
+        );
+
+        document.getElementById('athletePaymentTitle').textContent = 'Recording athlete payment';
+        document.getElementById('athletePaymentSubtitle').textContent = 'Choose the athlete who is paying.';
+        document.getElementById('athletePaymentLimit').textContent = '';
+        document.getElementById('athletePaymentSubmit').textContent = athleteSubmitLabel;
+
+        refreshAthletePreview();
+        document.getElementById('athletePaymentDialog').showModal();
+    }
+
+    function applyPickedDue() {
+        const form = document.getElementById('athletePaymentForm');
+        const key = document.getElementById('athletePaymentDue').value;
+        const picked = outstandingDues().find(d => d.dueKey === key);
+
+        form.elements.userId.value = picked ? picked.userId : '';
+        form.elements.feeId.value = picked ? picked.feeId : '';
+        form.elements.periodKey.value = picked ? picked.periodKey : '';
+        athleteDialog = picked
+            ? { toPay: picked.toPay, others: round2(picked.paid), available: picked.remaining }
+            : { toPay: 0, others: 0, available: 0 };
+
+        document.getElementById('athletePaymentSubtitle').textContent = picked ? `Athlete: ${picked.name} - ${picked.fee} (${picked.period})` : 'Choose the athlete who is paying.';
+        document.getElementById('athletePaymentLimit').textContent = picked ? `Up to ${money(picked.remaining)} (the remaining balance).` : '';
+        refreshAthletePreview();
+    }
+
+    function refreshAthletePreview() {
+        const amount = Math.max(Number(document.getElementById('athletePaymentAmount').value) || 0, 0);
+        const exceeds = round2(amount) > athleteDialog.available;
+        const remaining = Math.max(round2(athleteDialog.available - amount), 0);
+        const status = statusFor(athleteDialog.others + Math.min(amount, athleteDialog.available), athleteDialog.toPay);
+
+        document.getElementById('athletePaymentBalance').textContent = money(remaining);
+
+        const badgeElement = document.getElementById('athletePaymentStatus');
+        badgeElement.className = `sales-badge sales-badge--${status}`;
+        badgeElement.textContent = statusLabel(status);
+
+        const error = document.getElementById('athletePaymentError');
+        error.hidden = !exceeds;
+        error.textContent = exceeds ? `Exceeds the limit of ${money(athleteDialog.available)}.` : '';
+
+        document.getElementById('athletePaymentSubmit').disabled = exceeds || amount <= 0;
+    }
+
+    function showFee(fee = null) {
+        const form = document.getElementById('feeForm');
+        form.reset();
+        form.elements.id.value = fee?.id ?? '';
+        form.elements.name.value = fee?.name ?? '';
+        form.elements.description.value = fee?.description ?? '';
+        form.elements.amount.value = fee?.amount ?? '';
+        form.elements.active.checked = fee ? fee.active : true;
+        setDropdown(document.getElementById('feeCycleDropdown'), fee?.cycle || 'monthly');
+        const editing = Boolean(fee);
+        document.getElementById('feeDialogTitle').textContent = editing ? 'Updating Athlete Fee' : 'Adding Athlete Fee';
+        document.getElementById('feeDialogSubtitle').textContent = editing ? 'Athlete fee' : 'What athletes need to pay';
+        document.getElementById('feeSubmit').textContent = editing ? 'Update' : 'Add';
+        document.getElementById('feeDialog').showModal();
     }
 
     function askRemove(message, callback) {
@@ -1056,7 +1312,7 @@
     document.querySelectorAll('[data-sales-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.salesTab)));
     search.addEventListener('input', render);
     statusFilterRoot.addEventListener('dropdown:change', render);
-    addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : showRecordPayment());
+    addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : activeTab === 'athletes' ? showRecordAthletePayment() : activeTab === 'fees' ? showFee() : showRecordPayment());
     document.getElementById('purchaseItemDropdown').addEventListener('dropdown:change', refreshPurchasePrice);
     document.getElementById('purchaseQuantity').addEventListener('input', refreshPurchasePrice);
 
@@ -1065,8 +1321,9 @@
         if (!target) return;
         if (target.matches('[data-course-edit]')) showCoursePayment(byId(courseRows, target.dataset.courseEdit));
         if (target.matches('[data-all-receipt]')) {
-            const isCourse = target.dataset.allKind === 'course';
-            showReceipt(byId(isCourse ? courseRows : logs, target.dataset.allReceipt), isCourse ? 'course' : 'item');
+            const kind = target.dataset.allKind;   // 'course' | 'item' | 'athlete'
+            const source = kind === 'course' ? courseRows : kind === 'athlete' ? athleteRows : logs;
+            showReceipt(byId(source, target.dataset.allReceipt), kind);
         }
         if (target.matches('[data-course-receipt]')) showReceipt(byId(courseRows, target.dataset.courseReceipt), 'course');
         if (target.matches('[data-course-delete]')) {
@@ -1083,6 +1340,24 @@
         if (target.matches('[data-item-delete]')) {
             const item = byId(items, target.dataset.itemDelete);
             askRemove(`Remove ${item.name} from the current catalog preview? Previous item logs will remain visible.`, () => { items = items.filter(row => row.id !== item.id); render(); });
+        }
+        if (target.matches('[data-athlete-edit]')) showAthletePayment(byId(athleteRows, target.dataset.athleteEdit));
+        if (target.matches('[data-athlete-receipt]')) showReceipt(byId(athleteRows, target.dataset.athleteReceipt), 'athlete');
+        if (target.matches('[data-fee-edit]')) showFee(byId(athleteFees, target.dataset.feeEdit));
+        if (target.matches('[data-fee-delete]')) {
+            const fee = byId(athleteFees, target.dataset.feeDelete);
+            askRemove(`Remove ${fee.name}? If athletes already paid it, it is archived instead so the payment history stays intact.`, async () => {
+                try {
+                    const result = await sendJson(`{{ url('/sales/athlete-fees') }}/${fee.id}`, 'DELETE');
+                    if (!result.ok) { notify(errorText(result, 'Could not remove the fee'), 'danger'); return false; }
+                    await loadData();
+                    return result.data.archived ? `${fee.name} was archived (it already has payments).` : `${fee.name} was removed.`;
+                } catch (error) {
+                    console.error(error);
+                    notify('Something went wrong while removing the fee.', 'danger');
+                    return false;
+                }
+            });
         }
     });
 
@@ -1198,11 +1473,120 @@
         notify(id ? 'Item updated in this preview.' : 'Item added to this preview.');
     });
 
-    document.getElementById('confirmDelete').addEventListener('click', () => {
-        pendingRemoval?.();
+    document.getElementById('athletePaymentForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const submitButton = document.getElementById('athletePaymentSubmit');
+        const paymentId = Number(form.elements.paymentId.value) || null;
+        const userId = Number(form.elements.userId.value);
+        const feeId = Number(form.elements.feeId.value);
+
+        if (!userId || !feeId) {
+            document.getElementById('athletePaymentDueDropdown').classList.add('isInvalid');
+            document.getElementById('athletePaymentDueToggle').focus();
+            notify('Select an athlete.', 'danger');
+            return;
+        }
+        if (!form.elements.method.value) {
+            document.getElementById('athletePaymentMethodDropdown').classList.add('isInvalid');
+            document.getElementById('athletePaymentMethodToggle').focus();
+            notify('Select a payment method.', 'danger');
+            return;
+        }
+
+        const amount = Math.max(Number(form.elements.amount.value) || 0, 0);
+        if (amount <= 0) { notify('Enter a payment amount greater than zero.', 'danger'); return; }
+        if (round2(amount) > athleteDialog.available) { notify(`Payment exceeds the limit of ${money(athleteDialog.available)}.`, 'danger'); return; }
+
+        const athleteName = athleteRows.find(row => row.userId === userId && row.feeId === feeId)?.name || 'the athlete';
+        const body = {
+            amount,
+            payment_method: form.elements.method.value,
+            reference_number: form.elements.reference.value.trim() || null
+        };
+        if (!paymentId) {
+            body.user_id = userId;
+            body.athlete_fee_id = feeId;
+            body.period_key = form.elements.periodKey.value || null;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = paymentId ? 'Updating...' : 'Recording...';
+
+        try {
+            const result = await sendJson(
+                paymentId ? `{{ url('/sales/athlete-payments') }}/${paymentId}` : `{{ url('/sales/athlete-payments') }}`,
+                paymentId ? 'PUT' : 'POST',
+                body
+            );
+            if (result.ok) {
+                document.getElementById('athletePaymentDialog').close();
+                await loadData();
+                notify(paymentId ? `Successfully updated the payment for ${athleteName}.` : `Successfully recorded the payment for ${athleteName}.`);
+            } else {
+                notify(errorText(result, 'Could not save the payment'), 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            notify('Something went wrong while saving the payment.', 'danger');
+        } finally {
+            submitButton.textContent = athleteSubmitLabel;
+            refreshAthletePreview();
+        }
+    });
+
+    document.getElementById('athletePaymentAmount').addEventListener('input', refreshAthletePreview);
+    document.getElementById('athletePaymentDueDropdown').addEventListener('dropdown:change', event => {
+        event.currentTarget.classList.remove('isInvalid');
+        applyPickedDue();
+    });
+    document.getElementById('athletePaymentMethodDropdown').addEventListener('dropdown:change', event => event.currentTarget.classList.remove('isInvalid'));
+
+    document.getElementById('feeForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const submitButton = document.getElementById('feeSubmit');
+        const id = Number(form.elements.id.value) || null;
+        const label = submitButton.textContent;
+
+        submitButton.disabled = true;
+        try {
+            const result = await sendJson(
+                id ? `{{ url('/sales/athlete-fees') }}/${id}` : `{{ url('/sales/athlete-fees') }}`,
+                id ? 'PUT' : 'POST',
+                {
+                    fee_name: form.elements.name.value.trim(),
+                    description: form.elements.description.value.trim() || null,
+                    amount: Number(form.elements.amount.value),
+                    billing_cycle: form.elements.cycle.value,
+                    is_active: form.elements.active.checked
+                }
+            );
+            if (result.ok) {
+                document.getElementById('feeDialog').close();
+                await loadData();
+                notify(id ? 'Successfully updated the athlete fee.' : 'Successfully added the athlete fee.');
+            } else {
+                notify(errorText(result, 'Could not save the fee'), 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            notify('Something went wrong while saving the fee.', 'danger');
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = label;
+        }
+    });
+
+    // The callback may be async (real server action). It returns the toast text,
+    // or false when it already showed its own error. Preview-only callbacks return nothing.
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+        const action = pendingRemoval;
         pendingRemoval = null;
         document.getElementById('confirmDialog').close();
-        notify('Removed from this preview.');
+        const message = await action?.();
+        if (message === false) return;
+        notify(message || 'Removed from this preview.');
     });
     document.getElementById('printReceipt').addEventListener('click', () => window.print());
     document.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
@@ -1219,6 +1603,8 @@
             courseRows = data.coursePayments;
             items = data.itemCatalog;
             logs = data.itemLogs;
+            athleteRows = data.athletePayments || [];
+            athleteFees = data.athleteFees || [];
             render();
         } catch (error) {
             console.error(error);
