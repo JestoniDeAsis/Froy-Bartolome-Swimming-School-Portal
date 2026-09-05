@@ -1,0 +1,1 @@
+COACHES NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/coaches.blade.php ENDPATH**/ ?>

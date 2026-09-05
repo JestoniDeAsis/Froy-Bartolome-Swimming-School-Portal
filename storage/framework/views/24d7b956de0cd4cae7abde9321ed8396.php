@@ -1,0 +1,1 @@
+ATTENDANCE NI COACH<?php /**PATH /var/www/html/resources/views/pages/coach/attendance.blade.php ENDPATH**/ ?>

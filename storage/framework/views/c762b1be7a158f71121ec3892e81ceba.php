@@ -1,0 +1,1 @@
+DASHBOARD NI ATHLETE<?php /**PATH /var/www/html/resources/views/pages/athlete/dashboard.blade.php ENDPATH**/ ?>

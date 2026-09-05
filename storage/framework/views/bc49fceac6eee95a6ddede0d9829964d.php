@@ -1,0 +1,1 @@
+ANNOUNCEMENT NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/announcements.blade.php ENDPATH**/ ?>
