@@ -10,6 +10,7 @@ return [
         'sales_invoice'  => ['icon' => 'bi-receipt',          'label' => 'Sales & Invoice',   'view' => 'pages.admin.sales_and_invoice'],
         'graduation'     => ['icon' => 'bi-mortarboard',      'label' => 'Graduation',        'view' => 'pages.admin.graduation'],
         'announcements'  => ['icon' => 'bi-megaphone',        'label' => 'Announcements',     'view' => 'pages.admin.announcements'],
+        'profile'            => ['icon' => 'bi-person-circle',   'label' => 'Profile',           'view' => 'pages.shared.profile'],
     ],
     2 => [ // coach
         'dashboard'          => ['icon' => 'bi-speedometer2',    'label' => 'Dashboard',         'view' => 'pages.coach.dashboard'],
