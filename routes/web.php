@@ -48,3 +48,11 @@ Route::get('/', [HomeController::class, 'index'])
 Route::get('/navigate/{page}', [HomeController::class, 'navigate'])
     ->name('home.navigate')
     ->middleware('auth');
+
+    
+Route::post('/profile/update', [App\Http\Controllers\ProfileController::class, 'update'])
+    ->middleware('auth');
+Route::post('/profile/password/verify', [App\Http\Controllers\ChangePasswordController::class, 'verifyCurrent'])
+    ->middleware('auth');
+Route::post('/profile/password/update', [App\Http\Controllers\ChangePasswordController::class, 'update'])
+    ->middleware('auth');
