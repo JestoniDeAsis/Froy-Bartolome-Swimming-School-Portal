@@ -1,3 +1,5 @@
+@extends('layouts.toast')
+
 @php
     // Self-contained, like the original PHP file: fetches its own listing
     // so it can be rendered by name from role_menus.php without needing a
@@ -22,346 +24,346 @@
 @endphp
 
 <style>
-    /* =========================================
-    COURSES CONTAINER
-    ========================================= */
+/* =========================================
+   COURSES CONTAINER
+========================================= */
 
+.courses-container {
+    width: 100%;
+    padding: 1.25rem;
+    background-color: transparent;
+}
+
+/* =========================================
+   COURSES HEADER CONTAINER
+========================================= */
+
+.courses-header-container {
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+/* =========================================
+   COURSES HEADER
+========================================= */
+
+.courses-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+/* =========================================
+   COURSES HEADER DESCRIPTION
+========================================= */
+
+.courses-header .text-muted {
+    margin-bottom: 1.5rem;
+}
+
+/* =========================================
+   TABLE CONTAINER
+========================================= */
+
+.courses-table-container {
+    width: 100%;
+    background-color: #ffffff;
+    border: 1px solid #E7EBEF;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* =========================================
+   TABLE TOOLBAR
+========================================= */
+
+.courses-table-toolbar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0.75rem 1rem;
+}
+
+/* =========================================
+   SEARCH CONTAINER
+========================================= */
+
+.course-search-container {
+    position: relative;
+    width: 300px;
+}
+
+/* =========================================
+   SEARCH ICON
+========================================= */
+
+.course-search-container i {
+    position: absolute;
+    left: 0.7rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    pointer-events: none;
+}
+
+/* =========================================
+   SEARCH INPUT
+========================================= */
+
+#courseSearch {
+    width: 100%;
+    padding: 10px 14px 10px 2rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 20px;
+    background-color: #ffffff;
+    outline: none;
+}
+
+#courseSearch:focus {
+    border-color: #0093E5;
+    box-shadow: 0 0 0 .2rem rgba(0,147,229,.15);
+}
+
+#courseSearch::placeholder {
+    color: #9aa0a6;
+}
+
+/* =========================================
+   TABLE WRAPPER
+========================================= */
+
+.courses-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+/* =========================================
+   COURSES TABLE
+========================================= */
+
+#coursesTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+/* =========================================
+   TABLE HEADER
+========================================= */
+
+#coursesTable thead {
+    background-color: #F8FAFB;
+}
+
+#coursesTable th {
+    padding: 0.65rem 0.75rem;
+    border-top: 1px solid #EDF0F2;
+    border-bottom: 1px solid #E9EDF0;
+    color: #667085;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* =========================================
+   TABLE BODY
+========================================= */
+
+#coursesTable td {
+    padding: 0.7rem 0.75rem;
+    border-bottom: 1px solid #EDF0F2;
+    color: #343A40;
+    text-align: center;
+    white-space: nowrap;
+}
+
+#coursesTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+#coursesTable tbody tr:hover {
+    background-color: #FAFCFD;
+}
+
+/* =========================================
+   COURSE NAME
+========================================= */
+
+.course-name {
+    font-weight: 500;
+    color: #343A40;
+}
+
+/* =========================================
+   FIRST COLUMN
+========================================= */
+
+#coursesTable th:first-child,
+#coursesTable td:first-child {
+    text-align: left;
+    padding-left: 1.75rem;
+}
+
+/* =========================================
+   LAST COLUMN
+========================================= */
+
+#coursesTable th:last-child,
+#coursesTable td:last-child {
+    width: 90px;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 767.98px) {
     .courses-container {
-        width: 100%;
-        padding: 1.25rem;
-        background-color: transparent;
+        padding: 1rem;
     }
-
-    /* =========================================
-    COURSES HEADER CONTAINER
-    ========================================= */
-
-    .courses-header-container {
-        width: 100%;
-        margin-bottom: 0.75rem;
-    }
-
-    /* =========================================
-    COURSES HEADER
-    ========================================= */
-
     .courses-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 0.25rem;
+        align-items: flex-start;
     }
-
-    /* =========================================
-    COURSES HEADER DESCRIPTION
-    ========================================= */
-
-    .courses-header .text-muted {
-        margin-bottom: 1.5rem;
-    }
-
-    /* =========================================
-    TABLE CONTAINER
-    ========================================= */
-
-    .courses-table-container {
-        width: 100%;
-        background-color: #ffffff;
-        border: 1px solid #E7EBEF;
-        border-radius: 12px;
-        overflow: hidden;
-    }
-
-    /* =========================================
-    TABLE TOOLBAR
-    ========================================= */
-
-    .courses-table-toolbar {
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-        padding: 0.75rem 1rem;
-    }
-
-    /* =========================================
-    SEARCH CONTAINER
-    ========================================= */
-
     .course-search-container {
-        position: relative;
-        width: 300px;
+        width: 160px;
     }
+}
 
-    /* =========================================
-    SEARCH ICON
-    ========================================= */
-
-    .course-search-container i {
-        position: absolute;
-        left: 0.7rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6c757d;
-        pointer-events: none;
-    }
-
-    /* =========================================
-    SEARCH INPUT
-    ========================================= */
-
-    #courseSearch {
-        width: 100%;
-        padding: 10px 14px 10px 2rem;
-        border: 1px solid #D1D5DB;
-        border-radius: 20px;
-        background-color: #ffffff;
-        outline: none;
-    }
-
-    #courseSearch:focus {
-        border-color: #0093E5;
-        box-shadow: 0 0 0 .2rem rgba(0,147,229,.15);
-    }
-
-    #courseSearch::placeholder {
-        color: #9aa0a6;
-    }
-
-    /* =========================================
-    TABLE WRAPPER
-    ========================================= */
-
-    .courses-table-wrapper {
-        width: 100%;
-        overflow-x: auto;
-    }
-
-    /* =========================================
-    COURSES TABLE
-    ========================================= */
-
-    #coursesTable {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
-
-    /* =========================================
-    TABLE HEADER
-    ========================================= */
-
-    #coursesTable thead {
-        background-color: #F8FAFB;
-    }
-
-    #coursesTable th {
-        padding: 0.65rem 0.75rem;
-        border-top: 1px solid #EDF0F2;
-        border-bottom: 1px solid #E9EDF0;
-        color: #667085;
-        font-weight: 600;
-        text-align: center;
-        white-space: nowrap;
-    }
-
-    /* =========================================
-    TABLE BODY
-    ========================================= */
-
-    #coursesTable td {
-        padding: 0.7rem 0.75rem;
-        border-bottom: 1px solid #EDF0F2;
-        color: #343A40;
-        text-align: center;
-        white-space: nowrap;
-    }
-
-    #coursesTable tbody tr:last-child td {
-        border-bottom: none;
-    }
-
-    #coursesTable tbody tr:hover {
-        background-color: #FAFCFD;
-    }
-
-    /* =========================================
-    COURSE NAME
-    ========================================= */
-
-    .course-name {
-        font-weight: 500;
-        color: #343A40;
-    }
-
-    /* =========================================
-    FIRST COLUMN
-    ========================================= */
-
-    #coursesTable th:first-child,
-    #coursesTable td:first-child {
-        text-align: left;
-        padding-left: 1.75rem;
-    }
-
-    /* =========================================
-    LAST COLUMN
-    ========================================= */
-
-    #coursesTable th:last-child,
-    #coursesTable td:last-child {
-        width: 90px;
-    }
-
-    /* =========================================
-    RESPONSIVE
-    ========================================= */
-
-    @media (max-width: 767.98px) {
-        .courses-container {
-            padding: 1rem;
-        }
-        .courses-header {
-            align-items: flex-start;
-        }
-        .course-search-container {
-            width: 160px;
-        }
-    }
-
-    @media (max-width: 575.98px) {
-        .courses-header {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        #addCourseButton {
-            width: 100%;
-        }
-        .courses-table-toolbar {
-            justify-content: stretch;
-        }
-        .course-search-container {
-            width: 100%;
-        }
-    }
-
-    /* Add course dialog */
-    .course-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 1050;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 1.25rem;
-        background: rgba(31, 41, 55, 0.45);
-    }
-
-    .course-modal.is-open { display: flex; }
-
-    .course-modal-dialog {
-        width: min(940px, 100%);
-        max-height: calc(100vh - 2.5rem);
-        overflow: auto;
-        background: #ffffff;
-        border: 1px solid #E7EBEF;
-        border-radius: 14px;
-        box-shadow: 0 12px 32px rgba(20, 30, 50, 0.16);
-    }
-
-    .course-modal-header,
-    .course-modal-footer {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid #E7EBEF;
-    }
-
-    .course-modal-header h2 { font-size: 1.1rem; }
-    .course-modal-footer {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        border-top: 1px solid #E7EBEF;
-        border-bottom: 0;
-    }
-
-    .course-builder {
-        display: grid;
-        grid-template-columns: 260px 260px minmax(0, 1fr);
-        gap: 1rem;
-        padding: 1.25rem;
-    }
-
-    .course-builder-panel {
-        display: flex;
+@media (max-width: 575.98px) {
+    .courses-header {
         flex-direction: column;
-        min-width: 0;
-        min-height: 360px;
-        border: 1px solid #E7EBEF;
-        border-radius: 10px;
-        background: #ffffff;
-        overflow: hidden;
+        align-items: stretch;
     }
-
-    .course-builder-panel-heading {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        padding: 0.85rem 1rem;
-        border-bottom: 1px solid #E7EBEF;
-        font-size: 0.875rem;
-        font-weight: 700;
+    #addCourseButton {
+        width: 100%;
     }
-
-    .course-details { padding: 1rem; }
-    .course-details .form-label { font-size: 0.8rem; font-weight: 600; }
-    .course-category-list,
-    .course-skill-list { flex: 1; overflow-y: auto; padding: 0.4rem; }
-
-    .course-list-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.4rem;
-        padding: 0.55rem 0.6rem;
-        border-radius: 8px;
-        cursor: pointer;
+    .courses-table-toolbar {
+        justify-content: stretch;
     }
-
-    .course-list-row:hover,
-    .course-list-row.is-selected { background: #e7f5ff; }
-    .course-list-row.is-selected { color: #045199; }
-    .course-list-row-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .course-list-row-count { color: #6c757d; font-size: 0.75rem; }
-    .course-list-row-actions { display: flex; gap: 0.2rem; }
-
-    /* Archived (soft-deleted) categories/skills — kept in the list, visually muted */
-    .course-list-row.is-archived { color: #9aa0a6; background: #F5F6F7; }
-    .course-list-row.is-archived:hover { background: #EFF1F2; }
-    .course-list-row.is-archived.is-selected { background: #EFF1F2; color: #9aa0a6; }
-    .course-list-row.is-archived .course-list-row-count { color: #b0b5ba; }
-    .course-archived-badge { font-size: 0.75rem; color: #9aa0a6; margin-right: 0.2rem; }
-    .course-icon-button { padding: 0.15rem 0.4rem; line-height: 1.2; }
-    .course-list-row-editing { cursor: default; gap: 0.4rem; }
-    .course-list-row-edit-input { flex: 1; min-width: 0; }
-
-    .course-inline-add,
-    .course-skill-add {
-        display: flex;
-        gap: 0.5rem;
-        padding: 0.75rem;
-        border-top: 1px solid #E7EBEF;
+    .course-search-container {
+        width: 100%;
     }
-    .course-inline-add { display: none; border-top: 0; border-bottom: 1px solid #E7EBEF; }
-    .course-inline-add.is-open { display: flex; }
-    .course-inline-add input,
-    .course-skill-add input { min-width: 0; flex: 1; }
-    .course-empty-state { padding: 1.5rem 1rem; color: #6c757d; font-size: 0.875rem; text-align: center; }
+}
 
-    @media (max-width: 767.98px) {
-        .course-builder { grid-template-columns: 1fr; }
-        .course-builder-panel { min-height: 220px; }
-    }
+/* Add course dialog */
+.course-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(31, 41, 55, 0.45);
+}
+
+.course-modal.is-open { display: flex; }
+
+.course-modal-dialog {
+    width: min(940px, 100%);
+    max-height: calc(100vh - 2.5rem);
+    overflow: auto;
+    background: #ffffff;
+    border: 1px solid #E7EBEF;
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(20, 30, 50, 0.16);
+}
+
+.course-modal-header,
+.course-modal-footer {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #E7EBEF;
+}
+
+.course-modal-header h2 { font-size: 1.1rem; }
+.course-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid #E7EBEF;
+    border-bottom: 0;
+}
+
+.course-builder {
+    display: grid;
+    grid-template-columns: 260px 260px minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1.25rem;
+}
+
+.course-builder-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 360px;
+    border: 1px solid #E7EBEF;
+    border-radius: 10px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.course-builder-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #E7EBEF;
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.course-details { padding: 1rem; }
+.course-details .form-label { font-size: 0.8rem; font-weight: 600; }
+.course-category-list,
+.course-skill-list { flex: 1; overflow-y: auto; padding: 0.4rem; }
+
+.course-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.course-list-row:hover,
+.course-list-row.is-selected { background: #e7f5ff; }
+.course-list-row.is-selected { color: #045199; }
+.course-list-row-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-list-row-count { color: #6c757d; font-size: 0.75rem; }
+.course-list-row-actions { display: flex; gap: 0.2rem; }
+
+/* Archived (soft-deleted) categories/skills — kept in the list, visually muted */
+.course-list-row.is-archived { color: #9aa0a6; background: #F5F6F7; }
+.course-list-row.is-archived:hover { background: #EFF1F2; }
+.course-list-row.is-archived.is-selected { background: #EFF1F2; color: #9aa0a6; }
+.course-list-row.is-archived .course-list-row-count { color: #b0b5ba; }
+.course-archived-badge { font-size: 0.75rem; color: #9aa0a6; margin-right: 0.2rem; }
+.course-icon-button { padding: 0.15rem 0.4rem; line-height: 1.2; }
+.course-list-row-editing { cursor: default; gap: 0.4rem; }
+.course-list-row-edit-input { flex: 1; min-width: 0; }
+
+.course-inline-add,
+.course-skill-add {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-top: 1px solid #E7EBEF;
+}
+.course-inline-add { display: none; border-top: 0; border-bottom: 1px solid #E7EBEF; }
+.course-inline-add.is-open { display: flex; }
+.course-inline-add input,
+.course-skill-add input { min-width: 0; flex: 1; }
+.course-empty-state { padding: 1.5rem 1rem; color: #6c757d; font-size: 0.875rem; text-align: center; }
+
+@media (max-width: 767.98px) {
+    .course-builder { grid-template-columns: 1fr; }
+    .course-builder-panel { min-height: 220px; }
+}
 </style>
 
 <!-- =========================================
@@ -748,9 +750,9 @@
             return i !== index && namesMatch(category.name, name);
         });
         if (clash) {
-            alert(clash.deleted
+            showToast(clash.deleted
                 ? 'A category named "' + name + '" already exists but is archived. Restore it instead of renaming this one.'
-                : 'A category named "' + name + '" already exists.');
+                : 'A category named "' + name + '" already exists.', 'danger');
             return;
         }
         categories[index].name = name;
@@ -848,9 +850,9 @@
             return i !== index && namesMatch(skill.name, name);
         });
         if (clash) {
-            alert(clash.deleted
+            showToast(clash.deleted
                 ? 'A skill named "' + name + '" already exists in this category but is archived. Restore it instead of renaming this one.'
-                : 'A skill named "' + name + '" already exists in this category.');
+                : 'A skill named "' + name + '" already exists in this category.', 'danger');
             return;
         }
         category.skills[index].name = name;
@@ -865,9 +867,9 @@
         if (!name) return;
         const clash = categories.find(function (category) { return namesMatch(category.name, name); });
         if (clash) {
-            alert(clash.deleted
+            showToast(clash.deleted
                 ? 'A category named "' + name + '" already exists but is archived. Restore it instead of adding a new one.'
-                : 'A category named "' + name + '" already exists.');
+                : 'A category named "' + name + '" already exists.', 'danger');
             return;
         }
         categories.push({ id: null, name: name, deleted: false, skills: [] });
@@ -884,9 +886,9 @@
         if (category.deleted) return;
         const clash = category.skills.find(function (skill) { return namesMatch(skill.name, name); });
         if (clash) {
-            alert(clash.deleted
+            showToast(clash.deleted
                 ? 'A skill named "' + name + '" already exists in this category but is archived. Restore it instead of adding a new one.'
-                : 'A skill named "' + name + '" already exists in this category.');
+                : 'A skill named "' + name + '" already exists in this category.', 'danger');
             return;
         }
         category.skills.push({ id: null, name: name, deleted: false });
@@ -923,7 +925,7 @@
 
         } catch (error) {
             console.error(error);
-            alert(error.message || 'Something went wrong while loading the course.');
+            showToast(error.message || 'Something went wrong while loading the course.', 'danger');
         } finally {
             button.disabled = false;
             button.textContent = originalText;
@@ -1037,12 +1039,12 @@
             }
 
             // Reload so the page picks up the up-to-date course list.
-            alert(isEditing ? 'Course updated successfully!' : 'Course added successfully!');
-            window.location.reload();
+            showToast(isEditing ? 'Course updated successfully!' : 'Course added successfully!', 'success');
+            setTimeout(function () { window.location.reload(); }, 1000);
 
         } catch (error) {
             console.error(error);
-            alert(error.message || 'Something went wrong while saving the course.');
+            showToast(error.message || 'Something went wrong while saving the course.', 'danger');
             saveButton.disabled = false;
             saveButton.textContent = originalText;
         }
