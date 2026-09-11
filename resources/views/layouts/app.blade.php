@@ -6,11 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'FBSS Portal')</title>
 
-    <link rel="icon" type="image/png" href="{{ asset('images/logo/icon_fbss.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/icon_fbss.png') }}">
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/css/default.css') }}">
+    {{-- <link rel="stylesheet" href="{{ asset('assets/css/default.css') }}"> --}}
 
     <style>
 
