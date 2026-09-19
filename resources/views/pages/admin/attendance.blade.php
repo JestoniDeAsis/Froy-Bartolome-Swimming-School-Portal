@@ -254,6 +254,18 @@
     box-shadow: 0 0 0 3px rgba(77, 171, 247, .15);
 }
 
+.attendanceModalRemove {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-top: .5rem;
+    font-size: .875rem;
+    color: #b42318;
+    cursor: pointer;
+}
+.attendanceModalRemove input { width: 16px; height: 16px; accent-color: #b42318; }
+.attendanceModalInput:disabled { background: #f2f4f7; color: #98a2b3; cursor: not-allowed; }
+
 .attendanceModalFooter {
     display: flex;
     justify-content: flex-end;
@@ -431,6 +443,11 @@
 
             <label class="attendanceModalLabel" id="timeModalLabel" for="timeModalInput">Current Time</label>
             <input class="attendanceModalInput" id="timeModalInput" type="time">
+
+            <label class="attendanceModalRemove" id="timeModalRemoveWrap" for="timeModalRemove" hidden>
+                <input type="checkbox" id="timeModalRemove">
+                <span id="timeModalRemoveText">Remove Time In</span>
+            </label>
         </div>
 
         <div class="attendanceModalFooter">
@@ -602,7 +619,10 @@
         modalInput: $('timeModalInput'),
         modalClose: $('timeModalCloseButton'),
         modalCancel: $('timeModalCancelButton'),
-        modalSave: $('timeModalSaveButton')
+        modalSave: $('timeModalSaveButton'),
+        modalRemoveWrap: $('timeModalRemoveWrap'),
+        modalRemove: $('timeModalRemove'),
+        modalRemoveText: $('timeModalRemoveText')
     };
 
     let activeTab = 'coaches';
@@ -937,8 +957,12 @@
         const isCoaches = activeTab === 'coaches';
         const canViewLogs = activeTab === 'students' || activeTab === 'athletes';
 
-        el.timeInButton.disabled = busy || !record || Boolean(record.time_in);
-        el.timeOutButton.disabled = busy || !record || !record.time_in || Boolean(record.time_out);
+        el.timeInButton.disabled = busy || !record;
+        el.timeOutButton.disabled = busy || !record || !record.time_in;
+
+        // Buttons switch to edit mode when a time is already recorded.
+        el.timeInButton.textContent = record && record.time_in ? 'Time In (Edit)' : 'Time In';
+        el.timeOutButton.textContent = record && record.time_out ? 'Time Out (Edit)' : 'Time Out';
         el.viewLogsButton.disabled = busy || !record || !canViewLogs;
         el.coachViewLogsButton.disabled = busy || !record || !isCoaches;
 
@@ -1056,25 +1080,37 @@
 
         pendingAction = action;
 
-        el.modalTitle.textContent = action === 'in'
-            ? 'Record Time In'
-            : 'Record Time Out';
+        const existing = action === 'in' ? record.time_in : record.time_out;
+        const isEdit = Boolean(existing);
+        const label = action === 'in' ? 'Time In' : 'Time Out';
+
+        el.modalTitle.textContent = isEdit ? `Edit ${label}` : `Record ${label}`;
 
         el.modalName.replaceChildren(
-            document.createTextNode('Recording for '),
+            document.createTextNode(isEdit ? 'Editing for ' : 'Recording for '),
             make('strong', { text: record.name })
         );
 
+        // Show the other time for reference.
         if (action === 'out' && record.time_in) {
             el.modalMeta.textContent = `Time In: ${formatTimeLabel(record.time_in)}`;
+            el.modalMeta.hidden = false;
+        } else if (action === 'in' && record.time_out) {
+            el.modalMeta.textContent = `Time Out: ${formatTimeLabel(record.time_out)}`;
             el.modalMeta.hidden = false;
         } else {
             el.modalMeta.hidden = true;
         }
 
-        el.modalInput.value = currentTimeInputValue();
-        el.modalLabel.textContent = 'Current Time';
-        el.modalLabel.classList.remove('isDimmed');
+        el.modalInput.value = existing || currentTimeInputValue();
+        el.modalInput.disabled = false;
+        el.modalLabel.textContent = isEdit ? label : 'Current Time';
+        el.modalLabel.classList.toggle('isDimmed', isEdit);
+
+        // Remove option only appears when there is a time to remove.
+        el.modalRemove.checked = false;
+        el.modalRemoveText.textContent = `Remove ${label}`;
+        el.modalRemoveWrap.hidden = !isEdit;
 
         el.modalOverlay.hidden = false;
         el.modalInput.focus();
@@ -1096,15 +1132,26 @@
             return;
         }
 
+        const remove = el.modalRemove.checked;
         const time = el.modalInput.value;
 
-        if (!time) {
-            showToast('Please choose a time.', 'danger');
-            return;
-        }
+        if (!remove) {
+            if (!time) {
+                showToast('Please choose a time.', 'danger');
+                return;
+            }
 
-        if (action === 'out' && record.time_in && time <= record.time_in) {
-            showToast('Time Out must be later than Time In.', 'danger');
+            if (action === 'out' && record.time_in && time <= record.time_in) {
+                showToast('Time Out must be later than Time In.', 'danger');
+                return;
+            }
+
+            if (action === 'in' && record.time_out && time >= record.time_out) {
+                showToast('Time In must be earlier than Time Out.', 'danger');
+                return;
+            }
+        } else if (action === 'in' && record.time_out) {
+            showToast('Remove the Time Out first before removing the Time In.', 'danger');
             return;
         }
 
@@ -1121,7 +1168,8 @@
                     body: {
                         coach_id: record.id,
                         date: el.dateInput.value,
-                        time
+                        time: remove ? null : time,
+                        remove
                     }
                 }
             );
@@ -1130,7 +1178,7 @@
                 closeTimeModal();
 
                 showToast(
-                    `${action === 'in' ? 'Time In' : 'Time Out'} recorded for ${record.name}.`,
+                    `${action === 'in' ? 'Time In' : 'Time Out'} ${remove ? 'removed' : 'saved'} for ${record.name}.`,
                     'success'
                 );
 
@@ -1163,6 +1211,11 @@
     el.modalSave.addEventListener('click', saveTimeModal);
 
     // Greys out "Current Time" once the admin edits the field.
+    // Ticking "Remove" disables the time field.
+    el.modalRemove.addEventListener('change', () => {
+        el.modalInput.disabled = el.modalRemove.checked;
+    });
+
     el.modalInput.addEventListener('input', () => {
         el.modalLabel.classList.add('isDimmed');
     });

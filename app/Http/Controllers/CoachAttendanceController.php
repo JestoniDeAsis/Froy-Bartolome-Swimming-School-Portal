@@ -389,13 +389,21 @@ class CoachAttendanceController extends Controller
             'enrollment_id' => ['required_without:athlete_id', 'nullable', 'integer'],
             'athlete_id' => ['required_without:enrollment_id', 'nullable', 'integer'],
             'date' => ['required', 'date_format:Y-m-d', 'before_or_equal:' . Carbon::now()->addDay()->toDateString()],
-            'time' => [in_array($kind, ['expecting', 'absent'], true) ? 'nullable' : 'required', 'date_format:H:i'],
+            'remove' => ['sometimes', 'boolean'],
+            // No time is needed for Expecting / Absent, or when removing a time.
+            'time' => [
+                in_array($kind, ['expecting', 'absent'], true) || $request->boolean('remove') ? 'nullable' : 'required',
+                'date_format:H:i',
+            ],
         ], [
             'time.date_format' => 'Please enter a valid time.',
             'date.before_or_equal' => 'You cannot record attendance for a future date.',
         ]);
 
         $coachId = (int) Auth::id();
+
+        // Removing a time only applies to Time In / Time Out.
+        $v['remove'] = in_array($kind, ['in', 'out'], true) && (bool) ($v['remove'] ?? false);
 
         if (!empty($v['athlete_id'])) {
             if (in_array($kind, ['expecting', 'late', 'absent'], true)) {
@@ -520,49 +528,102 @@ class CoachAttendanceController extends Controller
                 return response()->json(['success' => true, 'message' => 'Late Time In recorded.']);
             }
 
-            if ($kind === 'in') {
-                if ($row && $row->time_in) {
-                    return $this->fail('This student already has a Time In for that date.');
+            // Time In / Time Out: add, edit or remove.
+            return $this->applyInOut($row, $kind, $v['remove'], $time, $coachId, [
+                'user_id' => $enrollment->user_id,
+                'role_id' => $enrollment->role_id,
+                'attendance_at' => $v['date'],
+                'enrollment_id' => $enrollment->enrollment_id,
+            ], 'student');
+        });
+    }
+
+    /**
+     * Shared by students and athletes. Adds a Time In / Time Out, overwrites
+     * one that already exists (edit), or clears it when $remove is true.
+     *
+     * @param array $createAttrs attributes for a brand new attendance row
+     */
+    private function applyInOut(?Attendance $row, string $kind, bool $remove, ?string $time, int $coachId, array $createAttrs, string $who): JsonResponse
+    {
+        /* ---------------- Time In ---------------- */
+        if ($kind === 'in') {
+            if ($remove) {
+                if (!$row || !$row->time_in) {
+                    return $this->fail("This $who has no Time In to remove.");
                 }
 
-                if ($row) {
+                if ($row->time_out) {
+                    return $this->fail('Remove the Time Out first before removing the Time In.');
+                }
+
+                if ($row->attendance_state === self::STATE_PRESENT_LATE) {
+                    // Back to what the coach set before the late Time In.
                     $row->update([
-                        'time_in' => $v['time'],
-                        'attendance_state' => Attendance::STATE_PRESENT,
-                        'logged_by' => $coachId,
+                        'time_in' => null,
+                        'attendance_state' => self::STATE_EXPECTING,
                     ]);
                 } else {
-                    Attendance::create([
-                        'user_id' => $enrollment->user_id,
-                        'role_id' => $enrollment->role_id,
-                        'attendance_at' => $v['date'],
-                        'time_in' => $v['time'],
-                        'attendance_state' => Attendance::STATE_PRESENT,
-                        'logged_by' => $coachId,
-                        'enrollment_id' => $enrollment->enrollment_id,
-                    ]);
+                    // Nothing left to keep for that day.
+                    $row->delete();
                 }
 
-                return response()->json(['success' => true, 'message' => 'Time In recorded.']);
+                return response()->json(['success' => true, 'message' => 'Time In removed.']);
             }
 
-            // Time Out
-            if (!$row || !$row->time_in) {
-                return $this->fail('Record the Time In first.');
+            if ($row && $row->time_out && $time >= $this->hhmm($row->time_out)) {
+                return $this->fail('Time In must be earlier than Time Out.');
             }
 
-            if ($row->time_out) {
-                return $this->fail('This student already has a Time Out for that date.');
+            if ($row && $row->time_in) {
+                // Edit: only the time changes (Present-Late stays Present-Late).
+                $row->update([
+                    'time_in' => $time,
+                    'logged_by' => $coachId,
+                ]);
+
+                return response()->json(['success' => true, 'message' => 'Time In saved.']);
             }
 
-            if ($v['time'] <= $this->hhmm($row->time_in)) {
-                return $this->fail('Time Out must be later than Time In.');
+            if ($row) {
+                $row->update([
+                    'time_in' => $time,
+                    'attendance_state' => Attendance::STATE_PRESENT,
+                    'logged_by' => $coachId,
+                ]);
+            } else {
+                Attendance::create($createAttrs + [
+                    'time_in' => $time,
+                    'attendance_state' => Attendance::STATE_PRESENT,
+                    'logged_by' => $coachId,
+                ]);
             }
 
-            $row->update(['time_out' => $v['time']]);
+            return response()->json(['success' => true, 'message' => 'Time In saved.']);
+        }
 
-            return response()->json(['success' => true, 'message' => 'Time Out recorded.']);
-        });
+        /* ---------------- Time Out ---------------- */
+        if (!$row || !$row->time_in) {
+            return $this->fail('Record the Time In first.');
+        }
+
+        if ($remove) {
+            if (!$row->time_out) {
+                return $this->fail("This $who has no Time Out to remove.");
+            }
+
+            $row->update(['time_out' => null]);
+
+            return response()->json(['success' => true, 'message' => 'Time Out removed.']);
+        }
+
+        if ($time <= $this->hhmm($row->time_in)) {
+            return $this->fail('Time Out must be later than Time In.');
+        }
+
+        $row->update(['time_out' => $time]);
+
+        return response()->json(['success' => true, 'message' => 'Time Out saved.']);
     }
 
     /**
@@ -596,7 +657,9 @@ class CoachAttendanceController extends Controller
                 return $this->fail($reason, 403);
             }
 
-            if ($v['time'] < $this->hhmm($coachRow->time_in)) {
+            $time = $v['time'] ?? null;   // null when removing a time
+
+            if ($time !== null && $time < $this->hhmm($coachRow->time_in)) {
                 return $this->fail('The time cannot be earlier than your own Time In (' . $this->hhmm($coachRow->time_in) . ').');
             }
 
@@ -607,48 +670,12 @@ class CoachAttendanceController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if ($kind === 'in') {
-                if ($row && $row->time_in) {
-                    return $this->fail('This athlete already has a Time In for that date.');
-                }
-
-                if ($row) {
-                    $row->update([
-                        'time_in' => $v['time'],
-                        'attendance_state' => Attendance::STATE_PRESENT,
-                        'logged_by' => $coachId,
-                    ]);
-                } else {
-                    Attendance::create([
-                        'user_id' => $athleteId,
-                        'role_id' => self::ATHLETE_ROLE_ID,
-                        'attendance_at' => $v['date'],
-                        'time_in' => $v['time'],
-                        'attendance_state' => Attendance::STATE_PRESENT,
-                        'logged_by' => $coachId,
-                        'enrollment_id' => null,
-                    ]);
-                }
-
-                return response()->json(['success' => true, 'message' => 'Time In recorded.']);
-            }
-
-            // Time Out
-            if (!$row || !$row->time_in) {
-                return $this->fail('Record the Time In first.');
-            }
-
-            if ($row->time_out) {
-                return $this->fail('This athlete already has a Time Out for that date.');
-            }
-
-            if ($v['time'] <= $this->hhmm($row->time_in)) {
-                return $this->fail('Time Out must be later than Time In.');
-            }
-
-            $row->update(['time_out' => $v['time']]);
-
-            return response()->json(['success' => true, 'message' => 'Time Out recorded.']);
+            return $this->applyInOut($row, $kind, (bool) ($v['remove'] ?? false), $time, $coachId, [
+                'user_id' => $athleteId,
+                'role_id' => self::ATHLETE_ROLE_ID,
+                'attendance_at' => $v['date'],
+                'enrollment_id' => null,
+            ], 'athlete');
         });
     }
 }

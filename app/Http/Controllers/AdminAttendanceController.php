@@ -413,7 +413,13 @@ class AdminAttendanceController extends Controller
                 'date_format:Y-m-d',
                 'before_or_equal:' . Carbon::now()->addDay()->toDateString(),
             ],
-            'time' => ['required', 'date_format:H:i'],
+            'remove' => ['sometimes', 'boolean'],
+            // Time is only needed when saving; not when removing.
+            'time' => [
+                Rule::requiredIf(!$request->boolean('remove')),
+                'nullable',
+                'date_format:H:i',
+            ],
         ], [
             'time.date_format' => 'Please enter a valid time.',
             'date.before_or_equal' => 'You cannot record attendance for a future date.',
@@ -442,7 +448,9 @@ class AdminAttendanceController extends Controller
 
         $loggedBy = Auth::id();
 
-        return DB::transaction(function () use ($v, $kind, $loggedBy) {
+        $remove = (bool) ($v['remove'] ?? false);
+
+        return DB::transaction(function () use ($v, $kind, $loggedBy, $remove) {
             $row = Attendance::ofRole(CoachController::ROLE_COACH)
                 ->forUser((int) $v['coach_id'])
                 ->onDate($v['date'])
@@ -450,15 +458,35 @@ class AdminAttendanceController extends Controller
                 ->lockForUpdate()
                 ->first();
 
+            /* ---------------- Time In (add / edit / remove) ---------------- */
             if ($kind === 'in') {
-                if ($row && $row->time_in) {
-                    return $this->fail(
-                        'This coach already has a Time In for that date.'
-                    );
+                if ($remove) {
+                    if (!$row || !$row->time_in) {
+                        return $this->fail('This coach has no Time In to remove.');
+                    }
+
+                    if ($row->time_out) {
+                        return $this->fail(
+                            'Remove the Time Out first before removing the Time In.'
+                        );
+                    }
+
+                    // No times left, so the day's row is no longer needed.
+                    $row->delete();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Time In removed.',
+                    ]);
+                }
+
+                if ($row && $row->time_out
+                    && $v['time'] >= $this->hhmm($row->time_out)) {
+                    return $this->fail('Time In must be earlier than Time Out.');
                 }
 
                 if ($row) {
-                    // A row may already exist without a recorded time.
+                    // Adds or overwrites the Time In on the existing row.
                     $row->update([
                         'time_in' => $v['time'],
                         'attendance_state' => Attendance::STATE_PRESENT,
@@ -477,32 +505,38 @@ class AdminAttendanceController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Time In recorded.',
+                    'message' => 'Time In saved.',
                 ]);
             }
 
-            // Time Out
+            /* ---------------- Time Out (add / edit / remove) ---------------- */
             if (!$row || !$row->time_in) {
                 return $this->fail('Record the Time In first.');
             }
 
-            if ($row->time_out) {
-                return $this->fail(
-                    'This coach already has a Time Out for that date.'
-                );
+            if ($remove) {
+                if (!$row->time_out) {
+                    return $this->fail('This coach has no Time Out to remove.');
+                }
+
+                $row->update(['time_out' => null]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Time Out removed.',
+                ]);
             }
 
             if ($v['time'] <= $this->hhmm($row->time_in)) {
-                return $this->fail(
-                    'Time Out must be later than Time In.'
-                );
+                return $this->fail('Time Out must be later than Time In.');
             }
 
+            // Adds or overwrites the Time Out.
             $row->update(['time_out' => $v['time']]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Time Out recorded.',
+                'message' => 'Time Out saved.',
             ]);
         });
     }
