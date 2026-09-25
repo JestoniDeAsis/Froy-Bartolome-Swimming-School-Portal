@@ -189,7 +189,7 @@
 
             <button
                 type="button"
-                class="btn btn-outline-primary"
+                class="btn btn-primary"
                 id="editProfileButton"
                 data-action="enter-edit-mode"
             >
@@ -433,10 +433,10 @@
         </div>
 
         <div class="d-flex gap-2 profile-button-row">
-            <button type="button" class="btn btn-outline-secondary w-50" data-action="cancel-edit-mode">
+            <button type="button" class="btn btn-outline-danger w-50" data-action="cancel-edit-mode">
                 Cancel
             </button>
-            <button type="button" class="btn btn-primary w-50" id="saveProfileButton" data-action="request-save-profile">
+            <button type="button" class="btn btn-success w-50" id="saveProfileButton" data-action="request-save-profile">
                 Save Changes
             </button>
         </div>
@@ -466,7 +466,7 @@
                 <div class="modal-field-error" id="confirmSavePasswordError"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirmSaveProfileButton" data-action="confirm-save-profile">
                     Confirm &amp; Save
                 </button>
@@ -534,14 +534,14 @@
             <div class="modal-footer">
 
                 <div id="passwordStepCurrentFooter" class="d-flex gap-2 w-100">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary ms-auto" id="verifyCurrentPasswordButton" data-action="verify-current-password">
                         Continue
                     </button>
                 </div>
 
                 <div id="passwordStepNewFooter" class="d-none d-flex gap-2 w-100">
-                    <button type="button" class="btn btn-outline-secondary" data-action="cancel-password-change">Back</button>
+                    <button type="button" class="btn btn-outline-primary" data-action="cancel-password-change">Back</button>
                     <button type="button" class="btn btn-primary ms-auto" id="updatePasswordButton" data-action="update-password">
                         Update Password
                     </button>
