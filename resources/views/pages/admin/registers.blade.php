@@ -19,6 +19,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 1rem;
     margin-bottom: 1rem;
 }
@@ -46,24 +47,15 @@
     transition: background-color .15s ease, color .15s ease, border-color .15s ease;
 }
 
-.registersTabsContainer:has(.registersTab:not(.btn-primary):hover) .registersTab.btn-primary {
-    background: #fff;
-    color: #0056b3;
-    border-color: #0056b3;
-}
-
 /* =========================================================
    Toolbar
 ========================================================= */
 
 .registersToolbar {
-    flex: 0 0 auto;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: .75rem;
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    flex-wrap: wrap;
     margin-bottom: .75rem;
 }
 
@@ -93,6 +85,7 @@
     display: flex;
     gap: .5rem;
     flex-wrap: wrap;
+    margin-left: auto;
 }
 
 /* =========================================================
@@ -250,30 +243,6 @@
 /* =========================================================
    Notes
 ========================================================= */
-
-.notesLink {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: #f1f6ff;
-    border: 1px solid #d6e6ff;
-    border-radius: 8px;
-    color: #045199;
-    cursor: pointer;
-    transition: background-color .15s ease, border-color .15s ease;
-}
-
-.notesLink:hover {
-    background: #e3efff;
-    border-color: #0093e5;
-}
-
-.notesLink i {
-    font-size: .95rem;
-    pointer-events: none;
-}
 
 .notesEmpty {
     color: #adb5bd;
@@ -526,138 +495,37 @@
 }
 
 /* =========================================================
-   Reusable Dropdown Component
+   Reusable Dropdown Component — lives in our_theme.css
+   (.registerDropdown / .registerDropdownToggle /
+   .registerDropdownOptions / .registerDropdownOption).
+   Kept out of this page's own <style> block on purpose, so
+   there's exactly one copy to edit — don't paste it back in
+   here even if a dropdown looks unstyled; that means
+   our_theme.css didn't actually deploy/refresh, not that this
+   page needs its own copy. Check DevTools → Sources for
+   .registerDropdownOptions to confirm what's really loaded.
+
+   The options panel is positioned by JS (positionDropdownOptions,
+   in the DROPDOWN section of the script below), because
+   our_theme.css makes it `position: fixed` — fixed is relative
+   to the viewport, not to .registerDropdown, so top/left/width
+   have to be set from JS on open. This is what keeps the Course
+   Filter panel from being clipped by .registersToolbar's
+   overflow-x: auto.
 ========================================================= */
-
-.registerDropdown {
-    position: relative;
-}
-
-.registerDropdownToggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .5rem;
-    width: 100%;
-    height: 40px;
-    box-sizing: border-box;
-    padding: 0 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    background: #fff;
-    color: #212529;
-    text-align: left;
-    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
-}
-
-.registerDropdownToggle span {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.registerDropdownToggle:hover {
-    border-color: #0093e5;
-    background: #f8fbff;
-}
-
-.registerDropdownToggle:focus {
-    border-color: #0093e5;
-    box-shadow: 0 0 0 .2rem rgba(0, 147, 229, .15);
-    outline: 0;
-}
-
-.registerDropdownToggle .biChevronDown {
-    transition: transform .15s ease;
-}
-
-.registerDropdown.isOpen .registerDropdownToggle .biChevronDown {
-    transform: rotate(180deg);
-}
-
-.registerDropdownOptions {
-    position: absolute;
-    top: calc(100% + .5rem);
-    left: 0;
-    right: 0;
-    z-index: 20;
-    display: grid;
-    gap: .25rem;
-    max-height: 180px;
-    overflow-y: auto;
-    padding: .5rem;
-    background: #fff;
-    border: 1px solid #e7ebef;
-    border-radius: 10px;
-    box-shadow: 0 8px 18px rgba(20, 30, 50, .12);
-    animation: dropdownOpen .15s ease;
-}
-
-@keyframes dropdownOpen {
-    from {
-        opacity: 0;
-        transform: translateY(-4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.registerDropdownOption {
-    width: 100%;
-    padding: .55rem .75rem;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: #212529;
-    text-align: left;
-    transition: background-color .15s ease, color .15s ease;
-}
-
-.registerDropdownOption:hover,
-.registerDropdownOption:focus,
-.registerDropdownOption.active {
-    background: #e7f5ff;
-    color: #045199;
-    outline: 0;
-}
 
 /* =========================================================
    Toolbar Course Filter
 ========================================================= */
 
 .registerCourseFilter {
-    width: 140px;
+    width: fit-content;
     min-width: 0;
+    flex-shrink: 0;
 }
 
-/* =========================================================
-   Assigned Days
-========================================================= */
-
-.daysToggle {
-    display: flex;
-    gap: .5rem;
-    flex-wrap: wrap;
-}
-
-.dayButton {
-    padding: .4rem .8rem;
-    border: 1px solid #ced4da;
-    border-radius: 8px;
-    background: #fff;
-    color: #212529;
-    font-size: .75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .2s;
-}
-
-.dayButton.active {
-    background: #0056b3;
-    color: #fff;
-    border-color: #0056b3;
+.registerCourseFilter .registerDropdownToggle {
+    max-width: 180px;
 }
 
 /* =========================================================
@@ -674,22 +542,21 @@
         min-width: 125px;
     }
 
-    .registerCourseFilter {
-        width: 130px;
-        flex-shrink: 0;
-    }
-
-    .registersSearchContainer {
-        width: 200px;
-        flex-shrink: 0;
+    .registerCourseFilter .registerDropdownToggle {
+        max-width: 140px;
     }
 
     .registersToolbarActions {
-        flex-shrink: 0;
+        margin-left: 0;
+        width: 100%;
     }
 
     .registersToolbarActions button {
-        white-space: nowrap;
+        flex: 1 1 auto;
+    }
+
+    .modalContentBox {
+        padding: 1.25rem 1.25rem;
     }
 }
 </style>
@@ -709,7 +576,7 @@
             </p>
         </div>
 
-        <button class="btn btn-outline-primary registersTab" id="addAthleteButton" type="button" hidden>
+        <button class="btn btn-primary registersTab" id="addAthleteButton" type="button" hidden>
             <i class="bi bi-plus-lg" id="addAthleteIcon"></i>
             Add New Athlete
         </button>
@@ -721,16 +588,16 @@
     ====================================================== -->
 
     <nav class="registersTabsContainer" id="registersTabs" aria-label="Register sections">
-        <button class="btn btn-primary registersTab" type="button" data-register-tab="registrations" aria-selected="true">
+        <button class="btn btn-outline-primary btn-tab registersTab active" type="button" data-register-tab="registrations" aria-selected="true">
             New Registers
         </button>
-        <button class="btn btn-outline-primary registersTab" type="button" data-register-tab="students" aria-selected="false">
+        <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="students" aria-selected="false">
             Students
         </button>
-        <button class="btn btn-outline-primary registersTab" type="button" data-register-tab="athletes" aria-selected="false">
+        <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="athletes" aria-selected="false">
             Athletes
         </button>
-        <button class="btn btn-outline-primary registersTab" type="button" data-register-tab="graduates" aria-selected="false">
+        <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="graduates" aria-selected="false">
             Graduates
         </button>
     </nav>
@@ -751,7 +618,7 @@
         <!-- Course Filter -->
         <div class="registerDropdown registerCourseFilter" id="courseFilterDropdown" data-dropdown hidden>
             <button class="registerDropdownToggle" id="courseFilterToggle" type="button" aria-expanded="false" aria-controls="courseFilterOptions">
-                <span id="courseFilterSelected">Course</span>
+                <span id="courseFilterSelected">Filter by Course</span>
                 <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
             </button>
 
@@ -883,8 +750,8 @@
 
         <!-- Actions -->
         <div class="modalActions">
-            <button class="btn btn-outline-primary" id="modalCancelButton" type="button">Cancel</button>
-            <button class="btn btn-primary" id="modalSubmitButton" type="button">Enroll</button>
+            <button class="btn btn-outline-danger" id="modalCancelButton" type="button">Cancel</button>
+            <button class="btn btn-success" id="modalSubmitButton" type="button">Enroll</button>
         </div>
 
     </div>
@@ -929,7 +796,7 @@
         <p class="text-muted confirmModalMessage" id="confirmModalMessage"></p>
 
         <div class="modalActions">
-            <button class="btn btn-outline-primary" id="confirmModalCancelButton" type="button">Cancel</button>
+            <button class="btn btn-outline-danger" id="confirmModalCancelButton" type="button">Cancel</button>
             <button class="btn btn-primary" id="confirmModalConfirmButton" type="button">Confirm</button>
         </div>
 
@@ -962,8 +829,8 @@
         <div class="athleteModalCandidateList" id="athleteModalCandidateList"></div>
 
         <div class="modalActions">
-            <button class="btn btn-outline-primary" id="athleteModalBackButton" type="button">Back</button>
-            <button class="btn btn-primary" id="athleteModalConfirmButton" type="button">Confirm</button>
+            <button class="btn btn-outline-danger" id="athleteModalBackButton" type="button">Back</button>
+            <button class="btn btn-success" id="athleteModalConfirmButton" type="button">Confirm</button>
         </div>
 
     </div>
@@ -1268,7 +1135,7 @@
 
         const button = createElement('button', {
             id: `notesButtonStudents${person.id}`,
-            className: 'notesLink',
+            className: 'notesLink btn btn-outline-primary btn-icon btn-icon-square btn-icon-sm',
             attributes: {
                 type: 'button',
                 'aria-label': `View notes for ${getPersonName(person)}`,
@@ -1415,7 +1282,7 @@
         actions.forEach(action => {
             const buttonClass = (action === 'Delete' || action === 'Revoke')
                 ? 'btn btn-outline-danger btn-sm me-1'
-                : 'btn btn-primary btn-sm me-1';
+                : 'btn btn-success btn-sm me-1';
 
             const button = createElement('button', {
                 id: `registerActionButton${capitalize(tabName)}${rowIndex}${capitalize(action)}`,
@@ -1558,8 +1425,7 @@
         elements.tabs.querySelectorAll('[data-register-tab]').forEach(button => {
             const isSelected = button.dataset.registerTab === tabName;
 
-            button.classList.toggle('btn-primary', isSelected);
-            button.classList.toggle('btn-outline-primary', !isSelected);
+            button.classList.toggle('active', isSelected);
             button.setAttribute('aria-selected', String(isSelected));
         });
     }
@@ -1590,7 +1456,7 @@
             elements.courseFilterInput.value = '';
 
             const filterSelected = document.getElementById('courseFilterSelected');
-            if (filterSelected) filterSelected.textContent = 'Course';
+            if (filterSelected) filterSelected.textContent = 'Filter by Course';
 
             document.querySelectorAll('#courseFilterOptions .registerDropdownOption').forEach((option, index) => {
                 option.classList.toggle('active', index === 0);
@@ -1978,7 +1844,7 @@
 
             const value = option.dataset.value;
 
-            if (selectedLabel) selectedLabel.textContent = value || 'Course';
+            if (selectedLabel) selectedLabel.textContent = value || 'Filter by Course';
             if (input) input.value = value;
 
             options.querySelectorAll('.registerDropdownOption').forEach(item => {
@@ -1997,6 +1863,22 @@
         });
     }
 
+    function positionDropdownOptions(dropdown) {
+        const options = dropdown.querySelector('.registerDropdownOptions');
+        const toggle = dropdown.querySelector('.registerDropdownToggle');
+        if (!options || !toggle) return;
+
+        // .registerDropdownOptions is `position: fixed` (see our_theme.css) so it
+        // paints above every ancestor regardless of overflow — like the Graduates
+        // tab's Course Filter, which sits inside .registersToolbar's
+        // `overflow-x: auto` and would otherwise get clipped. Coordinates are
+        // computed here, relative to the viewport, instead of in CSS.
+        const rect = toggle.getBoundingClientRect();
+        options.style.top = `${rect.bottom + 8}px`;
+        options.style.left = `${rect.left}px`;
+        options.style.width = `${rect.width * 1.3}px`;
+    }
+
     function openDropdown(dropdown) {
         closeAllDropdowns(dropdown);
 
@@ -2006,6 +1888,7 @@
         dropdown.classList.add('isOpen');
         options.hidden = false;
         toggle.setAttribute('aria-expanded', 'true');
+        positionDropdownOptions(dropdown);
     }
 
     function closeDropdown(dropdown) {
@@ -2030,6 +1913,21 @@
             closeAllDropdowns();
         }
     });
+
+    // Keep an open panel lined up with its toggle if the window resizes
+    // (e.g. rotating a device) or the toolbar is scrolled horizontally.
+    window.addEventListener('resize', () => {
+        const open = document.querySelector('[data-dropdown].isOpen');
+        if (open) positionDropdownOptions(open);
+    });
+
+    document.addEventListener('scroll', event => {
+        const open = document.querySelector('[data-dropdown].isOpen');
+        if (!open) return;
+        if (event.target === document || event.target.contains(open)) {
+            positionDropdownOptions(open);
+        }
+    }, true);
 
     document.querySelectorAll('.modalOverlay').forEach(modal => {
         modal.addEventListener('click', event => {

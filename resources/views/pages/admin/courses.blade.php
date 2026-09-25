@@ -391,7 +391,7 @@
 
             <!-- ADD NEW COURSE -->
 
-            <button type="button" class="btn btn-outline-primary" id="addCourseButton">
+            <button type="button" class="btn btn-primary" id="addCourseButton">
 
                 <span>+</span>
 
@@ -541,8 +541,8 @@
             </div>
 
             <div class="course-modal-footer">
-                <button class="btn btn-outline-secondary" type="button" id="cancelAddCourse">Cancel</button>
-                <button class="btn btn-primary" type="submit" id="saveCourseButton">Save Course</button>
+                <button class="btn btn-outline-danger" type="button" id="cancelAddCourse">Cancel</button>
+                <button class="btn btn-success" type="submit" id="saveCourseButton">Save Course</button>
             </div>
         </form>
     </div>
@@ -641,11 +641,11 @@
 
         const actions = document.createElement('div');
         actions.className = 'course-list-row-actions';
-        const save = createButton('✓', 'btn btn-outline-primary btn-sm course-icon-button', function (event) {
+        const save = createButton('✓', 'btn btn-success btn-sm course-icon-button', function (event) {
             event.stopPropagation();
             onSave(input.value);
         }, 'Save');
-        const cancel = createButton('×', 'btn btn-outline-secondary btn-sm course-icon-button', function (event) {
+        const cancel = createButton('×', 'btn btn-danger btn-sm course-icon-button', function (event) {
             event.stopPropagation();
             onCancel();
         }, 'Cancel');
@@ -707,7 +707,7 @@
 
             if (category.deleted) {
                 // Already saved and archived — the only thing left to do is restore it.
-                const restore = createButton('↺', 'btn btn-outline-secondary btn-sm course-icon-button', function (event) {
+                const restore = createButton('↺', 'btn btn-outline-warning btn-sm course-icon-button', function (event) {
                     event.stopPropagation();
                     category.deleted = false;
                     render();
@@ -720,7 +720,7 @@
                     editingSkillIndex = null;
                     render();
                 }, 'Edit ' + category.name);
-                const remove = createButton('×', 'btn btn-outline-secondary btn-sm course-icon-button', function (event) {
+                const remove = createButton('×', 'btn btn-outline-danger btn-sm course-icon-button', function (event) {
                     event.stopPropagation();
                     if (category.id !== null) {
                         // Already saved to the database — archive it instead of losing its history.
@@ -812,7 +812,7 @@
 
             if (skill.deleted) {
                 // Already saved and archived — the only thing left to do is restore it.
-                const restore = createButton('↺', 'btn btn-outline-secondary btn-sm course-icon-button', function () {
+                const restore = createButton('↺', 'btn btn-outline-warning btn-sm course-icon-button', function () {
                     skill.deleted = false;
                     render();
                 }, 'Restore ' + skill.name);
@@ -822,7 +822,7 @@
                     editingSkillIndex = index;
                     render();
                 }, 'Edit ' + skill.name);
-                const remove = createButton('×', 'btn btn-outline-secondary btn-sm course-icon-button', function () {
+                const remove = createButton('×', 'btn btn-outline-danger btn-sm course-icon-button', function () {
                     if (skill.id !== null) {
                         // Already saved to the database — archive it instead of losing its history.
                         skill.deleted = true;
