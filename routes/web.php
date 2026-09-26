@@ -65,3 +65,8 @@ use App\Http\Controllers\CourseController;
 Route::get('/courses/{course_id}', [CourseController::class, 'show'])->middleware('auth');
 Route::post('/courses', [CourseController::class, 'store'])->middleware('auth');
 Route::put('/courses/{course_id}', [CourseController::class, 'update'])->middleware('auth');
+
+use App\Http\Controllers\AnnouncementController;
+ 
+Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('auth');
+Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('auth');

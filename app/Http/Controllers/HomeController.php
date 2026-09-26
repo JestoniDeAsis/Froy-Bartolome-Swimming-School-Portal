@@ -36,13 +36,19 @@ class HomeController extends Controller
             ->where('role_id', $roleId)
             ->value('role_name'); // adjust column name if different in your tbl_roles
 
-        return view('home.index', [
+        $viewData = [
             'menuItems' => $menuItems,
             'page' => $page,
             'pageView' => $allowedPages[$page],
             'profile' => $profile,
             'roleName' => $roleName,
-        ]);
+        ];
+
+        if ($page === 'graduation') {
+            $viewData['graduationTabs'] = (new GraduationController())->graduationTabs();
+        }
+
+        return view('home.index', $viewData);
     }
 
     public function navigate(Request $request, string $page)
