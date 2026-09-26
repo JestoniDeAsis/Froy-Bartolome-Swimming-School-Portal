@@ -1,1 +1,0 @@
-ANNOUNCEMENT NI COACH, STUDENT AND ATHLETE<?php /**PATH /var/www/html/resources/views/pages/shared/announcements.blade.php ENDPATH**/ ?>

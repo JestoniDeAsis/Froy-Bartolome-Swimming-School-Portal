@@ -1,1 +1,0 @@
-PAYMENT NI STUDENT AND ATHLETE<?php /**PATH /var/www/html/resources/views/pages/shared/payments.blade.php ENDPATH**/ ?>

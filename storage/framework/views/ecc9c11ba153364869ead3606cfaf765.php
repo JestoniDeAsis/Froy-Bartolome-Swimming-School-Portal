@@ -1,1 +1,0 @@
-SALES AND INVOICE NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/sales_and_invoice.blade.php ENDPATH**/ ?>

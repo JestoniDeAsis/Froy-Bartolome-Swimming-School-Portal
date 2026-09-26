@@ -1,1 +1,0 @@
-PROFILE NI COACH, STUDENT AND ATHLETE<?php /**PATH /var/www/html/resources/views/pages/shared/profile.blade.php ENDPATH**/ ?>

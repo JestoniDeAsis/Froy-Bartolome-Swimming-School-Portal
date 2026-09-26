@@ -1,1 +1,0 @@
-DASHBOARD NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/dashboard.blade.php ENDPATH**/ ?>

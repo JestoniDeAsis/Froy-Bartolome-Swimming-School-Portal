@@ -1,1 +1,0 @@
-SKILLS ASSESSMENT NI COACH<?php /**PATH /var/www/html/resources/views/pages/coach/skills_assessment.blade.php ENDPATH**/ ?>

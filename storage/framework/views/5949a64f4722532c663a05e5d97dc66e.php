@@ -1,1 +1,0 @@
-REGISTERS NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/registers.blade.php ENDPATH**/ ?>

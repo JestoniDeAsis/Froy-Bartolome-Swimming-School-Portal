@@ -1,1 +1,0 @@
-ATTENDANCE NI STUDENT<?php /**PATH /var/www/html/resources/views/pages/student/attendance.blade.php ENDPATH**/ ?>

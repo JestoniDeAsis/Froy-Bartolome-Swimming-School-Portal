@@ -1,1 +1,0 @@
-ATTENDANCE NI ADMIN<?php /**PATH /var/www/html/resources/views/pages/admin/attendance.blade.php ENDPATH**/ ?>

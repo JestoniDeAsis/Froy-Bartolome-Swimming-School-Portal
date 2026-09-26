@@ -1,1 +1,0 @@
-DASHBOARD NI ADMIN<?php /**PATH C:\xampp\htdocs\Froy-Bartolome-Swimming-School-Portal\resources\views/pages/admin/dashboard.blade.php ENDPATH**/ ?>

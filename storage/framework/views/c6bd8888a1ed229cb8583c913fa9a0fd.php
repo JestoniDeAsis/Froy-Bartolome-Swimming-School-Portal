@@ -1,1 +1,0 @@
-DASHBOARD NI COACH<?php /**PATH /var/www/html/resources/views/pages/coach/dashboard.blade.php ENDPATH**/ ?>
