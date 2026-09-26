@@ -88,22 +88,6 @@
 .sales-tab {
     min-width: 0;
     width: min(259px, calc((100vw - 340px) / 3));
-    height: 46px;
-    border: 1px solid var(--sales-line);
-    border-radius: 7px;
-    background: #fff;
-    color: var(--sales-ink);
-    font: inherit;
-    font-size: .78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-.sales-tab[aria-selected="true"] {
-    color: #fff;
-    border-color: var(--sales-blue);
-    background: var(--sales-blue);
 }
 
 .sales-stats {
@@ -769,10 +753,10 @@
         <button class="sales-add-button" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
     </header>
 
-    <nav class="sales-tabs" aria-label="Purchase sections" role="tablist">
-        <button class="sales-tab" id="salesTabCourse" type="button" role="tab" aria-selected="true" aria-controls="salesPanelCourse" data-sales-tab="course">Course payment</button>
-        <button class="sales-tab" id="salesTabLogs" type="button" role="tab" aria-selected="false" aria-controls="salesPanelLogs" data-sales-tab="logs">Item logs</button>
-        <button class="sales-tab" id="salesTabItems" type="button" role="tab" aria-selected="false" aria-controls="salesPanelItems" data-sales-tab="items">Items</button>
+    <nav class="sales-tabs btn-tab-group" aria-label="Purchase sections" role="tablist">
+        <button class="btn btn-outline-primary btn-tab active" id="salesTabCourse" type="button" role="tab" aria-selected="true" aria-controls="salesPanelCourse" data-sales-tab="course">Course payment</button>
+        <button class="btn btn-outline-primary btn-tab" id="salesTabLogs" type="button" role="tab" aria-selected="false" aria-controls="salesPanelLogs" data-sales-tab="logs">Item logs</button>
+        <button class="btn btn-outline-primary btn-tab" id="salesTabItems" type="button" role="tab" aria-selected="false" aria-controls="salesPanelItems" data-sales-tab="items">Items</button>
     </nav>
 
     <div class="sales-stats" aria-label="Payment totals">
@@ -940,7 +924,11 @@
 
     function setTab(tab) {
         activeTab = tab;
-        document.querySelectorAll('[data-sales-tab]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.salesTab === tab)));
+        document.querySelectorAll('[data-sales-tab]').forEach(button => {
+            const isSelected = button.dataset.salesTab === tab;
+            button.setAttribute('aria-selected', String(isSelected));
+            button.classList.toggle('active', isSelected);
+        });
         document.querySelectorAll('[data-sales-panel]').forEach(panel => { panel.hidden = panel.dataset.salesPanel !== tab; });
         search.value = '';
         statusFilter.value = '';
