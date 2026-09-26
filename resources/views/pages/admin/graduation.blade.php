@@ -1,9 +1,45 @@
 <style>
+    .graduation-page,
+    .assessment-modal {
+        --graduation-action-blue: #0757a5;
+        --graduation-action-hover: #03447f;
+        --graduation-button-stroke: #dce5ed;
+    }
+
     .graduation-page {
         --graduation-ink: #172033;
         --graduation-muted: #667085;
         padding: 1.25rem;
         color: var(--graduation-ink);
+    }
+
+    .graduation-page .btn,
+    .assessment-modal .btn {
+        --bs-btn-focus-box-shadow: 0 0 0 .2rem rgba(100, 116, 139, .25);
+    }
+
+    .graduation-page .btn-primary,
+    .assessment-modal .btn-primary {
+        --bs-btn-bg: var(--graduation-action-blue);
+        --bs-btn-border-color: var(--graduation-button-stroke);
+        --bs-btn-hover-bg: var(--graduation-action-hover);
+        --bs-btn-hover-border-color: var(--graduation-button-stroke);
+        --bs-btn-active-bg: var(--graduation-action-hover);
+        --bs-btn-active-border-color: var(--graduation-button-stroke);
+        --bs-btn-disabled-bg: var(--graduation-action-blue);
+        --bs-btn-disabled-border-color: var(--graduation-button-stroke);
+    }
+
+    .graduation-page .btn-outline-primary,
+    .assessment-modal .btn-outline-primary {
+        --bs-btn-color: var(--graduation-action-blue);
+        --bs-btn-border-color: var(--graduation-button-stroke);
+        --bs-btn-hover-bg: #f4f7f6;
+        --bs-btn-hover-color: var(--graduation-action-blue);
+        --bs-btn-hover-border-color: var(--graduation-button-stroke);
+        --bs-btn-active-bg: var(--graduation-action-blue);
+        --bs-btn-active-color: #fff;
+        --bs-btn-active-border-color: var(--graduation-button-stroke);
     }
 
     .graduation-heading {
@@ -41,6 +77,23 @@
         font-size: .75rem;
         font-weight: 700;
         text-transform: uppercase;
+    }
+
+    .graduation-tabs .btn-tab:not(.active) {
+        --bs-btn-color: var(--graduation-ink);
+        --bs-btn-border-color: var(--graduation-button-stroke);
+        --bs-btn-hover-bg: #f4f7f6;
+        --bs-btn-hover-color: var(--graduation-ink);
+        --bs-btn-hover-border-color: var(--graduation-button-stroke);
+    }
+
+    .graduation-tabs .btn-tab.active {
+        --bs-btn-bg: var(--graduation-action-blue);
+        --bs-btn-border-color: var(--graduation-button-stroke);
+        --bs-btn-hover-bg: var(--graduation-action-hover);
+        --bs-btn-hover-border-color: var(--graduation-button-stroke);
+        --bs-btn-active-bg: var(--graduation-action-hover);
+        --bs-btn-active-border-color: var(--graduation-button-stroke);
     }
 
     .graduation-panel {
