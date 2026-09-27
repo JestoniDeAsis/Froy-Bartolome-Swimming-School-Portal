@@ -214,10 +214,26 @@
        <button class="btn btn-outline-primary btn-tab">Graduates</button>
      </div>
    ------------------------------------------------------------- */
+/* Global container: any group of tabs (Sales, Announcements, Attendance, ...)
+   uses this wrapper. flex-wrap lets the whole group drop to a new row when
+   it doesn't fit — that's the ONLY responsive behavior we want here. Each
+   .btn-tab is flex: 0 0 auto + white-space: nowrap so a tab is never
+   shrunk or split into multiple lines of text; if it doesn't fit, the
+   group wraps instead of the button deforming. This is what keeps
+   Announcements' pills tidy, and now applies everywhere else too. */
 .btn-tab-group {
     display: flex;
     flex-wrap: wrap;
     gap: 0.6rem;
+}
+
+/* Tabs read as a bigger, more prominent selector than a regular button. */
+.btn-tab {
+    --bs-btn-padding-x: 1.75rem;
+    --bs-btn-padding-y: 0.75rem;
+    --bs-btn-font-size: 1.05rem;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .btn-tab:not(.active) {
@@ -234,6 +250,20 @@
     --bs-btn-hover-bg: var(--fbss-blue-hover);
     --bs-btn-hover-border-color: var(--fbss-blue-hover);
     cursor: default;
+}
+
+/* Mobile: keep tabs compact so a group of them doesn't wrap or overflow
+   a narrow screen. */
+@media (max-width: 575.98px) {
+    .btn-tab-group {
+        gap: 0.4rem;
+    }
+
+    .btn-tab {
+        --bs-btn-padding-x: 0.85rem;
+        --bs-btn-padding-y: 0.35rem;
+        --bs-btn-font-size: 0.8125rem;
+    }
 }
 
 /* -------------------------------------------------------------

@@ -145,8 +145,8 @@
 
 #coursesTable {
     width: 100%;
+    min-width: 640px;
     border-collapse: collapse;
-    table-layout: fixed;
 }
 
 /* =========================================

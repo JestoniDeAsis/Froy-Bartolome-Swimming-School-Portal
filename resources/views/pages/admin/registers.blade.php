@@ -32,15 +32,6 @@
     white-space: nowrap;
 }
 
-.registersTabsContainer {
-    flex: 0 0 auto;
-    display: flex;
-    gap: .5rem;
-    margin-bottom: .75rem;
-    overflow-x: auto;
-    scrollbar-width: thin;
-}
-
 .registersTab {
     min-width: 140px;
     flex-shrink: 0;
@@ -587,7 +578,7 @@
          TABS
     ====================================================== -->
 
-    <nav class="registersTabsContainer" id="registersTabs" aria-label="Register sections">
+    <nav class="btn-tab-group" id="registersTabs" aria-label="Register sections">
         <button class="btn btn-outline-primary btn-tab registersTab active" type="button" data-register-tab="registrations" aria-selected="true">
             New Registers
         </button>

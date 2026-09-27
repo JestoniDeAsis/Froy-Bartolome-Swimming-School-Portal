@@ -79,17 +79,6 @@
     cursor: not-allowed;
 }
 
-.sales-tabs {
-    display: flex;
-    gap: .5rem;
-    flex-wrap: wrap;
-}
-
-.sales-tab {
-    min-width: 0;
-    width: min(259px, calc((100vw - 340px) / 3));
-}
-
 .sales-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -591,17 +580,6 @@
         align-items: flex-start;
     }
 
-    .sales-tabs {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .sales-tab {
-        width: auto;
-        height: 42px;
-        font-size: .68rem;
-    }
-
     .sales-toolbar, .sales-toolbar-start, .sales-search {
         width: 100%;
     }
@@ -753,7 +731,7 @@
         <button class="sales-add-button" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
     </header>
 
-    <nav class="sales-tabs btn-tab-group" aria-label="Purchase sections" role="tablist">
+    <nav class="btn-tab-group" aria-label="Purchase sections" role="tablist">
         <button class="btn btn-outline-primary btn-tab active" id="salesTabCourse" type="button" role="tab" aria-selected="true" aria-controls="salesPanelCourse" data-sales-tab="course">Course payment</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabLogs" type="button" role="tab" aria-selected="false" aria-controls="salesPanelLogs" data-sales-tab="logs">Item logs</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabItems" type="button" role="tab" aria-selected="false" aria-controls="salesPanelItems" data-sales-tab="items">Items</button>

@@ -14,39 +14,11 @@
   margin-bottom: 1rem;
 }
 
-/* Filter bar: lets admins narrow the scrollable list to one audience. */
+/* Filter bar: lets admins narrow the scrollable list to one audience.
+   Uses the shared .btn-tab-group / .btn-tab classes (see Sales & Invoice)
+   for the tab look; only the count badge is announcement-specific. */
 .announcements-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   margin-bottom: 0.75rem;
-}
-
-.announcements-filter-pill {
-  padding: 0.4rem 0.85rem;
-  border: 1px solid #D1D5DB;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #495057;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.announcements-filter-pill:hover {
-  border-color: #0093E5;
-  color: #045199;
-}
-
-.announcements-filter-pill:focus-visible {
-  outline: 2px solid #0093E5;
-  outline-offset: 2px;
-}
-
-.announcements-filter-pill.is-active {
-  background: #0093E5;
-  border-color: #0093E5;
-  color: #ffffff;
 }
 
 .announcements-filter-count {
@@ -380,8 +352,8 @@
         </button>
     </header>
 
-    <!-- Filter pills; renderAnnouncements() applies the active filter and updates counts. -->
-    <div class="announcements-filter-bar" id="announcementsFilterBar" role="group" aria-label="Filter announcements by recipient"></div>
+    <!-- Filter tabs; renderAnnouncements() applies the active filter and updates counts. -->
+    <nav class="announcements-filter-bar btn-tab-group" id="announcementsFilterBar" role="tablist" aria-label="Filter announcements by recipient"></nav>
 
     <!-- Reusable announcement cards are rendered into announcementsList by renderAnnouncements(). -->
     <div class="announcements-scroll" id="announcementsScroll">
@@ -513,32 +485,40 @@
         }
     }
 
-    // Filter bar: one pill per recipient audience, plus "All". Counts reflect current data.
+    // Filter bar: one tab per recipient audience, plus "All". Counts reflect current data.
+    // Uses the shared btn / btn-outline-primary / btn-tab classes, same pattern as the
+    // Sales & Invoice section tabs.
     function renderFilterBar() {
         filterBar.replaceChildren();
         FILTERS.forEach(function (filter) {
             const count = filter.id === 'all'
                 ? announcements.length
                 : announcements.filter(function (a) { return matchesFilter(a, filter.id); }).length;
+            const isSelected = activeFilter === filter.id;
 
-            const pill = document.createElement('button');
-            pill.type = 'button';
-            pill.id = 'announcementFilter-' + filter.id;
-            pill.className = 'announcements-filter-pill' + (activeFilter === filter.id ? ' is-active' : '');
-            pill.setAttribute('aria-pressed', String(activeFilter === filter.id));
-            pill.textContent = filter.label;
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.id = 'announcementFilter-' + filter.id;
+            tab.className = 'btn btn-outline-primary btn-tab' + (isSelected ? ' active' : '');
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-selected', String(isSelected));
+            tab.dataset.announcementFilter = filter.id;
+            tab.textContent = filter.label;
 
             const countSpan = document.createElement('span');
             countSpan.className = 'announcements-filter-count';
             countSpan.textContent = '(' + count + ')';
-            pill.append(countSpan);
+            tab.append(countSpan);
 
-            pill.addEventListener('click', function () {
-                activeFilter = filter.id;
-                renderAnnouncements();
-            });
-            filterBar.append(pill);
+            tab.addEventListener('click', function () { setFilter(filter.id); });
+            filterBar.append(tab);
         });
+    }
+
+    // Switches the active audience filter and re-renders (tabs + list).
+    function setFilter(filterId) {
+        activeFilter = filterId;
+        renderAnnouncements();
     }
 
 
