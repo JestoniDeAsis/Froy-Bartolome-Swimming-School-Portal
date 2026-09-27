@@ -29,20 +29,6 @@
 
     .graduation-breadcrumb span { color: var(--fbss-blue); font-weight: 700; }
 
-    .graduation-tabs {
-        display: flex;
-        gap: .55rem;
-        margin: 0 0 1.5rem;
-    }
-
-    .graduation-tabs .btn-tab {
-        min-width: 145px;
-        padding: .55rem 1rem;
-        font-size: .75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-    }
-
     .graduation-panel {
         max-width: 1100px;
         margin: 0 auto;
@@ -183,8 +169,6 @@
 
     @media (max-width: 640px) {
         .graduation-page { padding: .8rem; }
-        .graduation-tabs { gap: .4rem; }
-        .graduation-tabs .btn-tab { min-width: 0; flex: 1; padding: .55rem .4rem; font-size: .65rem; }
         .graduation-panel { padding: .9rem .75rem 1rem; }
         .graduation-student-list { padding-left: .15rem; }
         .graduation-student { align-items: flex-start; flex-direction: column; }
@@ -205,7 +189,7 @@
         <div class="graduation-breadcrumb"><span># Graduates</span> &middot; # Ready for assessment</div>
     </header>
 
-    <div class="graduation-tabs btn-tab-group" role="tablist" aria-label="Graduation student groups">
+    <div class="btn-tab-group" role="tablist" aria-label="Graduation student groups">
         @foreach ($graduationTabs as $key => $tab)
             <button type="button" class="btn btn-outline-primary btn-tab {{ $key === 'ready' ? 'active' : '' }}" id="graduation-tab-{{ $key }}" role="tab" aria-controls="graduation-panel-{{ $key }}" aria-selected="{{ $key === 'ready' ? 'true' : 'false' }}" data-graduation-tab="{{ $key }}">
                 {{ $tab['label'] }}
