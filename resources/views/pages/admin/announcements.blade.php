@@ -38,6 +38,7 @@
   gap: 0.75rem;
 }
 
+/* Cards are clickable (opens the view popup); action buttons stop propagation. */
 .announcement-card {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -46,6 +47,15 @@
   background: #ffffff;
   border: 1px solid #E7EBEF;
   border-radius: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.announcement-card:hover,
+.announcement-card:focus-visible {
+  border-color: #BEE3F8;
+  box-shadow: 0 6px 16px rgba(20, 30, 50, 0.08);
+  outline: 0;
 }
 
 .announcement-icon {
@@ -61,18 +71,14 @@
   font-weight: 600;
 }
 
-/* Collapsed by default; JS toggles .is-expanded to lift the max-height. */
+/* Fixed-height preview; a full popup shows the untruncated message. */
 .announcement-message-wrap {
   position: relative;
-  max-height: 4.2rem;
+  max-height: 3.2rem;
   overflow: hidden;
 }
 
-.announcement-message-wrap.is-expanded {
-  max-height: none;
-}
-
-.announcement-message-wrap:not(.is-expanded)::after {
+.announcement-message-wrap::after {
   content: '';
   position: absolute;
   inset: auto 0 0 0;
@@ -90,7 +96,7 @@
   white-space: pre-wrap;
 }
 
-.announcement-toggle-button {
+.announcement-read-more {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -103,8 +109,8 @@
   font-weight: 600;
 }
 
-.announcement-toggle-button:hover,
-.announcement-toggle-button:focus-visible {
+.announcement-read-more:hover,
+.announcement-read-more:focus-visible {
   color: #045199;
   outline: 0;
   text-decoration: underline;
@@ -121,8 +127,10 @@
   font-weight: 500;
 }
 
-.announcement-edit-button {
+.announcement-actions {
+  display: flex;
   align-self: start;
+  gap: 0.4rem;
 }
 
 .announcement-recipient {
@@ -151,7 +159,7 @@
   margin-top: 0.75rem;
 }
 
-/* Shared modal used for creating and editing announcements. */
+/* Shared modal shell used by the create/edit form AND the view popup. */
 .announcement-modal {
   position: fixed;
   inset: 0;
@@ -204,17 +212,6 @@
 
 .announcement-modal-footer .btn {
   min-width: 100px;
-}
-
-.announcement-form-error {
-  display: none;
-  margin: 0 auto 0 0;
-  color: #E03131;
-  font-size: 0.8125rem;
-}
-
-.announcement-form-error.is-visible {
-  display: block;
 }
 
 .announcement-required-mark {
@@ -302,6 +299,89 @@
   display: block;
 }
 
+/* View popup: a read-focused layout distinct from the create/edit form. */
+.announcement-view-dialog {
+  width: min(560px, 100%);
+}
+
+.announcement-view-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.announcement-view-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.announcement-view-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: #e7f5ff;
+  color: #045199;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.announcement-view-close {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6c757d;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.announcement-view-close:hover,
+.announcement-view-close:focus-visible {
+  color: #212529;
+  outline: 0;
+}
+
+.announcement-view-title {
+  margin: 0;
+  color: #1F2937;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.announcement-view-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  color: #6c757d;
+  font-size: 0.8125rem;
+}
+
+.announcement-view-meta i {
+  margin-right: 0.3rem;
+}
+
+.announcement-view-message {
+  margin: 0;
+  color: #343A40;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.announcement-view-footer {
+  justify-content: space-between;
+}
+
+.announcement-view-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 @media (max-width: 575.98px) {
   .announcements-container {
     padding: 1rem;
@@ -323,7 +403,7 @@
     grid-template-columns: auto 1fr;
   }
 
-  .announcement-edit-button {
+  .announcement-actions {
     grid-column: 2;
     justify-self: end;
   }
@@ -332,9 +412,13 @@
     flex-wrap: wrap;
   }
 
-  .announcement-form-error {
-    width: 100%;
-    margin: 0 0 0.5rem;
+  .announcement-view-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .announcement-view-footer-actions {
+    justify-content: flex-end;
   }
 }
 </style>
@@ -360,6 +444,37 @@
         <div class="announcements-list" id="announcementsList"></div>
     </div>
 </section>
+
+<!-- View popup: read-only detail view, opened by clicking a card. -->
+<div class="announcement-modal" id="announcementViewModal" aria-hidden="true">
+    <div class="announcement-modal-dialog announcement-view-dialog" id="announcementViewDialog" role="dialog" aria-modal="true" aria-labelledby="announcementViewTitle">
+        <header class="announcement-modal-header announcement-view-header" id="announcementViewHeader">
+            <div class="announcement-view-top-row">
+                <span class="announcement-view-badge" id="announcementViewBadge">Everyone</span>
+                <button class="announcement-view-close" id="closeAnnouncementViewButton" type="button" aria-label="Close">&times;</button>
+            </div>
+            <h2 class="announcement-view-title" id="announcementViewTitle"></h2>
+            <div class="announcement-view-meta" id="announcementViewMeta">
+                <span id="announcementViewPosted"><i class="bi bi-calendar-event"></i></span>
+                <span id="announcementViewUpdated"><i class="bi bi-clock-history"></i></span>
+            </div>
+        </header>
+        <div class="announcement-modal-body" id="announcementViewBody">
+            <p class="announcement-view-message" id="announcementViewMessage"></p>
+        </div>
+        <footer class="announcement-modal-footer announcement-view-footer" id="announcementViewFooter">
+            <div class="announcement-view-footer-actions">
+                <button class="btn btn-outline-danger" id="viewDeleteButton" type="button">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+                <button class="btn btn-outline-primary" id="viewEditButton" type="button">
+                    <i class="bi bi-pencil-square"></i> Edit
+                </button>
+            </div>
+            <button class="btn btn-primary" id="closeAnnouncementViewButtonFooter" type="button">Close</button>
+        </footer>
+    </div>
+</div>
 
 <!-- One modal reused for both new announcements and edits. -->
 <div class="announcement-modal" id="announcementModal" aria-hidden="true">
@@ -401,7 +516,6 @@
                 <input id="announcementIdInput" name="announcement_id" type="hidden" value="">
             </div>
             <footer class="announcement-modal-footer" id="announcementModalFooter">
-                <p class="announcement-form-error" id="announcementFormError" role="alert"></p>
                 <button class="btn btn-outline-secondary" id="cancelAnnouncementButton" type="button">Cancel</button>
                 <button class="btn btn-primary" id="saveAnnouncementButton" type="submit">Publish</button>
             </footer>
@@ -412,7 +526,7 @@
 <script>
 (function () {
 
-    // Endpoints — now Laravel routes instead of hardcoded file paths.
+    // Endpoints — Laravel routes.
     const LIST_URL = @json(url('/announcements'));
     const SAVE_URL = @json(url('/announcements'));
 
@@ -446,14 +560,25 @@
         };
     }
 
+    // Thin wrapper so a missing global toast script degrades to console
+    // logging instead of throwing.
+    function notify(message, type) {
+        if (typeof showToast === 'function') {
+            showToast(message, type);
+        } else {
+            console.log('[' + type + ']', message);
+        }
+    }
+
     let announcements = [];
     let activeFilter = 'all';
     let isLoading = true;
     let loadError = '';
 
-    // DOM references: static elements used by the reusable cards and add/edit modal.
+    // DOM references: static elements used by the reusable cards and the two modals.
     const filterBar = document.getElementById('announcementsFilterBar');
     const list = document.getElementById('announcementsList');
+
     const modal = document.getElementById('announcementModal');
     const form = document.getElementById('announcementForm');
     const modalTitle = document.getElementById('announcementModalTitle');
@@ -464,7 +589,16 @@
     const recipientSelected = document.getElementById('announcementRecipientSelected');
     const recipientOptions = document.getElementById('announcementRecipientOptions');
     const recipientError = document.getElementById('announcementRecipientError');
-    const formError = document.getElementById('announcementFormError');
+
+    const viewModal = document.getElementById('announcementViewModal');
+    const viewBadge = document.getElementById('announcementViewBadge');
+    const viewTitle = document.getElementById('announcementViewTitle');
+    const viewPosted = document.getElementById('announcementViewPosted');
+    const viewUpdated = document.getElementById('announcementViewUpdated');
+    const viewMessage = document.getElementById('announcementViewMessage');
+    const viewEditButton = document.getElementById('viewEditButton');
+    const viewDeleteButton = document.getElementById('viewDeleteButton');
+    let viewingAnnouncement = null;
 
     // Loads (or reloads) the full list from the index route.
     async function loadAnnouncements() {
@@ -486,8 +620,6 @@
     }
 
     // Filter bar: one tab per recipient audience, plus "All". Counts reflect current data.
-    // Uses the shared btn / btn-outline-primary / btn-tab classes, same pattern as the
-    // Sales & Invoice section tabs.
     function renderFilterBar() {
         filterBar.replaceChildren();
         FILTERS.forEach(function (filter) {
@@ -515,25 +647,33 @@
         });
     }
 
-    // Switches the active audience filter and re-renders (tabs + list).
     function setFilter(filterId) {
         activeFilter = filterId;
         renderAnnouncements();
     }
 
-
-    // "All" shows every announcement.
-    // Each specific audience filter shows only announcements assigned to that recipient.
     function matchesFilter(announcement, filterId) {
-      if (filterId === 'all') return true;
-      return announcement.recipientId === filterId;
-  }
+        if (filterId === 'all') return true;
+        return announcement.recipientId === filterId;
+    }
 
-    // Reusable component: creates one announcement card from a mapped announcement object.
+    // Reusable component: creates one announcement card. The card itself is
+    // clickable and opens the view popup; edit/delete buttons stop that click
+    // from bubbling so they can act independently.
     function createAnnouncementCard(announcement) {
         const card = document.createElement('article');
         card.id = 'announcementCard-' + announcement.id;
         card.className = 'announcement-card';
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', 'View ' + announcement.title);
+        card.addEventListener('click', function () { openViewModal(announcement); });
+        card.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openViewModal(announcement);
+            }
+        });
 
         const icon = document.createElement('i');
         icon.id = 'announcementIcon-' + announcement.id;
@@ -547,7 +687,7 @@
         title.className = 'announcement-title';
         title.textContent = announcement.title;
 
-        // Collapsed by default; expand button below toggles .is-expanded.
+        // Truncated preview only; the popup shows the full message.
         const messageWrap = document.createElement('div');
         messageWrap.id = 'announcementMessageWrap-' + announcement.id;
         messageWrap.className = 'announcement-message-wrap';
@@ -557,18 +697,14 @@
         message.textContent = announcement.message;
         messageWrap.append(message);
 
-        const toggleButton = document.createElement('button');
-        toggleButton.id = 'announcementToggleButton-' + announcement.id;
-        toggleButton.type = 'button';
-        toggleButton.className = 'announcement-toggle-button';
-        toggleButton.setAttribute('aria-expanded', 'false');
-        toggleButton.innerHTML = 'Show more <i class="bi bi-chevron-down"></i>';
-        toggleButton.addEventListener('click', function () {
-            const expanded = messageWrap.classList.toggle('is-expanded');
-            toggleButton.setAttribute('aria-expanded', String(expanded));
-            toggleButton.innerHTML = expanded
-                ? 'Show less <i class="bi bi-chevron-up"></i>'
-                : 'Show more <i class="bi bi-chevron-down"></i>';
+        const readMoreButton = document.createElement('button');
+        readMoreButton.id = 'announcementReadMore-' + announcement.id;
+        readMoreButton.type = 'button';
+        readMoreButton.className = 'announcement-read-more';
+        readMoreButton.innerHTML = 'Read more <i class="bi bi-arrow-right"></i>';
+        readMoreButton.addEventListener('click', function (event) {
+            event.stopPropagation();
+            openViewModal(announcement);
         });
 
         const meta = document.createElement('div');
@@ -593,17 +729,36 @@
         recipients.append(recipientName);
 
         meta.append(posted, updated, recipients);
-        content.append(title, messageWrap, toggleButton, meta);
+        content.append(title, messageWrap, readMoreButton, meta);
 
         const editButton = document.createElement('button');
         editButton.id = 'editAnnouncementButton-' + announcement.id;
         editButton.type = 'button';
-        editButton.className = 'btn btn-outline-primary announcement-edit-button';
+        editButton.className = 'btn btn-outline-primary';
         editButton.setAttribute('aria-label', 'Edit ' + announcement.title);
         editButton.innerHTML = '<i class="bi bi-pencil-square"></i>';
-        editButton.addEventListener('click', function () { openAnnouncementModal(announcement); });
+        editButton.addEventListener('click', function (event) {
+            event.stopPropagation();
+            openAnnouncementModal(announcement);
+        });
 
-        card.append(icon, content, editButton);
+        const deleteButton = document.createElement('button');
+        deleteButton.id = 'deleteAnnouncementButton-' + announcement.id;
+        deleteButton.type = 'button';
+        deleteButton.className = 'btn btn-outline-danger';
+        deleteButton.setAttribute('aria-label', 'Delete ' + announcement.title);
+        deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+        deleteButton.addEventListener('click', function (event) {
+            event.stopPropagation();
+            deleteAnnouncement(announcement);
+        });
+
+        const actions = document.createElement('div');
+        actions.id = 'announcementActions-' + announcement.id;
+        actions.className = 'announcement-actions';
+        actions.append(editButton, deleteButton);
+
+        card.append(icon, content, actions);
         return card;
     }
 
@@ -655,6 +810,43 @@
         visible.forEach(function (announcement) { list.append(createAnnouncementCard(announcement)); });
     }
 
+    // ---- View popup -------------------------------------------------------
+
+    function openViewModal(announcement) {
+        viewingAnnouncement = announcement;
+        viewBadge.textContent = RECIPIENT_LABELS[announcement.recipientId] || 'Unknown';
+        viewTitle.textContent = announcement.title;
+        viewPosted.innerHTML = '<i class="bi bi-calendar-event"></i> Posted ' + formatDate(announcement.postedAt);
+        viewUpdated.innerHTML = '<i class="bi bi-clock-history"></i> Updated ' + formatDate(announcement.updatedAt);
+        viewMessage.textContent = announcement.message;
+
+        viewModal.classList.add('is-open');
+        viewModal.setAttribute('aria-hidden', 'false');
+        document.getElementById('closeAnnouncementViewButton').focus();
+    }
+
+    function closeViewModal() {
+        viewModal.classList.remove('is-open');
+        viewModal.setAttribute('aria-hidden', 'true');
+        viewingAnnouncement = null;
+    }
+
+    document.getElementById('closeAnnouncementViewButton').addEventListener('click', closeViewModal);
+    document.getElementById('closeAnnouncementViewButtonFooter').addEventListener('click', closeViewModal);
+
+    viewEditButton.addEventListener('click', function () {
+        const announcement = viewingAnnouncement;
+        closeViewModal();
+        openAnnouncementModal(announcement);
+    });
+
+    viewDeleteButton.addEventListener('click', function () {
+        const announcement = viewingAnnouncement;
+        deleteAnnouncement(announcement, closeViewModal);
+    });
+
+    // ---- Create / edit form -------------------------------------------------
+
     // Updates the hidden form field and visible label used by the custom recipient dropdown.
     function setRecipient(id, label) {
         recipientInput.value = id || '';
@@ -677,9 +869,33 @@
         recipientToggle.removeAttribute('aria-invalid');
     }
 
-    function setFormError(message) {
-        formError.textContent = message || '';
-        formError.classList.toggle('is-visible', Boolean(message));
+    function csrfToken() {
+        const input = form.querySelector('input[name="_token"]');
+        return input ? input.value : '';
+    }
+
+    // Deletes an announcement after confirmation, then removes it from the
+    // in-memory list and re-renders. Accepts an optional callback (used to
+    // close the view popup on success) run before the toast fires.
+    async function deleteAnnouncement(announcement, onSuccess) {
+        const confirmed = window.confirm('Delete "' + announcement.title + '"? This cannot be undone.');
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(LIST_URL + '/' + announcement.id, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': csrfToken() }
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Failed to delete announcement.');
+
+            announcements = announcements.filter(function (a) { return a.id !== announcement.id; });
+            renderAnnouncements();
+            if (typeof onSuccess === 'function') onSuccess();
+            notify('Announcement deleted.', 'success');
+        } catch (err) {
+            notify(err.message || 'Failed to delete announcement.', 'danger');
+        }
     }
 
     // Form controller: opens either a blank Publish form or a populated Edit form.
@@ -688,7 +904,6 @@
         form.reset();
         if (form.elements._token) form.elements._token.value = token;
         clearRecipientError();
-        setFormError('');
         if (announcement) {
             idInput.value = announcement.id;
             form.elements.announcement_title.value = announcement.title;
@@ -707,7 +922,6 @@
         document.getElementById('announcementTitleInput').focus();
     }
 
-    // Closes the modal.
     function closeAnnouncementModal() {
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
@@ -728,20 +942,23 @@
             setRecipient(id, RECIPIENT_LABELS[id]);
         }
     });
-    modal.addEventListener('click', function (event) { if (event.target === modal) closeAnnouncementModal(); });
     document.addEventListener('click', function (event) {
         if (!event.target.closest('#announcementRecipientDropdown')) {
             recipientOptions.hidden = true;
             recipientToggle.setAttribute('aria-expanded', 'false');
         }
     });
-    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && modal.classList.contains('is-open')) closeAnnouncementModal(); });
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        if (modal.classList.contains('is-open')) closeAnnouncementModal();
+        if (viewModal.classList.contains('is-open')) closeViewModal();
+    });
 
     // Publishing/saving: POSTs to the store route (the @csrf field in the form
-    // supplies the token) and merges the real saved row back into the list.
+    // supplies the token), merges the real saved row back into the list, and
+    // reports the result via toast instead of an inline banner.
     form.addEventListener('submit', async function (event) {
         event.preventDefault();
-        setFormError('');
 
         if (!form.checkValidity()) { form.reportValidity(); return; }
         if (!recipientInput.value) {
@@ -768,8 +985,9 @@
             }
             closeAnnouncementModal();
             renderAnnouncements();
+            notify(isEditing ? 'Announcement updated.' : 'Announcement published.', 'success');
         } catch (err) {
-            setFormError(err.message || 'Failed to save announcement.');
+            notify(err.message || 'Failed to save announcement.', 'danger');
         } finally {
             saveButton.disabled = false;
             saveButton.textContent = isEditing ? 'Save Changes' : 'Publish';

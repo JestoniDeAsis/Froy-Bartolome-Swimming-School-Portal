@@ -70,3 +70,6 @@ use App\Http\Controllers\AnnouncementController;
  
 Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('auth');
 Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('auth');
+Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->middleware('auth');
+
+Route::get('/announcements/feed', [AnnouncementController::class, 'feed'])->middleware('auth');

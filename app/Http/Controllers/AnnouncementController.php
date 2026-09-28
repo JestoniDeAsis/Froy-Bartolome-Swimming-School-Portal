@@ -41,6 +41,60 @@ class AnnouncementController extends Controller
     }
 
     /**
+     * Read-only feed for regular users: only announcements meant for
+     * "Everyone" plus whatever the logged-in user's own role is.
+     * Replaces having the client fetch and filter the full admin list.
+     */
+    public function feed(Request $request)
+    {
+        try {
+            $roleId = $this->recipientIdForUser($request->user());
+
+            $announcements = Announcement::query()
+                ->whereIn('announcement_recipients_id', array_unique([1, $roleId]))
+                ->orderByDesc('announcement_posted_at')
+                ->get([
+                    'announcement_id',
+                    'announcement_title',
+                    'announcement_message',
+                    'announcement_posted_at',
+                    'announcement_updated_at',
+                    'announcement_recipients_id',
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'announcements' => $announcements,
+                'viewer_recipient_id' => $roleId,
+            ]);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Maps the logged-in user to an announcement_recipients_id (2=Coaches,
+     * 3=Students, 4=Athletes). ADJUST THIS to match your actual User model's
+     * role column/values — this is a guess based on the FBSS Admin/Coach/
+     * Swimmer module split.
+     */
+    /**
+     * announcement_recipients_id and the user's role id share the same
+     * numbering (2=Coach, 3=Student, 4=Athlete) — role id 1 is Admin, which
+     * has no dedicated audience and falls back to "Everyone" (1) instead.
+     * ADJUST "role_id" below if your User model names this column differently.
+     */
+    private function recipientIdForUser($user): int
+    {
+        $roleId = (int) ($user->role_id ?? 0);
+
+        return in_array($roleId, [2, 3, 4], true) ? $roleId : 1;
+    }
+
+    /**
      * Replaces save_announcement.php. Creates a new announcement when no
      * announcement_id is supplied, otherwise updates the existing row —
      * same behavior as the original endpoint.
@@ -87,14 +141,27 @@ class AnnouncementController extends Controller
 
             return response()->json([
                 'success' => true,
-                'announcement' => $announcement->fresh([
-                    'announcement_id',
-                    'announcement_title',
-                    'announcement_message',
-                    'announcement_posted_at',
-                    'announcement_updated_at',
-                    'announcement_recipients_id',
-                ]),
+                'announcement' => $announcement->fresh(),
+            ]);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Deletes an announcement.
+     */
+    public function destroy($id)
+    {
+        try {
+            $announcement = Announcement::findOrFail($id);
+            $announcement->delete();
+
+            return response()->json([
+                'success' => true,
             ]);
         } catch (Throwable $e) {
             return response()->json([
