@@ -1,30 +1,5 @@
 @extends('layouts.toast')
 
-@php
-    $currentUser = auth()->user();
-
-    $profile = $currentUser
-        ? \DB::table('tbl_user_profile')->where('user_id', $currentUser->user_id)->first()
-        : null;
-
-    $roleClasses = [
-        1 => 'role-badge-admin',
-        2 => 'role-badge-coach',
-        3 => 'role-badge-student',
-        4 => 'role-badge-athlete',
-    ];
-
-    $roleLabel = $currentUser
-        ? (\DB::table('tbl_roles')->where('role_id', $currentUser->role_id)->value('role_name') ?? 'N/A')
-        : 'N/A';
-
-    $roleClass = $roleClasses[$currentUser->role_id ?? null] ?? '';
-
-    $contactSectionLabel = in_array($currentUser->role_id ?? null, [3, 4])
-        ? 'Parent / Guardian'
-        : 'Emergency Contact';
-@endphp
-
 <style>
 
     .profile-card {
