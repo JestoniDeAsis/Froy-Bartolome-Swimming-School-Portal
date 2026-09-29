@@ -39,4 +39,22 @@ class ProfileController extends Controller
             'message' => 'Profile updated successfully.',
         ]);
     }
+
+    public function data(int $roleId, $profile): array
+    {
+        $roleClasses = [
+            1 => 'role-badge-admin',
+            2 => 'role-badge-coach',
+            3 => 'role-badge-student',
+            4 => 'role-badge-athlete',
+        ];
+
+        return [
+            'currentUser'         => Auth::user(),
+            'roleLabel'           => DB::table('tbl_roles')->where('role_id', $roleId)->value('role_name') ?? 'N/A',
+            'roleClass'           => $roleClasses[$roleId] ?? '',
+            'contactSectionLabel' => in_array($roleId, [3, 4]) ? 'Parent / Guardian' : 'Emergency Contact',
+            'profile'             => $profile,
+        ];
+    }
 }

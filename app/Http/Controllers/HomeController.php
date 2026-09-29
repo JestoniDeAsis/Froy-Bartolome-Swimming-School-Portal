@@ -46,33 +46,13 @@ class HomeController extends Controller
             'roleName' => $roleName,
         ];
 
-        switch ($page) {
-            case 'graduation':
-                {
-                    $viewData['graduationTabs'] = (new GraduationController())->graduationTabs();
-                }
-            case 'profile':
-                {
-                    $viewData['currentUser'] = Auth::user();
-                    $viewData['roleLabel'] = Auth::user();
-                    $viewData['roleClass'] = Auth::user();
-                    $viewData['contactSectionLabel'] = Auth::user();
-                    $viewData['profile'] = $profile;
+        $extraData = match ($page) {
+            'graduation' => (new GraduationController())->graduationTabs(),
+            'profile'    => (new ProfileController())->data($roleId, $profile),
+            default      => [],
+        };
 
-                    $roleClasses = [
-                        1 => 'role-badge-admin',
-                        2 => 'role-badge-coach',
-                        3 => 'role-badge-student',
-                        4 => 'role-badge-athlete',
-                    ];
-
-                    $viewData['roleLabel'] = DB::table('tbl_roles')->where('role_id', $roleId)->value('role_name') ?? 'N/A';
-                    $viewData['roleClass'] = $roleClasses[$roleId] ?? '';
-                    $viewData['contactSectionLabel'] = in_array($roleId, [3, 4]) ? 'Parent / Guardian' : 'Emergency Contact';
-                    // $profile is already fetched above as $profile — just include it:
-                    $viewData['profile'] = $profile;
-                }
-        }
+        $viewData = array_merge($viewData, $extraData);
 
         return view('home.index', $viewData);
     }
