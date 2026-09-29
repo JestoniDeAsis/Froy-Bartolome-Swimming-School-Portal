@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
+use App\Models\UserProfile;
+
 class ProfileController extends Controller
 {
     /**
@@ -29,7 +31,7 @@ class ProfileController extends Controller
             ->except('current_password')
             ->toArray();
 
-        DB::table('tbl_user_profile')->updateOrInsert(
+        UserProfile::updateOrCreate(
             ['user_id' => Auth::user()->user_id],
             $profileData
         );

@@ -580,7 +580,7 @@
 
     <nav class="btn-tab-group" id="registersTabs" aria-label="Register sections">
         <button class="btn btn-outline-primary btn-tab registersTab active" type="button" data-register-tab="registrations" aria-selected="true">
-            New Registers
+            Registers
         </button>
         <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="students" aria-selected="false">
             Students
@@ -851,9 +851,7 @@
         return nextPersonId++;
     }
 
-    let registrations = [
-        { id: 1, lastName: 'Dela Cruz', firstName: 'Juan', middleName: 'Martin', email: 'juan.delacruz@gmail.com', birthdate: 'JAN-16-2004', age: '22' }
-    ];
+    let registrations = @json($registrations);
 
     let students = [
         { id: 101, lastName: 'Dela Cruz', firstName: 'Juan', middleName: 'Martin', course: 'Beginner', schedule: 'AM - MON/TUE/THU', paymentStatus: 'Paid', notes: 'Regular attendance.', balance: 0 }

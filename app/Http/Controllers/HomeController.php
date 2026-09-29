@@ -8,6 +8,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+use App\Models\UserProfile;
+
 class HomeController extends Controller
 {
     public function index(Request $request)
@@ -30,9 +32,7 @@ class HomeController extends Controller
             $page = array_key_first($allowedPages);
         }
 
-        $profile = DB::table('tbl_user_profile')
-            ->where('user_id', Auth::id())
-            ->first();
+        $profile = UserProfile::where('user_id', Auth::id())->first();
 
         $roleName = DB::table('tbl_roles')
             ->where('role_id', $roleId)
@@ -47,6 +47,7 @@ class HomeController extends Controller
         ];
 
         $extraData = match ($page) {
+            'registers'  => (new RegistersController())->data(),
             'graduation' => (new GraduationController())->graduationTabs(),
             'profile'    => (new ProfileController())->data($roleId, $profile),
             default      => [],
