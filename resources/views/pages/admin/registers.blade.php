@@ -1,3 +1,5 @@
+@extends('layouts.toast')
+
 <style>
 /* =========================================================
    Registers
@@ -664,17 +666,17 @@
             <label for="courseToggle">Course *</label>
             <div class="registerDropdown" data-dropdown>
                 <button class="registerDropdownToggle" id="courseToggle" type="button" aria-expanded="false" aria-controls="courseOptions">
-                    <span id="courseSelected">Beginner 2025</span>
+                    <span id="courseSelected">{{ $courses[0]['name'] ?? 'Select a course' }}</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
                 </button>
 
                 <div class="registerDropdownOptions" id="courseOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="Beginner 2025">Beginner 2025</button>
-                    <button class="registerDropdownOption" type="button" data-value="Intermediate 2025">Intermediate 2025</button>
-                    <button class="registerDropdownOption" type="button" data-value="Advanced 2025">Advanced 2025</button>
+                    @foreach ($courses as $index => $course)
+                        <button class="registerDropdownOption @if ($index === 0) active @endif" type="button" data-value="{{ $course['name'] }}">{{ $course['name'] }}</button>
+                    @endforeach
                 </div>
 
-                <input id="courseInput" name="course" type="hidden" value="Beginner 2025">
+                <input id="courseInput" name="course" type="hidden" value="{{ $courses[0]['name'] ?? '' }}">
             </div>
         </div>
 
@@ -723,6 +725,30 @@
         <div class="formGroup" id="modalPaymentGroup" hidden>
             <label for="paymentInput">Payment *</label>
             <input class="form-control" id="paymentInput" name="payment" type="number" min="0" step="0.01" placeholder="₱2,000">
+        </div>
+
+        <!-- Payment Method -->
+        <div class="formGroup" id="modalPaymentMethodGroup" hidden>
+            <label for="paymentMethodInput">Payment Method</label>
+            <select class="form-control" id="paymentMethodInput">
+                <option value="">Select method</option>
+                <option value="Cash">Cash</option>
+                <option value="GCash">GCash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <!-- Reference Number -->
+        <div class="formGroup" id="modalReferenceNumberGroup" hidden>
+            <label for="referenceNumberInput">Reference Number</label>
+            <input class="form-control" id="referenceNumberInput" type="text" placeholder="e.g. GCash reference number" maxlength="100">
+        </div>
+
+        <!-- Receipt Number -->
+        <div class="formGroup" id="modalReceiptNumberGroup" hidden>
+            <label for="receiptNumberInput">Receipt Number *</label>
+            <input class="form-control" id="receiptNumberInput" type="text" placeholder="e.g. OR-2026-0001" maxlength="50">
         </div>
 
         <!-- Payment Status -->
@@ -853,9 +879,14 @@
 
     let registrations = @json($registrations);
 
-    let students = [
-        { id: 101, lastName: 'Dela Cruz', firstName: 'Juan', middleName: 'Martin', course: 'Beginner', schedule: 'AM - MON/TUE/THU', paymentStatus: 'Paid', notes: 'Regular attendance.', balance: 0 }
-    ];
+    // Real courses from tbl_courses. Dropdowns still use the course NAME as
+    // their value (kept as-is so stripYear/course-matching logic below
+    // doesn't need to change) — this map converts name -> id only at the
+    // moment we send the enroll request to the server.
+    const COURSES = @json($courses);
+    const COURSE_NAME_TO_ID = Object.fromEntries(COURSES.map(c => [c.name, c.id]));
+
+    let students = @json($students);
 
     let athletes = [
         { id: 201, lastName: 'Dela Cruz', firstName: 'Juan', middleName: 'Martin', email: 'juandela@gmail.com', birthdate: 'JAN-06-2004', age: '22' }
@@ -955,6 +986,12 @@
         modalBalance: document.getElementById('modalBalance'),
         modalPaymentStatus: document.getElementById('modalPaymentStatus'),
         paymentInput: document.getElementById('paymentInput'),
+        modalPaymentMethodGroup: document.getElementById('modalPaymentMethodGroup'),
+        modalReferenceNumberGroup: document.getElementById('modalReferenceNumberGroup'),
+        modalReceiptNumberGroup: document.getElementById('modalReceiptNumberGroup'),
+        paymentMethodInput: document.getElementById('paymentMethodInput'),
+        referenceNumberInput: document.getElementById('referenceNumberInput'),
+        receiptNumberInput: document.getElementById('receiptNumberInput'),
         studentNotes: document.getElementById('studentNotes'),
         courseInput: document.getElementById('courseInput'),
         scheduleInput: document.getElementById('scheduleInput'),
@@ -1486,9 +1523,15 @@
         elements.modalNotesGroup.hidden = false;
         elements.modalBalanceGroup.hidden = true;
         elements.modalPaymentGroup.hidden = true;
+        elements.modalPaymentMethodGroup.hidden = true;
+        elements.modalReferenceNumberGroup.hidden = true;
+        elements.modalReceiptNumberGroup.hidden = true;
         elements.modalPaymentStatusGroup.hidden = true;
 
         elements.paymentInput.value = '';
+        elements.paymentMethodInput.value = '';
+        elements.referenceNumberInput.value = '';
+        elements.receiptNumberInput.value = '';
         elements.studentNotes.value = '';
 
         setActiveDays([]);
@@ -1508,7 +1551,7 @@
 
         const defaultCourse = (sourceTab === 'graduates' && COURSE_OPTIONS.includes(person.lastCourse))
             ? person.lastCourse
-            : 'Beginner 2025';
+            : (COURSES[0]?.name || '');
 
         setDropdownValue('course', defaultCourse);
         setDropdownValue('schedule', 'Morning');
@@ -1527,7 +1570,7 @@
         elements.modalSubmitButton.textContent = 'Update';
         elements.modalStudentName.textContent = getPersonName(student);
 
-        const courseOption = COURSE_OPTIONS.find(opt => stripYear(opt) === student.course) || 'Beginner 2025';
+        const courseOption = COURSES.find(c => c.name === student.course)?.name || (COURSES[0]?.name || '');
         setDropdownValue('course', courseOption);
 
         const { scheduleTime, days } = parseSchedule(student.schedule);
@@ -1557,6 +1600,9 @@
 
         elements.modalBalanceGroup.hidden = false;
         elements.modalPaymentGroup.hidden = false;
+        elements.modalPaymentMethodGroup.hidden = false;
+        elements.modalReferenceNumberGroup.hidden = false;
+        elements.modalReceiptNumberGroup.hidden = false;
         elements.modalPaymentStatusGroup.hidden = false;
 
         elements.modalBalance.textContent = formatCurrency(student.balance);
@@ -1594,9 +1640,216 @@
         closeModal(elements.studentModal);
     });
 
-    elements.modalSubmitButton.addEventListener('click', () => {
+    function getCsrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+
+    async function submitRegistrationEnroll(person) {
+        const courseId = COURSE_NAME_TO_ID[elements.courseInput.value];
+
+        if (!courseId) {
+            showToast('Please select a valid course.', 'danger');
+            return;
+        }
+
+        elements.modalSubmitButton.disabled = true;
+        elements.modalSubmitButton.textContent = 'Enrolling...';
+
+        try {
+            const response = await fetch('{{ url('/registers/enroll') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: person.id,
+                    course_id: courseId,
+                    scheduled_time: buildScheduleString(elements.scheduleInput.value, getActiveDays()),
+                    notes: elements.studentNotes.value.trim()
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                registrations = registrations.filter(p => p.id !== person.id);
+
+                students.push({
+                    id: data.student.id,
+                    lastName: person.lastName,
+                    firstName: person.firstName,
+                    middleName: person.middleName,
+                    course: data.student.course,
+                    schedule: data.student.schedule,
+                    paymentStatus: data.student.paymentStatus,
+                    notes: data.student.notes,
+                    balance: data.student.balance
+                });
+
+                modalContext = null;
+                closeModal(elements.studentModal);
+                renderTable(activeTab);
+                showToast(`Successfully enrolled ${getPersonName(person)}.`, 'success');
+            } else {
+                const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
+                showToast(firstError || data.message || 'Something went wrong while enrolling.', 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while enrolling.', 'danger');
+        } finally {
+            elements.modalSubmitButton.disabled = false;
+            elements.modalSubmitButton.textContent = 'Enroll';
+        }
+    }
+
+    async function submitCourseUpdate(student) {
+        const courseId = COURSE_NAME_TO_ID[elements.courseInput.value];
+
+        if (!courseId) {
+            showToast('Please select a valid course.', 'danger');
+            return;
+        }
+
+        elements.modalSubmitButton.disabled = true;
+        elements.modalSubmitButton.textContent = 'Updating...';
+
+        try {
+            const response = await fetch(`{{ url('/registers/students') }}/${student.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    course_id: courseId,
+                    scheduled_time: buildScheduleString(elements.scheduleInput.value, getActiveDays()),
+                    notes: elements.studentNotes.value.trim()
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                student.course = elements.courseInput.value;
+                student.schedule = buildScheduleString(elements.scheduleInput.value, getActiveDays());
+                student.notes = elements.studentNotes.value.trim();
+
+                modalContext = null;
+                closeModal(elements.studentModal);
+                renderTable(activeTab);
+                showToast(`Successfully updated the course for ${getPersonName(student)}.`, 'success');
+            } else {
+                const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
+                showToast(firstError || data.message || 'Something went wrong while updating the course.', 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while updating the course.', 'danger');
+        } finally {
+            elements.modalSubmitButton.disabled = false;
+            elements.modalSubmitButton.textContent = 'Update';
+        }
+    }
+
+    async function submitPaymentUpdate(student) {
+        const amount = Math.max(Number(elements.paymentInput.value) || 0, 0);
+        const receiptNumber = elements.receiptNumberInput.value.trim();
+
+        if (amount <= 0) {
+            showToast('Enter a payment amount greater than zero.', 'danger');
+            return;
+        }
+
+        if (!receiptNumber) {
+            showToast('Receipt number is required.', 'danger');
+            return;
+        }
+
+        elements.modalSubmitButton.disabled = true;
+        elements.modalSubmitButton.textContent = 'Updating...';
+
+        try {
+            const response = await fetch(`{{ url('/registers/students') }}/${student.id}/payments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: amount,
+                    payment_method: elements.paymentMethodInput.value || null,
+                    reference_number: elements.referenceNumberInput.value.trim() || null,
+                    receipt_number: receiptNumber
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                student.balance = data.balance;
+                student.paymentStatus = data.paymentStatus;
+
+                modalContext = null;
+                closeModal(elements.studentModal);
+                renderTable(activeTab);
+                showToast(`Successfully updated the payment for ${getPersonName(student)}.`, 'success');
+            } else {
+                const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
+                showToast(firstError || data.message || 'Something went wrong while updating the payment.', 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while updating the payment.', 'danger');
+        } finally {
+            elements.modalSubmitButton.disabled = false;
+            elements.modalSubmitButton.textContent = 'Update';
+        }
+    }
+
+    elements.modalSubmitButton.addEventListener('click', async () => {
         if (!modalContext) {
             closeModal(elements.studentModal);
+            return;
+        }
+
+        // Enrolling from New Registers, course-update, and payment-update now
+        // all save real rows via RegistersController. Only re-enrolling a
+        // graduate is still mock — not part of this task.
+        if (modalContext.mode === 'enroll' && modalContext.sourceTab === 'registrations') {
+            const person = registrations.find(p => p.id === modalContext.personId);
+            if (person) {
+                await submitRegistrationEnroll(person);
+            } else {
+                modalContext = null;
+                closeModal(elements.studentModal);
+            }
+            return;
+        }
+
+        if (modalContext.mode === 'course-update') {
+            const student = students.find(s => s.id === modalContext.studentId);
+            if (student) {
+                await submitCourseUpdate(student);
+            } else {
+                modalContext = null;
+                closeModal(elements.studentModal);
+            }
+            return;
+        }
+
+        if (modalContext.mode === 'payment-update') {
+            const student = students.find(s => s.id === modalContext.studentId);
+            if (student) {
+                await submitPaymentUpdate(student);
+            } else {
+                modalContext = null;
+                closeModal(elements.studentModal);
+            }
             return;
         }
 
@@ -1629,30 +1882,6 @@
 
                 successMessage = `Successfully enrolled ${getPersonName(person)}.`;
             }
-
-        } else if (modalContext.mode === 'course-update') {
-            const student = students.find(s => s.id === modalContext.studentId);
-
-            if (student) {
-                student.course = stripYear(elements.courseInput.value);
-                student.schedule = buildScheduleString(elements.scheduleInput.value, getActiveDays());
-                student.notes = elements.studentNotes.value.trim();
-
-                successMessage = `Successfully updated the course for ${getPersonName(student)}.`;
-            }
-
-        } else if (modalContext.mode === 'payment-update') {
-            const student = students.find(s => s.id === modalContext.studentId);
-
-            if (student) {
-                const payment = Math.max(Number(elements.paymentInput.value) || 0, 0);
-                const remaining = Math.max(student.balance - payment, 0);
-
-                student.paymentStatus = computeStatus(remaining, payment, student.paymentStatus);
-                student.balance = remaining;
-
-                successMessage = `Successfully updated the payment for ${getPersonName(student)}.`;
-            }
         }
 
         modalContext = null;
@@ -1660,7 +1889,7 @@
         renderTable(activeTab);
 
         if (successMessage) {
-            openInfoModal({ title: 'Success', message: successMessage });
+            showToast(successMessage, 'success');
         }
     });
 

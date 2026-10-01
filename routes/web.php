@@ -73,3 +73,9 @@ Route::post('/announcements', [AnnouncementController::class, 'store'])->middlew
 Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->middleware('auth');
 
 Route::get('/announcements/feed', [AnnouncementController::class, 'feed'])->middleware('auth');
+
+use App\Http\Controllers\RegistersController;
+
+Route::post('/registers/enroll', [RegistersController::class, 'enroll'])->middleware('auth');
+Route::put('/registers/students/{enrollment}', [RegistersController::class, 'updateCourse'])->middleware('auth');
+Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');

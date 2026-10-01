@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class CoursePayment extends Model
+{
+    protected $table = 'tbl_course_payments';
+
+    protected $primaryKey = 'course_payment_id';
+
+    protected $fillable = [
+        'student_id',
+        'amount',
+        'payment_method',
+        'reference_number',
+        'receipt_number',
+        'paid_at',
+        'received_by',
+    ];
+
+    protected $casts = [
+        'amount' => 'float',
+        'paid_at' => 'datetime',
+    ];
+
+    /**
+     * student_id on tbl_course_payments points at an enrollment
+     * (tbl_enrollments.enrollment_id), not a user — a payment belongs to
+     * a specific course enrollment, since the same person could have
+     * separate enrollments (and separate balances) over time.
+     */
+    public function enrollment()
+    {
+        return $this->belongsTo(Enrollment::class, 'student_id', 'enrollment_id');
+    }
+
+    public function receivedBy()
+    {
+        return $this->belongsTo(User::class, 'received_by', 'user_id');
+    }
+}
