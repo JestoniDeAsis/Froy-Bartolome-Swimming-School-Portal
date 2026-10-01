@@ -1,11 +1,14 @@
 <style>
-.sales-page {
-    --sales-blue: #0757a5;
-    --sales-blue-dark: #03447f;
+.sales-page, .sales-dialog {
+    --sales-blue: var(--fbss-blue, #0D6EFD);
+    --sales-blue-dark: var(--fbss-blue-hover, #0B5ED7);
     --sales-ink: #16202c;
     --sales-muted: #64748b;
     --sales-line: #dce5ed;
     --sales-canvas: #f4f7f6;
+}
+
+.sales-page {
     color: var(--sales-ink);
     display: flex;
     flex-direction: column;
@@ -38,47 +41,6 @@
     font-size: .82rem;
 }
 
-.sales-add-button, .sales-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: .45rem;
-    min-height: 40px;
-    border: 1px solid transparent;
-    border-radius: 7px;
-    padding: .55rem .9rem;
-    font: inherit;
-    font-size: .85rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.sales-add-button, .sales-button-primary {
-    color: #fff;
-    background: var(--sales-blue);
-}
-
-.sales-add-button:hover, .sales-button-primary:hover {
-    background: var(--sales-blue-dark);
-}
-
-.sales-button-secondary {
-    background: #fff;
-    color: var(--sales-blue);
-    border-color: var(--sales-blue);
-}
-
-.sales-button-danger {
-    background: #fff;
-    color: #c73535;
-    border-color: #eccaca;
-}
-
-.sales-button:disabled {
-    opacity: .55;
-    cursor: not-allowed;
-}
-
 .sales-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -93,8 +55,8 @@
     gap: .75rem;
     padding: 1rem 1.2rem;
     background: #fff;
-    border: 1px solid #edf0f2;
-    border-radius: 7px;
+    border: 1px solid var(--sales-line);
+    border-radius: var(--fbss-radius, .5rem);
 }
 
 .sales-stat-label {
@@ -123,23 +85,23 @@
 }
 
 .sales-stat-icon--green {
-    background: #a4ffbc;
-    color: #157347;
+    background: var(--fbss-success-tint, #E9F5EF);
+    color: var(--fbss-success, #198754);
 }
 
 .sales-stat-icon--red {
-    background: #ff807e;
-    color: #fff;
+    background: var(--fbss-danger-tint, #FBEAEC);
+    color: var(--fbss-danger, #DC3545);
 }
 
 .sales-stat-icon--blue {
-    background: #93d8ff;
-    color: #045199;
+    background: var(--fbss-blue-tint, #E7F1FF);
+    color: var(--fbss-blue, #0D6EFD);
 }
 
 .sales-stat-icon--amber {
-    background: #ffd58d;
-    color: #6a4e00;
+    background: #FFF7E0;
+    color: var(--fbss-warning-text, #6A4E00);
 }
 
 .sales-toolbar {
@@ -195,7 +157,7 @@
 }
 
 .sales-field input:focus, .sales-field select:focus, .sales-field textarea:focus, .sales-search input:focus {
-    outline: 2px solid #9ac6ec;
+    outline: 2px solid rgba(var(--fbss-blue-rgb, 13, 110, 253), .35);
     outline-offset: 1px;
 }
 
@@ -258,33 +220,8 @@
     font-weight: 600;
 }
 
-.sales-row-actions {
-    display: inline-flex;
-    align-items: center;
+.sales-table .btn-row-actions {
     justify-content: center;
-    gap: .35rem;
-}
-
-.sales-icon-button {
-    width: 30px;
-    height: 30px;
-    display: inline-grid;
-    place-items: center;
-    border: 1px solid #e2e8ee;
-    border-radius: 6px;
-    background: #fff;
-    color: #40556a;
-    cursor: pointer;
-}
-
-.sales-icon-button:hover {
-    color: var(--sales-blue);
-    border-color: #8fb8df;
-}
-
-.sales-icon-button--danger:hover {
-    color: #c73535;
-    border-color: #e2a4a4;
 }
 
 .sales-badge {
@@ -298,18 +235,18 @@
 }
 
 .sales-badge--paid {
-    color: #157347;
-    background: #e1f5e9;
+    color: var(--fbss-success, #198754);
+    background: var(--fbss-success-tint, #E9F5EF);
 }
 
 .sales-badge--unpaid {
-    color: #b42318;
-    background: #fde8e7;
+    color: var(--fbss-danger, #DC3545);
+    background: var(--fbss-danger-tint, #FBEAEC);
 }
 
-.sales-badge--outstanding {
-    color: #805b08;
-    background: #fff2cf;
+.sales-badge--partial {
+    color: var(--fbss-warning-text, #6A4E00);
+    background: #FFF7E0;
 }
 
 .sales-empty {
@@ -328,10 +265,14 @@
     max-width: min(420px, calc(100vw - 2rem));
     padding: .75rem 1rem;
     border-radius: 6px;
-    background: #157347;
+    background: var(--fbss-success, #198754);
     color: #fff;
     box-shadow: 0 5px 20px #172b3a33;
     font-size: .9rem;
+}
+
+.sales-notice--danger {
+    background: var(--fbss-danger, #DC3545);
 }
 
 .sales-dialog {
@@ -341,7 +282,9 @@
     border: 0;
     border-radius: 12px;
     box-shadow: 0 18px 50px #16202c33;
+    background: #fff;
     color: var(--sales-ink);
+    color-scheme: light;
 }
 
 .sales-dialog::backdrop {
@@ -397,6 +340,12 @@
     margin-top: 1rem;
 }
 
+.sales-field-error {
+    color: var(--fbss-danger, #DC3545);
+    font-size: .76rem;
+    font-weight: 600;
+}
+
 .sales-balance-line {
     display: flex;
     justify-content: space-between;
@@ -408,16 +357,19 @@
 }
 
 .sales-receipt-toolbar {
-    position: absolute;
-    top: -3rem;
-    right: 0;
     display: flex;
+    align-items: center;
+    justify-content: flex-end;
     gap: .5rem;
+    padding: .6rem .75rem;
+    background: #fff;
+    border-bottom: 1px solid var(--sales-line);
 }
 
 .sales-receipt {
     overflow: hidden;
     background: #fff;
+    color: var(--sales-ink);
     border-radius: 12px;
 }
 
@@ -442,8 +394,8 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    background: #2dd4bf;
-    color: #064f82;
+    background: #fff;
+    color: var(--sales-blue);
     font-size: .6rem;
 }
 
@@ -455,7 +407,7 @@
 .sales-receipt-head small {
     display: block;
     margin-top: .2rem;
-    color: #d3e9fa;
+    color: rgba(255, 255, 255, .85);
     font-size: .68rem;
 }
 
@@ -512,22 +464,22 @@
 
 .sales-receipt-amount {
     padding: .55rem;
-    border: 1px solid #d5e0f0;
-    border-radius: 7px;
-    background: #f2f5fc;
-    color: #214cbd;
+    border: 1px solid #b6d4fe;
+    border-radius: var(--fbss-radius, .5rem);
+    background: var(--fbss-blue-tint, #E7F1FF);
+    color: var(--fbss-blue-active, #0A58CA);
 }
 
 .sales-receipt-amount:nth-child(2) {
-    background: #effaf2;
-    border-color: #bee5c8;
-    color: #17834b;
+    background: var(--fbss-success-tint, #E9F5EF);
+    border-color: #a3cfbb;
+    color: var(--fbss-success, #198754);
 }
 
 .sales-receipt-amount:nth-child(3) {
-    background: #fff0f0;
-    border-color: #f2c3c3;
-    color: #d93434;
+    background: var(--fbss-danger-tint, #FBEAEC);
+    border-color: #f1aeb5;
+    color: var(--fbss-danger, #DC3545);
 }
 
 .sales-receipt-amount small {
@@ -544,7 +496,7 @@
 .sales-receipt-method {
     padding: .55rem .7rem;
     border: 1px solid #e2eaf0;
-    border-radius: 6px;
+    border-radius: var(--fbss-radius, .5rem);
     background: #f7f9fb;
     font-size: .72rem;
 }
@@ -655,80 +607,13 @@
 }
 </style>
 
-@php
-    $coursePayments = \DB::table('tbl_students as s')
-        ->leftJoin('tbl_users as u', 'u.user_id', '=', 's.user_id')
-        ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
-        ->leftJoin('tbl_courses as c', 'c.course_id', '=', 's.course_id')
-        ->select('s.student_id as id')
-        ->selectRaw("COALESCE(c.course_name, 'Course') as course")
-        ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.name_suffix)), ''), u.username, '') as name")
-        ->selectRaw('COALESCE(s.course_price_at_enrollment, c.course_price, 0) as price')
-        ->selectRaw('COALESCE(s.course_price_at_enrollment, c.course_price, 0) as toPay')
-        ->selectRaw('(SELECT COALESCE(SUM(cp.amount), 0) FROM tbl_course_payments cp WHERE cp.student_id = s.student_id) as paid')
-        ->selectRaw("(SELECT cp.payment_method FROM tbl_course_payments cp WHERE cp.student_id = s.student_id ORDER BY cp.paid_at DESC, cp.course_payment_id DESC LIMIT 1) as method")
-        ->selectRaw("COALESCE(DATE_FORMAT((SELECT MAX(cp.paid_at) FROM tbl_course_payments cp WHERE cp.student_id = s.student_id), '%b-%d-%Y'), DATE_FORMAT(s.enrollment_at, '%b-%d-%Y')) as date")
-        ->selectRaw("COALESCE((SELECT cp.receipt_number FROM tbl_course_payments cp WHERE cp.student_id = s.student_id ORDER BY cp.paid_at DESC, cp.course_payment_id DESC LIMIT 1), CONCAT('ENR-', s.student_id)) as receipt")
-        ->orderByDesc('s.enrollment_at')
-        ->orderByDesc('s.student_id')
-        ->get()
-        ->map(fn ($row) => [
-            'id' => (int) $row->id,
-            'course' => $row->course,
-            'name' => $row->name,
-            'price' => (float) $row->price,
-            'toPay' => (float) $row->toPay,
-            'paid' => (float) $row->paid,
-            'method' => $row->method ?? '',
-            'date' => $row->date ?? '',
-            'receipt' => $row->receipt,
-        ]);
-
-    $itemCatalog = \DB::table('tbl_items')
-        ->where('is_active', 1)
-        ->orderBy('item_name')
-        ->get(['item_id', 'item_name', 'description', 'unit_price', 'stock_quantity'])
-        ->map(fn ($item) => [
-            'id' => (int) $item->item_id,
-            'name' => $item->item_name,
-            'description' => $item->description ?? '',
-            'price' => (float) $item->unit_price,
-            'stock' => (int) $item->stock_quantity,
-        ]);
-
-    $itemLogs = \DB::table('tbl_item_logs as l')
-        ->join('tbl_items as i', 'i.item_id', '=', 'l.item_id')
-        ->leftJoin('tbl_users as u', 'u.user_id', '=', 'l.user_id')
-        ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
-        ->select('l.item_log_id as id', 'l.item_id as itemId', 'i.item_name as item', 'l.quantity', 'l.unit_price as price', 'l.amount_paid as paid', 'l.payment_method as method', 'l.receipt_number as receipt')
-        ->selectRaw("COALESCE(NULLIF(l.description, ''), i.description, '') as description")
-        ->selectRaw("DATE_FORMAT(l.sold_at, '%b-%d-%Y') as date")
-        ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.name_suffix)), ''), u.username, '') as client")
-        ->orderByDesc('l.sold_at')
-        ->orderByDesc('l.item_log_id')
-        ->get()
-        ->map(fn ($row) => [
-            'id' => (int) $row->id,
-            'itemId' => (int) $row->itemId,
-            'item' => $row->item,
-            'description' => $row->description ?? '',
-            'quantity' => (int) $row->quantity,
-            'price' => (float) $row->price,
-            'paid' => (float) $row->paid,
-            'method' => $row->method ?? '',
-            'date' => $row->date ?? '',
-            'client' => $row->client,
-            'receipt' => $row->receipt,
-        ]);
-@endphp
-
 <section class="sales-page" id="salesPage" aria-labelledby="salesTitle">
     <header class="sales-heading">
         <div>
             <h1 id="salesTitle">Purchases</h1>
             <p>Track fees, collections, and balances</p>
         </div>
-        <button class="sales-add-button" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
+        <button class="btn btn-primary btn-icon-label" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
     </header>
 
     <nav class="btn-tab-group" aria-label="Purchase sections" role="tablist">
@@ -738,23 +623,23 @@
     </nav>
 
     <div class="sales-stats" aria-label="Payment totals">
-        <article class="sales-stat"><div><p class="sales-stat-label">Total collected</p><p class="sales-stat-value" id="salesTotalCollected">₱0</p></div><span class="sales-stat-icon sales-stat-icon--green"><i class="bi bi-check-lg"></i></span></article>
-        <article class="sales-stat"><div><p class="sales-stat-label">Outstanding</p><p class="sales-stat-value" id="salesOutstanding">₱0</p></div><span class="sales-stat-icon sales-stat-icon--red"><i class="bi bi-circle-fill"></i></span></article>
-        <article class="sales-stat"><div><p class="sales-stat-label">Paid</p><p class="sales-stat-value" id="salesPaid">₱0</p></div><span class="sales-stat-icon sales-stat-icon--blue"><i class="bi bi-circle"></i></span></article>
-        <article class="sales-stat"><div><p class="sales-stat-label">Unpaid</p><p class="sales-stat-value" id="salesUnpaid">₱0</p></div><span class="sales-stat-icon sales-stat-icon--amber"><i class="bi bi-circle"></i></span></article>
+        <article class="sales-stat"><div><p class="sales-stat-label">Total collected</p><p class="sales-stat-value" id="salesTotalCollected">₱0</p></div><span class="sales-stat-icon sales-stat-icon--blue"><i class="bi bi-cash-stack"></i></span></article>
+        <article class="sales-stat"><div><p class="sales-stat-label">Outstanding</p><p class="sales-stat-value" id="salesOutstanding">₱0</p></div><span class="sales-stat-icon sales-stat-icon--amber"><i class="bi bi-hourglass-split"></i></span></article>
+        <article class="sales-stat"><div><p class="sales-stat-label">Paid</p><p class="sales-stat-value" id="salesPaid">₱0</p></div><span class="sales-stat-icon sales-stat-icon--green"><i class="bi bi-check-circle"></i></span></article>
+        <article class="sales-stat"><div><p class="sales-stat-label">Unpaid</p><p class="sales-stat-value" id="salesUnpaid">₱0</p></div><span class="sales-stat-icon sales-stat-icon--red"><i class="bi bi-x-circle"></i></span></article>
     </div>
 
     <div class="sales-toolbar">
         <div class="sales-toolbar-start">
             <label class="sales-search"><i class="bi bi-search" aria-hidden="true"></i><input id="salesSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search rows"></label>
             <select class="sales-filter" id="salesStatusFilter" aria-label="Filter by payment status">
-                <option value="">All Status</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="outstanding">Outstanding</option>
+                <option value="">All Status</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="partial">Partial</option>
             </select>
         </div>
     </div>
 
     <section class="sales-panel" id="salesPanelCourse" role="tabpanel" aria-labelledby="salesTabCourse" data-sales-panel="course">
-        <div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelLogs" role="tabpanel" aria-labelledby="salesTabLogs" data-sales-panel="logs" hidden>
         <div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
@@ -770,11 +655,13 @@
         <h2 id="coursePaymentTitle">Updating course payment</h2><p class="sales-dialog-subtitle" id="coursePaymentStudent"></p>
         <form class="sales-form" id="coursePaymentForm">
             <input type="hidden" name="id">
+            <input type="hidden" name="paymentId">
             <div class="sales-balance-line"><strong>Balance</strong><strong id="coursePaymentBalance">₱0</strong></div>
-            <div class="sales-field"><label for="coursePaymentAmount">Payment *</label><input id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required></div>
-            <div class="sales-field"><label for="coursePaymentMethod">Mode of payment *</label><select id="coursePaymentMethod" name="method" required><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option></select></div>
+            <div class="sales-field"><label for="coursePaymentAmount">Payment *</label><input id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
+            <div class="sales-field"><label for="coursePaymentMethod">Payment Method</label><select id="coursePaymentMethod" name="method"><option value="">Select method</option><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option><option value="Other">Other</option></select></div>
+            <div class="sales-field"><label for="coursePaymentReference">Reference Number</label><input id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="coursePaymentStatus"></span></div>
-            <div class="sales-dialog-actions"><button class="sales-button sales-button-secondary" type="button" data-dialog-close>Cancel</button><button class="sales-button sales-button-primary" type="submit">Update</button></div>
+            <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="coursePaymentSubmit">Update</button></div>
         </form>
     </div>
 </dialog>
@@ -789,7 +676,7 @@
             <div class="sales-balance-line"><strong>To Pay</strong><strong id="purchaseToPay">₱0</strong></div>
             <div class="sales-form-grid"><div class="sales-field"><label for="purchasePaid">Payment *</label><input id="purchasePaid" name="paid" type="number" min="0" step="0.01" value="0" required></div><div class="sales-field"><label for="purchaseMethod">Mode of Payment *</label><select id="purchaseMethod" name="method" required><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option></select></div></div>
             <div class="sales-field"><label for="purchaseDescription">Description</label><input id="purchaseDescription" name="description" maxlength="255" placeholder="Color and stuff"></div>
-            <div class="sales-dialog-actions"><button class="sales-button sales-button-secondary" type="button" data-dialog-close>Cancel</button><button class="sales-button sales-button-primary" type="submit" id="purchaseSubmit">Add</button></div>
+            <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="purchaseSubmit">Add</button></div>
         </form>
     </div>
 </dialog>
@@ -802,18 +689,18 @@
             <div class="sales-field"><label for="catalogItemName">Item name *</label><input id="catalogItemName" name="name" maxlength="150" required></div>
             <div class="sales-field"><label for="catalogItemDescription">Description</label><input id="catalogItemDescription" name="description" maxlength="255"></div>
             <div class="sales-form-grid"><div class="sales-field"><label for="catalogItemPrice">Price *</label><input id="catalogItemPrice" name="price" type="number" min="0" step="0.01" required></div><div class="sales-field"><label for="catalogItemStock">Stock *</label><input id="catalogItemStock" name="stock" type="number" min="0" step="1" required></div></div>
-            <div class="sales-dialog-actions"><button class="sales-button sales-button-secondary" type="button" data-dialog-close>Cancel</button><button class="sales-button sales-button-primary" type="submit" id="itemSubmit">Add</button></div>
+            <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="itemSubmit">Add</button></div>
         </form>
     </div>
 </dialog>
 
 <dialog class="sales-dialog sales-receipt-dialog" id="receiptDialog" aria-label="Receipt">
-    <div class="sales-receipt-toolbar"><button class="sales-button sales-button-primary" type="button" id="printReceipt"><i class="bi bi-printer" aria-hidden="true"></i> Print</button><button class="sales-icon-button" type="button" data-dialog-close aria-label="Close receipt"><i class="bi bi-x-lg"></i></button></div>
+    <div class="sales-receipt-toolbar"><button class="btn btn-primary btn-sm btn-icon-label" type="button" id="printReceipt"><i class="bi bi-printer" aria-hidden="true"></i> Print</button><button class="btn btn-icon btn-icon-ghost btn-icon-sm" type="button" data-dialog-close aria-label="Close receipt"><i class="bi bi-x-lg"></i></button></div>
     <article class="sales-receipt" id="receiptContent"></article>
 </dialog>
 
 <dialog class="sales-dialog" id="confirmDialog" aria-labelledby="confirmTitle">
-    <div class="sales-dialog-inner"><h2 id="confirmTitle">Remove this record?</h2><p class="sales-dialog-subtitle" id="confirmMessage">This action only changes this preview until the page is reloaded.</p><div class="sales-dialog-actions"><button class="sales-button sales-button-secondary" type="button" data-dialog-close>Cancel</button><button class="sales-button sales-button-danger" type="button" id="confirmDelete">Remove</button></div></div>
+    <div class="sales-dialog-inner"><h2 id="confirmTitle">Remove this record?</h2><p class="sales-dialog-subtitle" id="confirmMessage">This action only changes this preview until the page is reloaded.</p><div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-danger" type="button" id="confirmDelete">Remove</button></div></div>
 </dialog>
 
 <script>
@@ -821,9 +708,10 @@
     const page = document.getElementById('salesPage');
     if (!page) return;
 
-    let courseRows = @json($coursePayments);
-    let items = @json($itemCatalog);
-    let logs = @json($itemLogs);
+    // Filled by loadData() from GET /sales/data (SalesInvoiceController).
+    let courseRows = [];
+    let items = [];
+    let logs = [];
     let activeTab = 'course';
     let pendingRemoval = null;
     const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
@@ -833,16 +721,18 @@
         return `${month}-${String(date.getDate()).padStart(2, '0')}-${date.getFullYear()}`;
     };
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
-    const statusFor = (paid, total) => Number(paid) <= 0 ? 'unpaid' : Number(paid) >= Number(total) ? 'paid' : 'outstanding';
-    const badge = status => `<span class="sales-badge sales-badge--${status}">${status === 'paid' ? 'Paid' : status === 'unpaid' ? 'Unpaid' : 'Outstanding'}</span>`;
+    const statusFor = (paid, total) => Number(paid) <= 0 ? 'unpaid' : Number(paid) >= Number(total) ? 'paid' : 'partial';
+    const statusLabel = status => ({ paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial' }[status] || 'Unpaid');
+    const badge = status => `<span class="sales-badge sales-badge--${status}">${statusLabel(status)}</span>`;
     const byId = (list, id) => list.find(row => Number(row.id) === Number(id));
     const search = document.getElementById('salesSearch');
     const statusFilter = document.getElementById('salesStatusFilter');
     const addButton = document.getElementById('salesAddButton');
     const notice = document.getElementById('salesNotice');
 
-    function notify(message) {
+    function notify(message, type = 'success') {
         notice.textContent = message;
+        notice.classList.toggle('sales-notice--danger', type === 'danger');
         notice.hidden = false;
         window.clearTimeout(notify.timer);
         notify.timer = window.setTimeout(() => { notice.hidden = true; }, 2800);
@@ -853,10 +743,16 @@
     }
 
     function updateStats() {
+        // Course rows are one per payment, so the balance-based totals are
+        // taken once per enrollment (not once per payment row).
+        const enrollments = new Map();
+        courseRows.forEach(row => enrollments.set(row.enrollmentId, { toPay: Number(row.toPay), paid: Number(row.enrollmentPaid) }));
+        const list = [...enrollments.values()];
+
         const paidTotal = courseRows.reduce((total, row) => total + Number(row.paid), 0);
-        const outstanding = courseRows.reduce((total, row) => total + Math.max(Number(row.toPay) - Number(row.paid), 0), 0);
-        const paidAmount = courseRows.reduce((total, row) => total + (statusFor(row.paid, row.toPay) === 'paid' ? Number(row.paid) : 0), 0);
-        const unpaidAmount = courseRows.reduce((total, row) => total + (statusFor(row.paid, row.toPay) === 'unpaid' ? Number(row.toPay) : 0), 0);
+        const outstanding = list.reduce((total, e) => total + Math.max(e.toPay - e.paid, 0), 0);
+        const paidAmount = list.reduce((total, e) => total + (e.paid > 0 && e.paid >= e.toPay ? e.paid : 0), 0);
+        const unpaidAmount = list.reduce((total, e) => total + (e.paid <= 0 ? e.toPay : 0), 0);
         document.getElementById('salesTotalCollected').textContent = money(paidTotal);
         document.getElementById('salesOutstanding').textContent = money(outstanding);
         document.getElementById('salesPaid').textContent = money(paidAmount);
@@ -866,13 +762,13 @@
     function renderCourseRows() {
         const { text, status } = currentFilter();
         const visible = courseRows.filter(row => {
-            const rowStatus = statusFor(row.paid, row.toPay);
+            const rowStatus = row.status;
             const haystack = `${row.course} ${row.name} ${row.method} ${row.date}`.toLocaleLowerCase();
             return (!status || status === rowStatus) && (!text || haystack.includes(text));
         });
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row => {
-            const balance = Math.max(Number(row.toPay) - Number(row.paid), 0);
-            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, row.toPay))}</td><td>${escapeHtml(row.date)}</td><td><span class="sales-row-actions"><button class="sales-icon-button" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button><button class="sales-icon-button sales-icon-button--danger" type="button" data-course-delete="${row.id}" aria-label="Remove ${escapeHtml(row.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="sales-icon-button" type="button" data-course-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
+            const balance = Number(row.balance);
+            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-delete="${row.id}" aria-label="Remove ${escapeHtml(row.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td class="sales-empty" colspan="11">No course payments match your search.</td></tr>';
         updateStats();
     }
@@ -888,14 +784,14 @@
         document.getElementById('itemLogRows').innerHTML = visible.length ? visible.map(row => {
             const total = Number(row.price) * Number(row.quantity);
             const balance = Math.max(total - Number(row.paid), 0);
-            return `<tr><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><span class="sales-row-actions"><button class="sales-icon-button" type="button" data-log-edit="${row.id}" aria-label="Edit ${escapeHtml(row.item)} sale" title="Edit"><i class="bi bi-pencil"></i></button><button class="sales-icon-button sales-icon-button--danger" type="button" data-log-delete="${row.id}" aria-label="Remove ${escapeHtml(row.item)} sale" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="sales-icon-button" type="button" data-log-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.item)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
+            return `<tr><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-edit="${row.id}" aria-label="Edit ${escapeHtml(row.item)} sale" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-log-delete="${row.id}" aria-label="Remove ${escapeHtml(row.item)} sale" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.item)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td class="sales-empty" colspan="12">No item logs match your search.</td></tr>';
     }
 
     function renderItems() {
         const text = search.value.trim().toLocaleLowerCase();
         const visible = items.filter(item => `${item.name} ${item.description}`.toLocaleLowerCase().includes(text));
-        document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td><td><span class="sales-row-actions"><button class="sales-icon-button" type="button" data-item-edit="${item.id}" aria-label="Edit ${escapeHtml(item.name)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="sales-icon-button sales-icon-button--danger" type="button" data-item-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td></tr>`).join('') : '<tr><td class="sales-empty" colspan="5">No items match your search.</td></tr>';
+        document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-item-edit="${item.id}" aria-label="Edit ${escapeHtml(item.name)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-item-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td></tr>`).join('') : '<tr><td class="sales-empty" colspan="5">No items match your search.</td></tr>';
     }
 
     function render() { renderCourseRows(); renderLogs(); renderItems(); }
@@ -916,18 +812,55 @@
         statusFilter.hidden = tab === 'items';
     }
 
+    // State of the open payment dialog. `others` = everything already paid on
+    // this enrollment EXCLUDING the payment log being edited, so the most this
+    // payment can be is  toPay (course_price_at_enrollment) - others.
+    let paymentDialog = { toPay: 0, others: 0, available: 0 };
+    const round2 = value => Math.round(Number(value) * 100) / 100;
+
     function showCoursePayment(row) {
         const form = document.getElementById('coursePaymentForm');
-        form.elements.id.value = row.id;
-        form.elements.amount.value = '';
-        form.elements.method.value = row.method || 'Cash';
-        form.elements.amount.max = Math.max(Number(row.toPay) - Number(row.paid), 0);
+        const editing = Number(row.id) > 0;   // negative id = enrollment with no payment yet
+        const others = editing ? round2(Number(row.enrollmentPaid) - Number(row.paid)) : round2(row.enrollmentPaid);
+        const available = Math.max(round2(Number(row.toPay) - others), 0);
+
+        paymentDialog = { toPay: Number(row.toPay), others, available };
+
+        form.elements.id.value = row.enrollmentId;
+        form.elements.paymentId.value = editing ? row.id : '';
+        form.elements.amount.value = editing ? row.paid : '';
+        form.elements.method.value = editing ? (row.method || '') : '';
+        form.elements.reference.value = editing ? (row.reference || '') : '';
+
+        document.getElementById('coursePaymentTitle').textContent = editing ? 'Updating course payment' : 'Recording course payment';
         document.getElementById('coursePaymentStudent').textContent = `Student name: ${row.name}`;
-        document.getElementById('coursePaymentBalance').textContent = money(Math.max(row.toPay - row.paid, 0));
-        const status = document.getElementById('coursePaymentStatus');
-        status.className = `sales-badge sales-badge--${statusFor(row.paid, row.toPay)}`;
-        status.textContent = statusFor(row.paid, row.toPay) === 'paid' ? 'Paid' : statusFor(row.paid, row.toPay) === 'unpaid' ? 'Unpaid' : 'Outstanding';
+        document.getElementById('coursePaymentLimit').textContent = editing
+            ? `Up to ${money(available)} for this payment (course price minus the other payments).`
+            : `Up to ${money(available)} (the remaining balance).`;
+
+        refreshPaymentPreview();
         document.getElementById('coursePaymentDialog').showModal();
+    }
+
+    // Live check while typing, like the Registers modal: remaining balance,
+    // new status, and an inline error when the amount is over the limit.
+    function refreshPaymentPreview() {
+        const amount = Math.max(Number(document.getElementById('coursePaymentAmount').value) || 0, 0);
+        const exceeds = round2(amount) > paymentDialog.available;
+        const remaining = Math.max(round2(paymentDialog.available - amount), 0);
+        const status = statusFor(paymentDialog.others + Math.min(amount, paymentDialog.available), paymentDialog.toPay);
+
+        document.getElementById('coursePaymentBalance').textContent = money(remaining);
+
+        const badgeElement = document.getElementById('coursePaymentStatus');
+        badgeElement.className = `sales-badge sales-badge--${status}`;
+        badgeElement.textContent = statusLabel(status);
+
+        const error = document.getElementById('coursePaymentError');
+        error.hidden = !exceeds;
+        error.textContent = exceeds ? `Exceeds the limit of ${money(paymentDialog.available)}.` : '';
+
+        document.getElementById('coursePaymentSubmit').disabled = exceeds || amount <= 0;
     }
 
     function refreshPurchasePrice() {
@@ -979,13 +912,31 @@
         const isCourse = type === 'course';
         const total = isCourse ? Number(row.toPay) : Number(row.price) * Number(row.quantity);
         const paid = Number(row.paid);
-        const balance = Math.max(total - paid, 0);
+        const balance = isCourse ? Number(row.balance) : Math.max(total - paid, 0);
+        const status = isCourse ? row.status : statusFor(paid, total);
         const client = isCourse ? row.name : (row.client || 'Walk-in customer');
         const description = isCourse ? row.course : row.item;
-        const quantityLine = isCourse ? 'Course enrollment' : `${row.quantity} × ${money(row.price)}`;
+        const quantityLine = isCourse ? 'Course enrollment' : `${row.quantity} \u00d7 ${money(row.price)}`;
         const invoice = row.receipt || `${isCourse ? 'INV' : 'ITEM'}-${new Date().getFullYear()}-${String(row.id).padStart(4, '0')}`;
-        const status = statusFor(paid, total);
-        document.getElementById('receiptContent').innerHTML = `<header class="sales-receipt-head"><div class="sales-receipt-brand"><span class="sales-receipt-brand-mark">FB</span> FBSS SwimOS ${badge(status)}</div><strong>Froy Bartolome Swimming School</strong><small>R3M+2Q9, Del Monte - Norzagaray Rd, SJDM, Bulacan<br>(+63) 966 203 1918</small></header><div class="sales-receipt-body"><div class="sales-receipt-meta"><span>Invoice #</span><strong>${escapeHtml(invoice)}</strong><span>Date</span><strong>${escapeHtml(row.date)}</strong><span>Client</span><strong>${escapeHtml(client)}</strong></div><p class="sales-receipt-section">${isCourse ? 'Course purchased' : 'Items purchased'}</p><div class="sales-receipt-line"><span>${escapeHtml(description)}<small>${escapeHtml(quantityLine)}</small></span><strong>${money(total)}</strong></div><div class="sales-receipt-line sales-receipt-total"><span>Subtotal<br>Total</span><strong>${money(total)}<br>${money(total)}</strong></div><div class="sales-receipt-amounts"><div class="sales-receipt-amount"><small>To pay</small><strong>${money(total)}</strong></div><div class="sales-receipt-amount"><small>Amount paid</small><strong>${money(paid)}</strong></div><div class="sales-receipt-amount"><small>Balance due</small><strong>${money(balance)}</strong></div></div><div class="sales-receipt-method">● &nbsp;Payment Method: <strong>${escapeHtml(row.method || '--')}</strong></div><p class="sales-receipt-thanks">Thank You for Your Payment!</p><p class="sales-receipt-footer">We look forward to seeing you at the pool</p></div>`;
+        const labels = isCourse ? ['Course price', 'This payment', 'Balance due'] : ['To pay', 'Amount paid', 'Balance due'];
+
+        const metaRows = [['Receipt #', invoice], ['Date', row.date], ['Client', client]];
+        if (isCourse && row.reference) metaRows.push(['Reference #', row.reference]);
+        const meta = metaRows.map(([label, value]) => `<span>${label}</span><strong>${escapeHtml(value)}</strong>`).join('');
+
+        const paidToDate = isCourse
+            ? `<div class="sales-receipt-line"><span>Total paid to date</span><strong>${money(row.paidToDate)}</strong></div>`
+            : '';
+
+        document.getElementById('receiptContent').innerHTML =
+            `<header class="sales-receipt-head"><div class="sales-receipt-brand"><span class="sales-receipt-brand-mark">FB</span> FBSS SwimOS ${badge(status)}</div><strong>Froy Bartolome Swimming School</strong><small>R3M+2Q9, Del Monte - Norzagaray Rd, SJDM, Bulacan<br>(+63) 966 203 1918</small></header>` +
+            `<div class="sales-receipt-body"><div class="sales-receipt-meta">${meta}</div>` +
+            `<p class="sales-receipt-section">${isCourse ? 'Course purchased' : 'Items purchased'}</p>` +
+            `<div class="sales-receipt-line"><span>${escapeHtml(description)}<small>${escapeHtml(quantityLine)}</small></span><strong>${money(total)}</strong></div>` +
+            paidToDate +
+            `<div class="sales-receipt-amounts"><div class="sales-receipt-amount"><small>${labels[0]}</small><strong>${money(total)}</strong></div><div class="sales-receipt-amount"><small>${labels[1]}</small><strong>${money(paid)}</strong></div><div class="sales-receipt-amount"><small>${labels[2]}</small><strong>${money(balance)}</strong></div></div>` +
+            `<div class="sales-receipt-method">Payment Method: <strong>${escapeHtml(row.method || '--')}</strong></div>` +
+            `<p class="sales-receipt-thanks">Thank You for Your Payment!</p><p class="sales-receipt-footer">We look forward to seeing you at the pool</p></div>`;
         document.getElementById('receiptDialog').showModal();
     }
 
@@ -1024,30 +975,62 @@
         }
     });
 
-    document.getElementById('coursePaymentForm').addEventListener('submit', event => {
+    document.getElementById('coursePaymentForm').addEventListener('submit', async event => {
         event.preventDefault();
-        const row = byId(courseRows, event.currentTarget.elements.id.value);
-        if (!row) { notify('This enrollment is no longer in the preview.'); return; }
-        const amount = Number(event.currentTarget.elements.amount.value);
-        const balance = Math.max(Number(row.toPay) - Number(row.paid), 0);
-        if (amount <= 0 || amount > balance) { notify('Enter a payment greater than zero and no more than the balance.'); return; }
-        row.paid = Number(row.paid) + amount;
-        row.method = event.currentTarget.elements.method.value;
-        row.date = dateLabel();
-        document.getElementById('coursePaymentDialog').close();
-        render();
-        notify('Payment updated in this preview.');
+        const form = event.currentTarget;
+        const submitButton = document.getElementById('coursePaymentSubmit');
+        const enrollmentId = Number(form.elements.id.value);
+        const paymentId = Number(form.elements.paymentId.value) || null;
+        const row = courseRows.find(item => item.enrollmentId === enrollmentId);
+        if (!row) { notify('This enrollment is no longer in the list.', 'danger'); return; }
+
+        const amount = Math.max(Number(form.elements.amount.value) || 0, 0);
+        if (amount <= 0) { notify('Enter a payment amount greater than zero.', 'danger'); return; }
+        if (round2(amount) > paymentDialog.available) { notify(`Payment exceeds the limit of ${money(paymentDialog.available)}.`, 'danger'); return; }
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Updating...';
+
+        // Editing a payment log -> PUT that payment; first payment of an unpaid
+        // enrollment -> the same endpoint the Registers page uses.
+        const url = paymentId
+            ? `{{ url('/sales/payments') }}/${paymentId}`
+            : `{{ url('/registers/students') }}/${enrollmentId}/payments`;
+
+        try {
+            const response = await fetch(url, {
+                method: paymentId ? 'PUT' : 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: amount,
+                    payment_method: form.elements.method.value || null,
+                    reference_number: form.elements.reference.value.trim() || null
+                })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (response.ok && data.success) {
+                document.getElementById('coursePaymentDialog').close();
+                await loadData();
+                notify(`Successfully updated the payment for ${row.name}.`);
+            } else {
+                const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
+                notify(firstError || data.message || `Could not update the payment (error ${response.status}).`, 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            notify('Something went wrong while updating the payment.', 'danger');
+        } finally {
+            submitButton.textContent = 'Update';
+            refreshPaymentPreview();
+        }
     });
 
-    document.getElementById('coursePaymentAmount').addEventListener('input', event => {
-        const row = byId(courseRows, document.getElementById('coursePaymentForm').elements.id.value);
-        if (!row) return;
-        const paid = Math.min(Number(row.paid) + (Number(event.target.value) || 0), Number(row.toPay));
-        const status = statusFor(paid, row.toPay);
-        const badgeElement = document.getElementById('coursePaymentStatus');
-        badgeElement.className = `sales-badge sales-badge--${status}`;
-        badgeElement.textContent = status === 'paid' ? 'Paid' : status === 'unpaid' ? 'Unpaid' : 'Outstanding';
-    });
+    document.getElementById('coursePaymentAmount').addEventListener('input', refreshPaymentPreview);
 
     document.getElementById('purchaseForm').addEventListener('submit', event => {
         event.preventDefault();
@@ -1094,7 +1077,27 @@
     document.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
     document.querySelectorAll('.sales-dialog').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
     document.addEventListener('keydown', event => { if (event.key === 'Escape') pendingRemoval = null; });
+    async function loadData() {
+        try {
+            const response = await fetch('{{ url('/sales/data') }}', {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            courseRows = data.coursePayments;
+            items = data.itemCatalog;
+            logs = data.itemLogs;
+            render();
+        } catch (error) {
+            console.error(error);
+            notify('Could not load the sales data.', 'danger');
+        }
+    }
+
     setTab('course');
     render();
+    loadData();
 })();
 </script>

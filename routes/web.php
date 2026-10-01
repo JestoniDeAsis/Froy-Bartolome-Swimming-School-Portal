@@ -66,6 +66,11 @@ Route::get('/courses/{course_id}', [CourseController::class, 'show'])->middlewar
 Route::post('/courses', [CourseController::class, 'store'])->middleware('auth');
 Route::put('/courses/{course_id}', [CourseController::class, 'update'])->middleware('auth');
 
+use App\Http\Controllers\SalesInvoiceController;
+
+Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');
+Route::put('/sales/payments/{payment}', [SalesInvoiceController::class, 'updatePayment'])->name('sales.payments.update');
+
 use App\Http\Controllers\AnnouncementController;
  
 Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('auth');
