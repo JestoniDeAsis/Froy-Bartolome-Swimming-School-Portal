@@ -285,6 +285,11 @@
     font-weight: 600;
 }
 
+.requiredMark {
+    color: var(--fbss-danger, #DC3545);
+    font-weight: 700;
+}
+
 .formGroup {
     margin-bottom: 1.25rem;
 }
@@ -663,7 +668,7 @@
 
         <!-- Course -->
         <div class="formGroup" id="modalCourseGroup">
-            <label for="courseToggle">Course *</label>
+            <label for="courseToggle">Course <span class="requiredMark">*</span></label>
             <div class="registerDropdown" data-dropdown>
                 <button class="registerDropdownToggle" id="courseToggle" type="button" aria-expanded="false" aria-controls="courseOptions">
                     <span id="courseSelected">{{ $courses[0]['name'] ?? 'Select a course' }}</span>
@@ -690,7 +695,7 @@
 
         <!-- Schedule -->
         <div class="formGroup" id="modalScheduleGroup">
-            <label for="scheduleToggle">Schedule Time *</label>
+            <label for="scheduleToggle">Schedule Time <span class="requiredMark">*</span></label>
             <div class="registerDropdown" data-dropdown>
                 <button class="registerDropdownToggle" id="scheduleToggle" type="button" aria-expanded="false" aria-controls="scheduleOptions">
                     <span id="scheduleSelected">Morning</span>
@@ -709,7 +714,7 @@
 
         <!-- Assigned Days -->
         <div class="formGroup" id="modalDaysGroup">
-            <label>Assigned day/s *</label>
+            <label>Assigned day/s <span class="requiredMark">*</span></label>
             <div class="daysToggle" id="daysToggle">
                 <button type="button" class="dayButton">MON</button>
                 <button type="button" class="dayButton">TUE</button>
@@ -731,13 +736,13 @@
 
         <!-- Payment -->
         <div class="formGroup" id="modalPaymentGroup" hidden>
-            <label for="paymentInput">Payment *</label>
+            <label for="paymentInput">Payment <span class="requiredMark">*</span></label>
             <input class="form-control" id="paymentInput" name="payment" type="number" min="0" step="0.01" placeholder="₱2,000">
         </div>
 
         <!-- Payment Method -->
         <div class="formGroup" id="modalPaymentMethodGroup" hidden>
-            <label for="paymentMethodInput">Payment Method</label>
+            <label for="paymentMethodInput">Payment Method <span class="requiredMark">*</span></label>
             <select class="form-control" id="paymentMethodInput">
                 <option value="">Select method</option>
                 <option value="Cash">Cash</option>
@@ -1532,6 +1537,7 @@
 
         elements.paymentInput.value = '';
         elements.paymentMethodInput.value = '';
+        elements.paymentMethodInput.classList.remove('is-invalid');
         elements.referenceNumberInput.value = '';
         elements.studentNotes.value = '';
 
@@ -1643,6 +1649,10 @@
     elements.paymentUpdateButton.addEventListener('click', () => {
         if (selectedStudentId === null) return;
         openPaymentUpdateModal(selectedStudentId);
+    });
+
+    elements.paymentMethodInput.addEventListener('change', () => {
+        elements.paymentMethodInput.classList.remove('is-invalid');
     });
 
     elements.paymentInput.addEventListener('input', () => {
@@ -1784,6 +1794,13 @@
 
     async function submitPaymentUpdate(student) {
         const amount = Math.max(Number(elements.paymentInput.value) || 0, 0);
+
+        if (!elements.paymentMethodInput.value) {
+            elements.paymentMethodInput.classList.add('is-invalid');
+            elements.paymentMethodInput.focus();
+            showToast('Select a payment method.', 'danger');
+            return;
+        }
 
         if (amount <= 0) {
             showToast('Enter a payment amount greater than zero.', 'danger');

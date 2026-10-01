@@ -48,7 +48,7 @@ class SalesInvoiceController extends Controller
     {
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['nullable', 'string', 'max:50'],
+            'payment_method' => ['required', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -76,7 +76,7 @@ class SalesInvoiceController extends Controller
             $payment->update([
                 'enrollment_id' => $enrollmentId,
                 'amount' => $amount,
-                'payment_method' => $validated['payment_method'] ?? null,
+                'payment_method' => $validated['payment_method'],
                 'reference_number' => $validated['reference_number'] ?? null,
             ]);
         });

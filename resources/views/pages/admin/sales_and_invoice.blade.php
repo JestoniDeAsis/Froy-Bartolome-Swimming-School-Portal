@@ -340,6 +340,14 @@
     margin-top: 1rem;
 }
 
+.sales-required {
+    color: var(--fbss-danger, #DC3545);
+}
+
+.sales-field select.is-invalid {
+    border-color: var(--fbss-danger, #DC3545);
+}
+
 .sales-field-error {
     color: var(--fbss-danger, #DC3545);
     font-size: .76rem;
@@ -657,8 +665,8 @@
             <input type="hidden" name="id">
             <input type="hidden" name="paymentId">
             <div class="sales-balance-line"><strong>Balance</strong><strong id="coursePaymentBalance">₱0</strong></div>
-            <div class="sales-field"><label for="coursePaymentAmount">Payment *</label><input id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
-            <div class="sales-field"><label for="coursePaymentMethod">Payment Method</label><select id="coursePaymentMethod" name="method"><option value="">Select method</option><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option><option value="Other">Other</option></select></div>
+            <div class="sales-field"><label for="coursePaymentAmount">Payment <span class="sales-required">*</span></label><input id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
+            <div class="sales-field"><label for="coursePaymentMethod">Payment Method <span class="sales-required">*</span></label><select id="coursePaymentMethod" name="method"><option value="">Select method</option><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option><option value="Other">Other</option></select></div>
             <div class="sales-field"><label for="coursePaymentReference">Reference Number</label><input id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="coursePaymentStatus"></span></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="coursePaymentSubmit">Update</button></div>
@@ -830,6 +838,7 @@
         form.elements.paymentId.value = editing ? row.id : '';
         form.elements.amount.value = editing ? row.paid : '';
         form.elements.method.value = editing ? (row.method || '') : '';
+        form.elements.method.classList.remove('is-invalid');
         form.elements.reference.value = editing ? (row.reference || '') : '';
 
         document.getElementById('coursePaymentTitle').textContent = editing ? 'Updating course payment' : 'Recording course payment';
@@ -984,6 +993,13 @@
         const row = courseRows.find(item => item.enrollmentId === enrollmentId);
         if (!row) { notify('This enrollment is no longer in the list.', 'danger'); return; }
 
+        if (!form.elements.method.value) {
+            form.elements.method.classList.add('is-invalid');
+            form.elements.method.focus();
+            notify('Select a payment method.', 'danger');
+            return;
+        }
+
         const amount = Math.max(Number(form.elements.amount.value) || 0, 0);
         if (amount <= 0) { notify('Enter a payment amount greater than zero.', 'danger'); return; }
         if (round2(amount) > paymentDialog.available) { notify(`Payment exceeds the limit of ${money(paymentDialog.available)}.`, 'danger'); return; }
@@ -1031,6 +1047,7 @@
     });
 
     document.getElementById('coursePaymentAmount').addEventListener('input', refreshPaymentPreview);
+    document.getElementById('coursePaymentMethod').addEventListener('change', event => event.target.classList.remove('is-invalid'));
 
     document.getElementById('purchaseForm').addEventListener('submit', event => {
         event.preventDefault();

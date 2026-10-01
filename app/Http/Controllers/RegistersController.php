@@ -164,7 +164,7 @@ class RegistersController extends Controller
     {
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['nullable', 'string', 'max:50'],
+            'payment_method' => ['required', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -197,7 +197,7 @@ class RegistersController extends Controller
                 'student_id' => $locked->enrollment_id,
                 'enrollment_id' => $locked->enrollment_id,
                 'amount' => $amount,
-                'payment_method' => $validated['payment_method'] ?? null,
+                'payment_method' => $validated['payment_method'],
                 'reference_number' => $validated['reference_number'] ?? null,
                 'paid_at' => now(),
                 'received_by' => Auth::id(),
