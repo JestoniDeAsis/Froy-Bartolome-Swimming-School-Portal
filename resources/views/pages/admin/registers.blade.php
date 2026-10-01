@@ -680,6 +680,14 @@
             </div>
         </div>
 
+        <!-- Course price change (course update only) -->
+        <div class="formGroup" id="modalPriceChangeGroup" hidden>
+            <div class="modalPaymentInfo">
+                <strong>Course price:</strong>
+                <span id="modalPriceChange"></span>
+            </div>
+        </div>
+
         <!-- Schedule -->
         <div class="formGroup" id="modalScheduleGroup">
             <label for="scheduleToggle">Schedule Time *</label>
@@ -743,12 +751,6 @@
         <div class="formGroup" id="modalReferenceNumberGroup" hidden>
             <label for="referenceNumberInput">Reference Number</label>
             <input class="form-control" id="referenceNumberInput" type="text" placeholder="e.g. GCash reference number" maxlength="100">
-        </div>
-
-        <!-- Receipt Number -->
-        <div class="formGroup" id="modalReceiptNumberGroup" hidden>
-            <label for="receiptNumberInput">Receipt Number *</label>
-            <input class="form-control" id="receiptNumberInput" type="text" placeholder="e.g. OR-2026-0001" maxlength="50">
         </div>
 
         <!-- Payment Status -->
@@ -981,6 +983,8 @@
         modalDaysGroup: document.getElementById('modalDaysGroup'),
         modalNotesGroup: document.getElementById('modalNotesGroup'),
         modalBalanceGroup: document.getElementById('modalBalanceGroup'),
+        modalPriceChangeGroup: document.getElementById('modalPriceChangeGroup'),
+        modalPriceChange: document.getElementById('modalPriceChange'),
         modalPaymentGroup: document.getElementById('modalPaymentGroup'),
         modalPaymentStatusGroup: document.getElementById('modalPaymentStatusGroup'),
         modalBalance: document.getElementById('modalBalance'),
@@ -988,10 +992,8 @@
         paymentInput: document.getElementById('paymentInput'),
         modalPaymentMethodGroup: document.getElementById('modalPaymentMethodGroup'),
         modalReferenceNumberGroup: document.getElementById('modalReferenceNumberGroup'),
-        modalReceiptNumberGroup: document.getElementById('modalReceiptNumberGroup'),
         paymentMethodInput: document.getElementById('paymentMethodInput'),
         referenceNumberInput: document.getElementById('referenceNumberInput'),
-        receiptNumberInput: document.getElementById('receiptNumberInput'),
         studentNotes: document.getElementById('studentNotes'),
         courseInput: document.getElementById('courseInput'),
         scheduleInput: document.getElementById('scheduleInput'),
@@ -1522,16 +1524,15 @@
         elements.modalDaysGroup.hidden = false;
         elements.modalNotesGroup.hidden = false;
         elements.modalBalanceGroup.hidden = true;
+        elements.modalPriceChangeGroup.hidden = true;
         elements.modalPaymentGroup.hidden = true;
         elements.modalPaymentMethodGroup.hidden = true;
         elements.modalReferenceNumberGroup.hidden = true;
-        elements.modalReceiptNumberGroup.hidden = true;
         elements.modalPaymentStatusGroup.hidden = true;
 
         elements.paymentInput.value = '';
         elements.paymentMethodInput.value = '';
         elements.referenceNumberInput.value = '';
-        elements.receiptNumberInput.value = '';
         elements.studentNotes.value = '';
 
         setActiveDays([]);
@@ -1559,6 +1560,26 @@
         openModal(elements.studentModal);
     }
 
+    // Shows "current price -> new price" in the course-update modal whenever
+    // the selected course changes.
+    function updatePriceChange() {
+        if (!modalContext || modalContext.mode !== 'course-update') return;
+
+        const student = students.find(s => s.id === modalContext.studentId);
+        if (!student) return;
+
+        const currentPrice = Number(student.price ?? student.balance) || 0;
+        const newCourse = COURSES.find(c => c.name === elements.courseInput.value);
+
+        if (!newCourse || newCourse.name === student.course) {
+            elements.modalPriceChange.textContent = `${formatCurrency(currentPrice)} (no change)`;
+            return;
+        }
+
+        elements.modalPriceChange.textContent =
+            `${formatCurrency(currentPrice)} \u2192 ${formatCurrency(newCourse.price)}`;
+    }
+
     function openCourseUpdateModal(studentId) {
         const student = students.find(s => s.id === studentId);
         if (!student) return;
@@ -1572,6 +1593,9 @@
 
         const courseOption = COURSES.find(c => c.name === student.course)?.name || (COURSES[0]?.name || '');
         setDropdownValue('course', courseOption);
+
+        elements.modalPriceChangeGroup.hidden = false;
+        updatePriceChange();
 
         const { scheduleTime, days } = parseSchedule(student.schedule);
         setDropdownValue('schedule', scheduleTime);
@@ -1602,7 +1626,6 @@
         elements.modalPaymentGroup.hidden = false;
         elements.modalPaymentMethodGroup.hidden = false;
         elements.modalReferenceNumberGroup.hidden = false;
-        elements.modalReceiptNumberGroup.hidden = false;
         elements.modalPaymentStatusGroup.hidden = false;
 
         elements.modalBalance.textContent = formatCurrency(student.balance);
@@ -1685,7 +1708,8 @@
                     schedule: data.student.schedule,
                     paymentStatus: data.student.paymentStatus,
                     notes: data.student.notes,
-                    balance: data.student.balance
+                    balance: data.student.balance,
+                    price: data.student.price
                 });
 
                 modalContext = null;
@@ -1735,6 +1759,9 @@
 
             if (response.ok && data.success) {
                 student.course = elements.courseInput.value;
+                student.price = data.price;
+                student.balance = data.balance;
+                student.paymentStatus = data.paymentStatus;
                 student.schedule = buildScheduleString(elements.scheduleInput.value, getActiveDays());
                 student.notes = elements.studentNotes.value.trim();
 
@@ -1757,15 +1784,19 @@
 
     async function submitPaymentUpdate(student) {
         const amount = Math.max(Number(elements.paymentInput.value) || 0, 0);
-        const receiptNumber = elements.receiptNumberInput.value.trim();
 
         if (amount <= 0) {
             showToast('Enter a payment amount greater than zero.', 'danger');
             return;
         }
 
-        if (!receiptNumber) {
-            showToast('Receipt number is required.', 'danger');
+        if (student.balance <= 0) {
+            showToast('This student is already fully paid.', 'danger');
+            return;
+        }
+
+        if (amount > student.balance) {
+            showToast(`Payment exceeds the remaining balance of ${formatCurrency(student.balance)}.`, 'danger');
             return;
         }
 
@@ -1783,8 +1814,7 @@
                 body: JSON.stringify({
                     amount: amount,
                     payment_method: elements.paymentMethodInput.value || null,
-                    reference_number: elements.referenceNumberInput.value.trim() || null,
-                    receipt_number: receiptNumber
+                    reference_number: elements.referenceNumberInput.value.trim() || null
                 })
             });
 
@@ -2073,6 +2103,10 @@
 
             if (input && input.id === 'courseFilterInput') {
                 renderTable(activeTab);
+            }
+
+            if (input && input.id === 'courseInput') {
+                updatePriceChange();
             }
         });
 

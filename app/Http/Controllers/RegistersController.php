@@ -10,6 +10,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RegistersController extends Controller
 {
@@ -63,6 +65,7 @@ class RegistersController extends Controller
                     'schedule' => $e->scheduled_time ?? '',
                     'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
                     'notes' => $e->notes ?? '',
+                    'price' => $e->course_price_at_enrollment,
                     'balance' => $balance,
                 ];
             }),
@@ -103,6 +106,7 @@ class RegistersController extends Controller
                 'schedule' => $enrollment->scheduled_time ?? '',
                 'paymentStatus' => 'Unpaid',
                 'notes' => $enrollment->notes ?? '',
+                'price' => $enrollment->course_price_at_enrollment,
                 'balance' => $enrollment->course_price_at_enrollment,
             ],
         ]);
@@ -111,9 +115,10 @@ class RegistersController extends Controller
     /**
      * PUT /registers/students/{enrollment}
      * Called via fetch() from the Students tab's "Course update" button.
-     * course_price_at_enrollment is intentionally left untouched here —
-     * it's a snapshot of the price at original enrollment, not re-stamped
-     * on a later course change.
+     * When the course actually changes, course_price_at_enrollment is
+     * re-stamped to the new course's current price, so the balance reflects
+     * the new price (payments already made are kept). If the course is
+     * unchanged, the existing price snapshot is left alone.
      */
     public function updateCourse(Request $request, Enrollment $enrollment): JsonResponse
     {
@@ -123,13 +128,29 @@ class RegistersController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $enrollment->update([
-            'course_id' => $validated['course_id'],
+        $newCourse = Course::findOrFail($validated['course_id']);
+
+        $changes = [
+            'course_id' => $newCourse->course_id,
             'scheduled_time' => $validated['scheduled_time'] ?? null,
             'notes' => $validated['notes'] ?? null,
-        ]);
+        ];
 
-        return response()->json(['success' => true]);
+        if ((int) $enrollment->course_id !== (int) $newCourse->course_id) {
+            $changes['course_price_at_enrollment'] = $newCourse->course_price;
+        }
+
+        $enrollment->update($changes);
+
+        $totalPaid = $enrollment->payments()->sum('amount');
+        $balance = max($enrollment->course_price_at_enrollment - $totalPaid, 0);
+
+        return response()->json([
+            'success' => true,
+            'price' => $enrollment->course_price_at_enrollment,
+            'balance' => $balance,
+            'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
+        ]);
     }
 
     /**
@@ -137,6 +158,7 @@ class RegistersController extends Controller
      * Called via fetch() from the Students tab's "Payment update" button.
      * Each call records one payment row — it never edits a past payment,
      * so balance/status are always recomputed as (price - sum of payments).
+     * A payment larger than the remaining balance is rejected (422).
      */
     public function addPayment(Request $request, Enrollment $enrollment): JsonResponse
     {
@@ -144,18 +166,43 @@ class RegistersController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['nullable', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
-            'receipt_number' => ['required', 'string', 'max:50', 'unique:tbl_course_payments,receipt_number'],
         ]);
 
-        CoursePayment::create([
-            'student_id' => $enrollment->enrollment_id,
-            'amount' => $validated['amount'],
-            'payment_method' => $validated['payment_method'] ?? null,
-            'reference_number' => $validated['reference_number'] ?? null,
-            'receipt_number' => $validated['receipt_number'],
-            'paid_at' => now(),
-            'received_by' => Auth::id(),
-        ]);
+        $amount = round((float) $validated['amount'], 2);
+
+        // Lock the enrollment row so two simultaneous payments can't both
+        // pass the balance check and together overpay.
+        DB::transaction(function () use ($enrollment, $validated, $amount) {
+            $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
+
+            $remaining = round(
+                (float) $locked->course_price_at_enrollment - (float) $locked->payments()->sum('amount'),
+                2
+            );
+
+            if ($remaining <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['This enrollment is already fully paid.'],
+                ]);
+            }
+
+            if ($amount > $remaining) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Payment of ₱' . number_format($amount, 2)
+                        . ' exceeds the remaining balance of ₱' . number_format($remaining, 2) . '.'],
+                ]);
+            }
+
+            CoursePayment::create([
+                'student_id' => $locked->enrollment_id,
+                'enrollment_id' => $locked->enrollment_id,
+                'amount' => $amount,
+                'payment_method' => $validated['payment_method'] ?? null,
+                'reference_number' => $validated['reference_number'] ?? null,
+                'paid_at' => now(),
+                'received_by' => Auth::id(),
+            ]);
+        });
 
         $totalPaid = $enrollment->payments()->sum('amount');
         $balance = max($enrollment->course_price_at_enrollment - $totalPaid, 0);

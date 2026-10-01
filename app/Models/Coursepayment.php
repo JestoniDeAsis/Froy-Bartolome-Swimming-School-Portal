@@ -12,10 +12,10 @@ class CoursePayment extends Model
 
     protected $fillable = [
         'student_id',
+        'enrollment_id',
         'amount',
         'payment_method',
         'reference_number',
-        'receipt_number',
         'paid_at',
         'received_by',
     ];
