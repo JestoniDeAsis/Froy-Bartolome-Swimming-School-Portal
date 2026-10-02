@@ -23,7 +23,7 @@ class RegistersController extends Controller
     public function data(): array
     {
         $profiles = UserProfile::whereHas('user', function ($q) {
-            $q->where('role_id', 3)->whereDoesntHave('enrollments');
+            $q->where('role_id', 5)->whereDoesntHave('enrollments');
         })->with('user')->get();
 
         $courses = Course::orderBy('course_name')

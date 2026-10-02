@@ -1,3 +1,5 @@
+@extends('layouts.toast')
+
 <style>
 /* =========================================================
    Coaches
@@ -23,18 +25,6 @@
     gap: 1rem;
     margin-bottom: 1rem;
 }
-
-#addCoachButton {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-
-/* =========================================================
-   Toolbar
-========================================================= */
 
 .coachesToolbar {
     flex: 0 0 auto;
@@ -67,10 +57,6 @@
     padding-left: 2.25rem;
 }
 
-/* =========================================================
-   Scrollable Table Container
-========================================================= */
-
 .coachesTableContainer {
     --coach-row-height: 49px;
     --coach-header-height: 49px;
@@ -78,43 +64,23 @@
 
     flex: 0 1 auto;
     min-height: 0;
-
-    max-height: calc(
-        var(--coach-header-height) +
-        (var(--coach-row-height) * var(--coach-visible-rows))
-    );
-
+    max-height: calc(var(--coach-header-height) + (var(--coach-row-height) * var(--coach-visible-rows)));
     width: 100%;
-    overflow-y: auto;
-    overflow-x: auto;
+    overflow: auto;
     background: #fff;
     border: 1px solid #e7ebef;
     border-radius: 12px;
     box-sizing: border-box;
 }
 
-.coachesTableContainer::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.coachesTableContainer::-webkit-scrollbar-track {
-    background: #f1f3f5;
-    border-radius: 10px;
-}
-
-.coachesTableContainer::-webkit-scrollbar-thumb {
-    background: #c9ced3;
-    border-radius: 10px;
-}
-
-.coachesTableContainer::-webkit-scrollbar-thumb:hover {
-    background: #adb5bd;
-}
-
-/* =========================================================
-   Table
-========================================================= */
+.coachesTableContainer::-webkit-scrollbar,
+.modalDataContainer::-webkit-scrollbar { width: 8px; height: 8px; }
+.coachesTableContainer::-webkit-scrollbar-track,
+.modalDataContainer::-webkit-scrollbar-track { background: #f1f3f5; border-radius: 10px; }
+.coachesTableContainer::-webkit-scrollbar-thumb,
+.modalDataContainer::-webkit-scrollbar-thumb { background: #c9ced3; border-radius: 10px; }
+.coachesTableContainer::-webkit-scrollbar-thumb:hover,
+.modalDataContainer::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
 
 .coachesTable {
     width: 100%;
@@ -122,10 +88,6 @@
     white-space: nowrap;
     border-collapse: separate;
     border-spacing: 0;
-}
-
-.coachesTable thead {
-    background: #f8fafb;
 }
 
 .coachesTable thead th {
@@ -140,23 +102,10 @@
 }
 
 .coachesTable th,
-.coachesTable td {
-    padding: .75rem 1rem;
-    vertical-align: middle;
-}
-
+.coachesTable td { padding: .75rem 1rem; vertical-align: middle; }
 .coachesTable th:last-child,
-.coachesTable td:last-child {
-    text-align: center;
-}
-
-.coachesTable tbody tr:hover {
-    background: #f8fafb;
-}
-
-/* =========================================================
-   Empty State
-========================================================= */
+.coachesTable td:last-child { text-align: center; }
+.coachesTable tbody tr:hover { background: #f8fafb; }
 
 .coachesEmptyState {
     padding: 2rem !important;
@@ -164,11 +113,7 @@
     text-align: center;
 }
 
-/* =========================================================
-   Status Badges — Active / Held / Inactive
-   (kept consistent between the table and the edit form)
-========================================================= */
-
+/* Status badges — Active / Held / Inactive */
 .statusBadge {
     display: inline-block;
     padding: .2rem .65rem;
@@ -176,39 +121,12 @@
     font-size: .75rem;
     font-weight: 600;
 }
+.statusBadge.active   { background: #e6f7ec; color: #1a7f3c; }
+.statusBadge.held     { background: #fff4e0; color: #b26a00; }
+.statusBadge.inactive { background: #fdebec; color: #c22b3a; }
 
-.statusBadge.active {
-    background: #e6f7ec;
-    color: #1a7f3c;
-}
-
-.statusBadge.held {
-    background: #fff4e0;
-    color: #b26a00;
-}
-
-.statusBadge.inactive {
-    background: #fdebec;
-    color: #c22b3a;
-}
-
-/* =========================================================
-   Row Actions
-========================================================= */
-
-.coachEditButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* =========================================================
-   Shared Modal
-========================================================= */
-
-.modalOverlay[hidden] {
-    display: none !important;
-}
+/* Shared modal */
+.modalOverlay[hidden] { display: none !important; }
 
 .modalOverlay {
     position: fixed;
@@ -235,7 +153,7 @@
     box-sizing: border-box;
 }
 
-/* Only the modal data area scrolls. The title and action buttons stay fixed. */
+/* Only the data area scrolls; title and actions stay fixed. */
 .modalDataContainer {
     flex: 1 1 auto;
     min-height: 0;
@@ -244,29 +162,7 @@
     padding-right: .5rem;
 }
 
-.modalDataContainer::-webkit-scrollbar {
-    width: 8px;
-}
-
-.modalDataContainer::-webkit-scrollbar-track {
-    background: #f1f3f5;
-    border-radius: 10px;
-}
-
-.modalDataContainer::-webkit-scrollbar-thumb {
-    background: #c9ced3;
-    border-radius: 10px;
-}
-
-.modalDataContainer::-webkit-scrollbar-thumb:hover {
-    background: #adb5bd;
-}
-
-.modalContentBox h3 {
-    margin-bottom: .25rem;
-    font-size: 1.25rem;
-    font-weight: 700;
-}
+.modalContentBox h3 { margin-bottom: .25rem; font-size: 1.25rem; font-weight: 700; }
 
 .modalSubText {
     margin-bottom: 1.5rem;
@@ -277,27 +173,12 @@
     letter-spacing: .02em;
 }
 
-.modalCoachName {
-    margin-bottom: 1.5rem;
-    font-size: .875rem;
-    color: #6c757d;
-}
+.modalCoachName { margin-bottom: 1.5rem; font-size: .875rem; color: #6c757d; }
+.modalCoachName span { color: #495057; font-weight: 600; }
 
-.modalCoachName span {
-    color: #495057;
-    font-weight: 600;
-}
-
-.formGroup {
-    margin-bottom: 1.25rem;
-}
-
-.formGroup > label {
-    display: block;
-    margin-bottom: .5rem;
-    font-size: .875rem;
-    font-weight: 600;
-}
+.formGroup { margin-bottom: 1.25rem; }
+.formGroup > label { display: block; margin-bottom: .5rem; font-size: .875rem; font-weight: 600; }
+.formHint { margin-top: .4rem; font-size: .75rem; color: #6c757d; }
 
 .modalActions {
     flex: 0 0 auto;
@@ -309,15 +190,7 @@
     border-top: 1px solid #e7ebef;
 }
 
-/* =========================================================
-   Inline radio / checkbox rows (Sex, Courses to assign)
-========================================================= */
-
-.formCheckRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.25rem;
-}
+.formCheckRow { display: flex; flex-wrap: wrap; gap: 1.25rem; }
 
 .formCheckItem {
     display: inline-flex;
@@ -327,110 +200,51 @@
     color: #212529;
     cursor: pointer;
 }
-
-.formCheckItem input {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: #045199;
-}
-
-/* =========================================================
-   Authentication Info (Step 3 of the add-coach modals)
-========================================================= */
+.formCheckItem input { width: 16px; height: 16px; cursor: pointer; accent-color: #045199; }
 
 .coachShowPasswordRow {
     display: flex;
     align-items: center;
     gap: .5rem;
-    margin: -.75rem 0 1.25rem;
+    margin: -.25rem 0 1.25rem;
     font-size: .8125rem;
     color: #495057;
     cursor: pointer;
 }
+.coachShowPasswordRow input { width: 15px; height: 15px; cursor: pointer; accent-color: #045199; }
 
-.coachShowPasswordRow input {
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
-    accent-color: #045199;
-}
+.coachCopyButton { padding-left: .9rem; padding-right: .9rem; }
 
-.coachEmailNotice {
-    font-size: .8125rem;
-    color: #495057;
-    margin-bottom: 0;
-}
-
-.coachEmailNotice strong {
-    color: #212529;
-    font-weight: 600;
-}
-
-/* =========================================================
-   Reusable Dropdown Component — reference only; the real
-   implementation lives in our_theme.css alongside
-   .registerDropdown. Reused here as-is for the Status field
-   so there's still exactly one copy to maintain.
-========================================================= */
-
-.registerDropdown {
-    position: relative;
-}
-
-/* =========================================================
-   Responsive
-========================================================= */
+.coachEmailNotice { font-size: .8125rem; color: #495057; margin-bottom: 0; }
+.coachEmailNotice strong { color: #212529; font-weight: 600; }
 
 @media (max-width: 575.98px) {
-    .coachesContainer {
-        height: 100vh;
-        padding: 1rem;
-    }
-
-    .modalContentBox {
-        padding: 1.25rem 1.25rem;
-    }
+    .coachesContainer { padding: 1rem; }
+    .modalContentBox { padding: 1.25rem; }
 }
 </style>
-
-
-<!-- =========================================================
-     COACHES SECTION
-========================================================= -->
 
 <section class="coachesContainer" id="coachesContainer" aria-labelledby="coachesTitle">
 
     <header class="coachesHeader">
-        <div id="coachesHeaderText">
+        <div>
             <h2 class="mb-1" id="coachesTitle">Coaches</h2>
-            <p class="text-muted mb-0" id="coachesDescription">
-                Manage coaches.
-            </p>
+            <p class="text-muted mb-0">Manage coaches.</p>
         </div>
 
-        <button class="btn btn-primary" id="addCoachButton" type="button">
-            <i class="bi bi-plus-lg" id="addCoachIcon"></i>
+        <button class="btn btn-primary btn-icon-label" id="addCoachButton" type="button">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
             Add New Coach
         </button>
     </header>
 
-
-    <!-- =====================================================
-         TOOLBAR
-    ====================================================== -->
-
     <div class="coachesToolbar">
         <div class="coachesSearchContainer">
             <i class="bi bi-search coachesSearchIcon" aria-hidden="true"></i>
-            <input class="form-control coachesSearchInput" id="coachesSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search coaches">
+            <input class="form-control coachesSearchInput" id="coachesSearch" type="search"
+                   placeholder="Search" autocomplete="off" aria-label="Search coaches">
         </div>
     </div>
-
-
-    <!-- =====================================================
-         TABLE
-    ====================================================== -->
 
     <div class="coachesTableContainer" id="coachesTableContainer">
         <table class="table coachesTable" id="coachesTable">
@@ -442,13 +256,7 @@
 </section>
 
 
-<!-- =========================================================
-     ADD COACH MODALS — three independent modals
-     (1: Basic info · 2: Contact info · 3: Generated
-     Authentication Info). Each one sizes itself naturally
-     to its own content instead of sharing one box.
-========================================================= -->
-
+<!-- ================= ADD COACH — STEP 1: BASIC INFO ================= -->
 <div class="modalOverlay" id="coachAddStep1Modal" hidden>
     <div class="modalContentBox" role="dialog" aria-modal="true" aria-labelledby="coachAddStep1Title">
 
@@ -458,59 +266,54 @@
         <div class="modalDataContainer">
 
             <div class="formGroup">
-                <label for="coachAddStep1FirstName">First name *</label>
-                <input class="form-control" id="coachAddStep1FirstName" type="text" placeholder="Juan">
+                <label for="coachAddFirstName">First name *</label>
+                <input class="form-control" id="coachAddFirstName" type="text" maxlength="255" placeholder="Juan">
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep1MiddleName">Middle name *</label>
-                <input class="form-control" id="coachAddStep1MiddleName" type="text" placeholder="Martin">
+                <label for="coachAddMiddleName">Middle name</label>
+                <input class="form-control" id="coachAddMiddleName" type="text" maxlength="255" placeholder="Martin">
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep1LastName">Last name *</label>
-                <input class="form-control" id="coachAddStep1LastName" type="text" placeholder="Dela Cruz">
+                <label for="coachAddLastName">Last name *</label>
+                <input class="form-control" id="coachAddLastName" type="text" maxlength="255" placeholder="Dela Cruz">
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep1Birthdate">Birthdate *</label>
-                <input class="form-control" id="coachAddStep1Birthdate" type="text" placeholder="AUG-10-2001">
+                <label for="coachAddSuffix">Name suffix</label>
+                <select class="form-select" id="coachAddSuffix">
+                    <option value="" selected>None</option>
+                    <option value="Jr.">Jr.</option>
+                    <option value="Sr.">Sr.</option>
+                    <option value="II">II</option>
+                    <option value="III">III</option>
+                    <option value="IV">IV</option>
+                    <option value="V">V</option>
+                </select>
+            </div>
+
+            <div class="formGroup">
+                <label for="coachAddBirthdate">Birthdate *</label>
+                <input class="form-control" id="coachAddBirthdate" type="date">
+                <div class="formHint">Coaches must be at least 18 years old.</div>
             </div>
 
             <div class="formGroup">
                 <label>Sex *</label>
-                <div class="formCheckRow" id="coachAddStep1SexRow">
+                <div class="formCheckRow">
                     <label class="formCheckItem">
-                        <input type="radio" name="coachAddStep1Sex" id="coachAddStep1SexMale" value="Male">
-                        Male
+                        <input type="radio" name="coachAddSex" value="Male"> Male
                     </label>
                     <label class="formCheckItem">
-                        <input type="radio" name="coachAddStep1Sex" id="coachAddStep1SexFemale" value="Female">
-                        Female
+                        <input type="radio" name="coachAddSex" value="Female"> Female
                     </label>
                 </div>
             </div>
 
             <div class="formGroup">
                 <label>Courses to assign *</label>
-                <div class="formCheckRow" id="coachAddStep1CourseRow">
-                    <label class="formCheckItem">
-                        <input type="checkbox" class="coachAddStep1CourseCheckbox" value="Beginner">
-                        Beginner
-                    </label>
-                    <label class="formCheckItem">
-                        <input type="checkbox" class="coachAddStep1CourseCheckbox" value="Intermediate">
-                        Intermediate
-                    </label>
-                    <label class="formCheckItem">
-                        <input type="checkbox" class="coachAddStep1CourseCheckbox" value="Advance">
-                        Advance
-                    </label>
-                    <label class="formCheckItem">
-                        <input type="checkbox" class="coachAddStep1CourseCheckbox" value="Survival">
-                        Survival
-                    </label>
-                </div>
+                <div class="formCheckRow" id="coachAddCourseRow"></div>
             </div>
 
         </div>
@@ -524,6 +327,7 @@
 </div>
 
 
+<!-- ================= ADD COACH — STEP 2: CONTACT INFO ================= -->
 <div class="modalOverlay" id="coachAddStep2Modal" hidden>
     <div class="modalContentBox" role="dialog" aria-modal="true" aria-labelledby="coachAddStep2Title">
 
@@ -533,28 +337,45 @@
         <div class="modalDataContainer">
 
             <div class="formGroup">
-                <label for="coachAddStep2Email">Email address *</label>
-                <input class="form-control" id="coachAddStep2Email" type="email" placeholder="juandelacruz@gmail.com">
+                <label for="coachAddEmail">Email address *</label>
+                <input class="form-control" id="coachAddEmail" type="email" placeholder="juandelacruz@example.com" autocomplete="off">
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep2Contact">Contact number *</label>
-                <input class="form-control" id="coachAddStep2Contact" type="tel" placeholder="(+63) 9XX-XXX-XXXX">
+                <label for="coachAddPhone">Mobile number *</label>
+                <input class="form-control" id="coachAddPhone" type="tel" placeholder="09XXXXXXXXX"
+                       maxlength="11" inputmode="numeric" autocomplete="off">
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep2EmergencyName">Emergency contact name *</label>
-                <input class="form-control" id="coachAddStep2EmergencyName" type="text" placeholder="Marco Dela Cruz">
+                <label for="coachAddEmergencyName">Emergency contact name *</label>
+                <input class="form-control" id="coachAddEmergencyName" type="text" maxlength="255" placeholder="Marco Dela Cruz">
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep2EmergencyRelationship">Emergency contact relationship *</label>
-                <input class="form-control" id="coachAddStep2EmergencyRelationship" type="text" placeholder="Brother">
+                <label for="coachAddEmergencyRelationship">Emergency contact relationship *</label>
+                <select class="form-select" id="coachAddEmergencyRelationship">
+                    <option value="" selected disabled>Select relationship</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Father">Father</option>
+                    <option value="Wife">Wife</option>
+                    <option value="Husband">Husband</option>
+                    <option value="Partner">Partner</option>
+                    <option value="Sibling">Sibling</option>
+                    <option value="Grandmother">Grandmother</option>
+                    <option value="Grandfather">Grandfather</option>
+                    <option value="Aunt">Aunt</option>
+                    <option value="Uncle">Uncle</option>
+                    <option value="Legal Guardian">Legal Guardian</option>
+                    <option value="Friend">Friend</option>
+                    <option value="Other">Other</option>
+                </select>
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep2EmergencyContact">Emergency contact number *</label>
-                <input class="form-control" id="coachAddStep2EmergencyContact" type="tel" placeholder="(+63) 9XX-XXX-XXXX">
+                <label for="coachAddEmergencyPhone">Emergency contact number *</label>
+                <input class="form-control" id="coachAddEmergencyPhone" type="tel" placeholder="09XXXXXXXXX"
+                       maxlength="11" inputmode="numeric" autocomplete="off">
             </div>
 
         </div>
@@ -568,30 +389,47 @@
 </div>
 
 
+<!-- ================= ADD COACH — STEP 3: AUTHENTICATION INFO ================= -->
 <div class="modalOverlay" id="coachAddStep3Modal" hidden>
     <div class="modalContentBox" role="dialog" aria-modal="true" aria-labelledby="coachAddStep3Title">
 
         <h3 id="coachAddStep3Title">Adding new coach</h3>
-        <p class="modalSubText">Authentication Info</p>
+        <p class="modalSubText">Authentication info</p>
 
         <div class="modalDataContainer">
 
             <div class="formGroup">
-                <label for="coachAddStep3Username">Username *</label>
-                <input class="form-control" id="coachAddStep3Username" type="text" placeholder="e.g. jdelacruz" autocomplete="off">
+                <label for="coachAddUsername">Username</label>
+                <div class="input-group">
+                    <input class="form-control" id="coachAddUsername" type="text" readonly autocomplete="off">
+                    <button class="btn btn-outline-secondary coachCopyButton" id="coachAddCopyUsername" type="button"
+                            aria-label="Copy username" title="Copy username">
+                        <i class="bi bi-clipboard" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="formHint">Generated from the coach's name.</div>
             </div>
 
             <div class="formGroup">
-                <label for="coachAddStep3Password">Password *</label>
-                <input class="form-control" id="coachAddStep3Password" type="password" placeholder="Enter a password" autocomplete="new-password">
+                <label for="coachAddPassword">Password</label>
+                <div class="input-group">
+                    <input class="form-control" id="coachAddPassword" type="password" readonly autocomplete="off">
+                    <button class="btn btn-outline-secondary coachCopyButton" id="coachAddCopyPassword" type="button"
+                            aria-label="Copy password" title="Copy password">
+                        <i class="bi bi-clipboard" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="formHint">Randomly generated. Use Show Password if you need to read it out.</div>
             </div>
 
-            <label class="coachShowPasswordRow" for="coachAddStep3ShowPasswordCheckbox">
-                <input type="checkbox" id="coachAddStep3ShowPasswordCheckbox">
+            <label class="coachShowPasswordRow" for="coachAddShowPassword">
+                <input type="checkbox" id="coachAddShowPassword">
                 Show Password
             </label>
 
-            <p class="coachEmailNotice">This account details will be emailed to: <strong id="coachAddStep3EmailTarget"></strong></p>
+            <p class="coachEmailNotice">
+                The username and password will be emailed to: <strong id="coachAddEmailTarget"></strong>
+            </p>
 
         </div>
 
@@ -604,10 +442,7 @@
 </div>
 
 
-<!-- =========================================================
-     EDIT COACH MODAL — Status + Courses to assign only
-========================================================= -->
-
+<!-- ================= EDIT COACH — STATUS + COURSES ================= -->
 <div class="modalOverlay" id="coachEditModal" hidden>
     <div class="modalContentBox" role="dialog" aria-modal="true" aria-labelledby="coachEditModalTitle">
 
@@ -616,45 +451,29 @@
 
         <div class="modalDataContainer">
 
-        <div class="formGroup">
-            <label for="coachEditStatusToggle">Status *</label>
-            <div class="registerDropdown" data-dropdown>
-                <button class="registerDropdownToggle" id="coachEditStatusToggle" type="button" aria-expanded="false" aria-controls="coachEditStatusOptions">
-                    <span id="coachEditStatusSelected">Active</span>
-                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
-                </button>
+            <div class="formGroup">
+                <label for="coachEditStatusToggle">Status *</label>
+                <div class="registerDropdown" data-dropdown>
+                    <button class="registerDropdownToggle" id="coachEditStatusToggle" type="button"
+                            aria-expanded="false" aria-controls="coachEditStatusOptions">
+                        <span id="coachEditStatusSelected">Active</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
 
-                <div class="registerDropdownOptions" id="coachEditStatusOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="Active">Active</button>
-                    <button class="registerDropdownOption" type="button" data-value="Held">Held</button>
-                    <button class="registerDropdownOption" type="button" data-value="Inactive">Inactive</button>
+                    <div class="registerDropdownOptions" id="coachEditStatusOptions" hidden>
+                        <button class="registerDropdownOption active" type="button" data-value="Active">Active</button>
+                        <button class="registerDropdownOption" type="button" data-value="Held">Held</button>
+                        <button class="registerDropdownOption" type="button" data-value="Inactive">Inactive</button>
+                    </div>
+
+                    <input id="coachEditStatusInput" name="status" type="hidden" value="Active">
                 </div>
-
-                <input id="coachEditStatusInput" name="status" type="hidden" value="Active">
             </div>
-        </div>
 
-        <div class="formGroup">
-            <label>Courses to assign *</label>
-            <div class="formCheckRow" id="coachEditCourseRow">
-                <label class="formCheckItem">
-                    <input type="checkbox" class="coachEditCourseCheckbox" value="Beginner">
-                    Beginner
-                </label>
-                <label class="formCheckItem">
-                    <input type="checkbox" class="coachEditCourseCheckbox" value="Intermediate">
-                    Intermediate
-                </label>
-                <label class="formCheckItem">
-                    <input type="checkbox" class="coachEditCourseCheckbox" value="Advance">
-                    Advance
-                </label>
-                <label class="formCheckItem">
-                    <input type="checkbox" class="coachEditCourseCheckbox" value="Survival">
-                    Survival
-                </label>
+            <div class="formGroup">
+                <label>Courses to assign *</label>
+                <div class="formCheckRow" id="coachEditCourseRow"></div>
             </div>
-        </div>
 
         </div>
 
@@ -665,621 +484,595 @@
 
     </div>
 </div>
-
-
-<!-- =========================================================
-     CONFIRM / INFO MODAL
-
-     One-button success/validation message (replaces
-     window.alert()).
-========================================================= -->
-
-<div class="modalOverlay" id="coachConfirmModal" hidden>
-    <div class="modalContentBox" style="max-width:420px" role="alertdialog" aria-modal="true" aria-labelledby="coachConfirmModalTitle">
-
-        <h3 id="coachConfirmModalTitle">Success</h3>
-
-        <p class="text-muted" id="coachConfirmModalMessage" style="margin:0 0 0.5rem;font-size:.9rem;line-height:1.5;"></p>
-
-        <div class="modalActions">
-            <button class="btn btn-primary" id="coachConfirmModalOkButton" type="button">OK</button>
-        </div>
-
-    </div>
-</div>
-
-
 <script>
 (function () {
     'use strict';
 
     /* =========================================================
-       IN-MEMORY DATA (no database — everything lives in this
-       array for the lifetime of the page). Every coach record
-       gets a stable numeric `id` (internal) plus a display-only
-       `registeredId` (e.g. LTS-25-0001), matching the reference
-       screenshots' numbering.
-
-       COURSE_OPTIONS and STATUS_OPTIONS are the single source of
-       truth for course names / status labels — the table cells,
-       the add-coach modals, and the edit modal all read from
-       these so the values can never drift apart.
+       CONFIG
     ========================================================= */
 
-    const COURSE_OPTIONS = ['Beginner', 'Intermediate', 'Advance', 'Survival'];
-    const STATUS_OPTIONS = ['Active', 'Held', 'Inactive'];
+    const URLS = {
+        data: '/coaches/data',
+        store: '/coaches',
+        preview: '/coaches/account-preview',
+        update: id => `/coaches/${id}`
+    };
 
-    let nextCoachId = 1000;
-    function coachId() {
-        return nextCoachId++;
-    }
+    const MIN_COACH_AGE = 18;
+    const USERNAME_RE = /^[A-Za-z0-9_]{3,30}$/;
+    const PASSWORD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    const PHONE_RE = /^09\d{9}$/;
 
-    let nextRegisteredNumber = 1;
-    function nextRegisteredId() {
-        const value = `LTS-25-${String(nextRegisteredNumber).padStart(4, '0')}`;
-        nextRegisteredNumber += 1;
-        return value;
-    }
-
-    let coaches = [
-        {
-            id: coachId(), registeredId: nextRegisteredId(),
-            firstName: 'Danica', middleName: '--', lastName: '--',
-            birthdate: '', sex: '', courses: ['Beginner'],
-            email: '', contact: '+63 9XX-XXX-XXXX',
-            emergencyName: '', emergencyRelationship: '', emergencyContact: '',
-            username: '', password: '',
-            status: 'Active'
-        },
-        {
-            id: coachId(), registeredId: nextRegisteredId(),
-            firstName: 'Froy', middleName: '--', lastName: '--',
-            birthdate: '', sex: '', courses: ['Beginner', 'Intermediate'],
-            email: '', contact: '+63 9XX-XXX-XXXX',
-            emergencyName: '', emergencyRelationship: '', emergencyContact: '',
-            username: '', password: '',
-            status: 'Active'
-        },
-        {
-            id: coachId(), registeredId: nextRegisteredId(),
-            firstName: 'Royce', middleName: '--', lastName: '--',
-            birthdate: '', sex: '', courses: ['Beginner'],
-            email: '', contact: '+63 9XX-XXX-XXXX',
-            emergencyName: '', emergencyRelationship: '', emergencyContact: '',
-            username: '', password: '',
-            status: 'Held'
-        },
-        {
-            id: coachId(), registeredId: nextRegisteredId(),
-            firstName: 'Won', middleName: '--', lastName: '--',
-            birthdate: '', sex: '', courses: ['Beginner'],
-            email: '', contact: '+63 9XX-XXX-XXXX',
-            emergencyName: '', emergencyRelationship: '', emergencyContact: '',
-            username: '', password: '',
-            status: 'Inactive'
-        }
-    ];
-
-    const columns = [
-        { label: 'Registered ID', key: 'registeredId' },
-        { label: 'Last name', key: 'lastName' },
-        { label: 'First name', key: 'firstName' },
-        { label: 'Middle name', key: 'middleName' },
-        { label: 'Contact', key: 'contact' },
-        { label: 'Status', key: 'status' }
-    ];
-
-    /* =========================================================
-       ELEMENTS
-    ========================================================= */
-
-    const elements = {
-        search: document.getElementById('coachesSearch'),
-        tableHead: document.getElementById('coachesTableHead'),
-        tableBody: document.getElementById('coachesTableBody'),
-
-        addCoachButton: document.getElementById('addCoachButton'),
-
-        /* Add modals (one per step) */
-        coachAddStep1Modal: document.getElementById('coachAddStep1Modal'),
-        coachAddStep1CancelButton: document.getElementById('coachAddStep1CancelButton'),
-        coachAddStep1NextButton: document.getElementById('coachAddStep1NextButton'),
-
-        coachAddStep2Modal: document.getElementById('coachAddStep2Modal'),
-        coachAddStep2BackButton: document.getElementById('coachAddStep2BackButton'),
-        coachAddStep2NextButton: document.getElementById('coachAddStep2NextButton'),
-
-        coachAddStep3Modal: document.getElementById('coachAddStep3Modal'),
-        coachAddStep3BackButton: document.getElementById('coachAddStep3BackButton'),
-        coachAddStep3ConfirmButton: document.getElementById('coachAddStep3ConfirmButton'),
-
-        coachAddStep1FirstName: document.getElementById('coachAddStep1FirstName'),
-        coachAddStep1MiddleName: document.getElementById('coachAddStep1MiddleName'),
-        coachAddStep1LastName: document.getElementById('coachAddStep1LastName'),
-        coachAddStep1Birthdate: document.getElementById('coachAddStep1Birthdate'),
-
-        coachAddStep2Email: document.getElementById('coachAddStep2Email'),
-        coachAddStep2Contact: document.getElementById('coachAddStep2Contact'),
-        coachAddStep2EmergencyName: document.getElementById('coachAddStep2EmergencyName'),
-        coachAddStep2EmergencyRelationship: document.getElementById('coachAddStep2EmergencyRelationship'),
-        coachAddStep2EmergencyContact: document.getElementById('coachAddStep2EmergencyContact'),
-
-        coachAddStep3Username: document.getElementById('coachAddStep3Username'),
-        coachAddStep3Password: document.getElementById('coachAddStep3Password'),
-        coachAddStep3ShowPasswordCheckbox: document.getElementById('coachAddStep3ShowPasswordCheckbox'),
-        coachAddStep3EmailTarget: document.getElementById('coachAddStep3EmailTarget'),
-
-        /* Edit modal */
-        coachEditModal: document.getElementById('coachEditModal'),
-        coachEditModalName: document.getElementById('coachEditModalName'),
-        coachEditModalCancelButton: document.getElementById('coachEditModalCancelButton'),
-        coachEditModalUpdateButton: document.getElementById('coachEditModalUpdateButton'),
-        coachEditStatusInput: document.getElementById('coachEditStatusInput'),
-
-        coachConfirmModal: document.getElementById('coachConfirmModal'),
-        coachConfirmModalMessage: document.getElementById('coachConfirmModalMessage'),
-        coachConfirmModalOkButton: document.getElementById('coachConfirmModalOkButton')
+    // Which add-modal each server field belongs to, so a 422 can send the
+    // admin back to the step that needs fixing.
+    const FIELD_STEP = {
+        first_name: 1, middle_name: 1, last_name: 1, name_suffix: 1,
+        birthdate: 1, sex: 1, courses: 1,
+        email_address: 2, phone_number: 2, parent_guardian_fullname: 2,
+        parent_guardian_relationship: 2, parent_guardian_phone_number: 2,
+        username: 3, password: 3
     };
 
     /* =========================================================
-       STATE
+       STATE + ELEMENTS
     ========================================================= */
 
-    let addContext = null;  // non-null while the add-coach flow (any of the 3 modals) is open
-    let editContext = null; // { coachId }
+    let coaches = [];
+    let courses = [];
+    let editId = null;
+    let busy = false;
+
+    const $ = id => document.getElementById(id);
+
+    const el = {
+        search: $('coachesSearch'),
+        tableHead: $('coachesTableHead'),
+        tableBody: $('coachesTableBody'),
+        addButton: $('addCoachButton'),
+
+        step1: $('coachAddStep1Modal'),
+        step2: $('coachAddStep2Modal'),
+        step3: $('coachAddStep3Modal'),
+        editModal: $('coachEditModal'),
+
+        firstName: $('coachAddFirstName'),
+        middleName: $('coachAddMiddleName'),
+        lastName: $('coachAddLastName'),
+        suffix: $('coachAddSuffix'),
+        birthdate: $('coachAddBirthdate'),
+        addCourseRow: $('coachAddCourseRow'),
+
+        email: $('coachAddEmail'),
+        phone: $('coachAddPhone'),
+        emergencyName: $('coachAddEmergencyName'),
+        emergencyRelationship: $('coachAddEmergencyRelationship'),
+        emergencyPhone: $('coachAddEmergencyPhone'),
+
+        username: $('coachAddUsername'),
+        password: $('coachAddPassword'),
+        showPassword: $('coachAddShowPassword'),
+        emailTarget: $('coachAddEmailTarget'),
+        confirmButton: $('coachAddStep3ConfirmButton'),
+        copyUsername: $('coachAddCopyUsername'),
+        copyPassword: $('coachAddCopyPassword'),
+
+        editName: $('coachEditModalName'),
+        editCourseRow: $('coachEditCourseRow'),
+        editStatusInput: $('coachEditStatusInput'),
+        editUpdateButton: $('coachEditModalUpdateButton')
+    };
+
+    const columns = [
+        { label: 'Username',    value: c => c.username },
+        { label: 'Last name',   value: c => c.last_name },
+        { label: 'First name',  value: c => c.first_name },
+        { label: 'Middle name', value: c => c.middle_name },
+        { label: 'Contact',     value: c => c.phone_number },
+        { label: 'Courses',     value: c => courseNames(c.course_ids).join(', ') },
+        { label: 'Status',      value: c => c.status, badge: true }
+    ];
 
     /* =========================================================
-       SMALL HELPERS
+       HELPERS
     ========================================================= */
 
-    function createElement(tag, options = {}) {
-        const element = document.createElement(tag);
+    function make(tag, { className, text, attributes } = {}) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        if (attributes) Object.entries(attributes).forEach(([k, v]) => node.setAttribute(k, v));
+        return node;
+    }
 
-        if (options.className) element.className = options.className;
-        if (options.id) element.id = options.id;
-        if (options.text !== undefined) element.textContent = options.text;
+    function openModal(modal) { modal.hidden = false; }
+    function closeModal(modal) { modal.hidden = true; }
 
-        if (options.attributes) {
-            Object.entries(options.attributes).forEach(([name, value]) => {
-                element.setAttribute(name, value);
-            });
+    function coachName(c) {
+        const given = [c.first_name, c.middle_name].filter(Boolean).join(' ');
+        const base = c.last_name ? `${c.last_name}, ${given}` : given;
+        return c.name_suffix ? `${base} ${c.name_suffix}` : base;
+    }
+
+    function courseNames(ids) {
+        return (ids || [])
+            .map(id => courses.find(c => Number(c.id) === Number(id))?.name)
+            .filter(Boolean);
+    }
+
+    function ageFrom(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        const t = new Date();
+        let age = t.getFullYear() - y;
+        if (t.getMonth() + 1 < m || (t.getMonth() + 1 === m && t.getDate() < d)) age--;
+        return age;
+    }
+
+    function digitsOnly(input) {
+        input.addEventListener('input', () => {
+            input.value = input.value.replace(/\D/g, '').slice(0, 11);
+        });
+    }
+
+    async function api(url, { method = 'GET', body } = {}) {
+        const headers = {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        };
+        if (body !== undefined) headers['Content-Type'] = 'application/json';
+
+        const response = await fetch(url, {
+            method,
+            headers,
+            body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+
+        let data = {};
+        try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+
+        return { ok: response.ok, status: response.status, data };
+    }
+
+    function toastServerErrors(result, fallback) {
+        const errors = result.data.errors;
+
+        if (errors) {
+            const messages = [...new Set(Object.values(errors).flat())];
+            messages.slice(0, 3).forEach(m => showToast(m, 'danger'));
+            return Object.keys(errors);
         }
 
-        return element;
-    }
-
-    function getCoachName(coach) {
-        const given = [coach.firstName, coach.middleName && coach.middleName !== '--' ? coach.middleName : '']
-            .filter(Boolean)
-            .join(' ');
-
-        return coach.lastName && coach.lastName !== '--' ? `${coach.lastName}, ${given}` : given;
-    }
-
-    function openModal(modal) {
-        modal.hidden = false;
-    }
-
-    function closeModal(modal) {
-        modal.hidden = true;
+        showToast(result.data.message || fallback, 'danger');
+        return [];
     }
 
     /* =========================================================
-       STATUS BADGE
+       COURSE CHECKBOXES (built from the database list)
     ========================================================= */
 
-    function renderStatusBadge(status) {
-        return createElement('span', {
-            className: `statusBadge ${String(status).toLowerCase()}`,
-            text: status
+    function renderCourseChecks(container, className, selectedIds = []) {
+        container.replaceChildren();
+
+        if (!courses.length) {
+            container.append(make('span', { className: 'text-muted', text: 'No courses available.' }));
+            return;
+        }
+
+        courses.forEach(course => {
+            const label = make('label', { className: 'formCheckItem' });
+            const box = make('input', { className, attributes: { type: 'checkbox', value: course.id } });
+            box.checked = selectedIds.map(Number).includes(Number(course.id));
+            label.append(box, document.createTextNode(' ' + course.name));
+            container.append(label);
         });
     }
 
-    /* =========================================================
-       RENDER CELL
-    ========================================================= */
-
-    function renderCell(key, coach) {
-        if (key === 'status') return renderStatusBadge(coach.status);
-
-        const value = coach[key] ?? '';
-        return document.createTextNode(value || '--');
+    function checkedCourseIds(className) {
+        return Array.from(document.querySelectorAll(`.${className}:checked`)).map(box => Number(box.value));
     }
 
     /* =========================================================
-       ROW ACTIONS
-    ========================================================= */
-
-    function renderActionCell(coach, rowIndex) {
-        const cell = createElement('td', { id: `coachAction${rowIndex}` });
-
-        const editButton = createElement('button', {
-            id: `coachEditButton${rowIndex}`,
-            className: 'btn btn-outline-secondary btn-sm coachEditButton',
-            attributes: { type: 'button', 'aria-label': `Edit ${getCoachName(coach)}`, title: 'Edit coach' }
-        });
-        editButton.innerHTML = '<i class="bi bi-pencil" aria-hidden="true"></i>';
-
-        editButton.addEventListener('click', event => {
-            event.stopPropagation();
-            openEditCoachModal(coach.id);
-        });
-
-        cell.append(editButton);
-        return cell;
-    }
-
-    /* =========================================================
-       RENDER TABLE
+       TABLE
     ========================================================= */
 
     function renderTable() {
-        const searchTerm = elements.search.value.trim().toLowerCase();
+        const term = el.search.value.trim().toLowerCase();
 
-        const rows = coaches.filter(coach => {
-            const haystack = [
-                coach.registeredId, coach.lastName, coach.firstName, coach.middleName,
-                coach.contact, coach.status, ...(coach.courses || [])
-            ].join(' ').toLowerCase();
+        const rows = coaches.filter(c =>
+            [c.username, c.email_address, c.last_name, c.first_name, c.middle_name,
+             c.phone_number, c.status, ...courseNames(c.course_ids)]
+                .join(' ').toLowerCase().includes(term)
+        );
 
-            return haystack.includes(searchTerm);
-        });
+        el.tableHead.replaceChildren();
+        el.tableBody.replaceChildren();
 
-        elements.tableHead.replaceChildren();
-        elements.tableBody.replaceChildren();
-
-        /* HEADER */
-
-        const headerRow = createElement('tr', { id: 'coachesHeaderRow' });
-
-        columns.forEach((col, index) => {
-            headerRow.append(createElement('th', {
-                id: `coachColumn${index}`,
-                text: col.label,
-                attributes: { scope: 'col' }
-            }));
-        });
-
-        headerRow.append(createElement('th', { id: 'coachActionHeader', text: 'Actions', attributes: { scope: 'col' } }));
-
-        elements.tableHead.append(headerRow);
-
-        /* EMPTY STATE */
+        const headerRow = make('tr');
+        columns.forEach(col => headerRow.append(make('th', { text: col.label, attributes: { scope: 'col' } })));
+        headerRow.append(make('th', { text: 'Actions', attributes: { scope: 'col' } }));
+        el.tableHead.append(headerRow);
 
         if (!rows.length) {
-            const emptyRow = createElement('tr');
-
-            emptyRow.append(createElement('td', {
-                id: 'coachesEmptyCell',
+            const emptyRow = make('tr');
+            emptyRow.append(make('td', {
                 className: 'coachesEmptyState',
-                text: 'No matching coaches found.',
+                text: coaches.length ? 'No matching coaches found.' : 'No coaches yet.',
                 attributes: { colSpan: columns.length + 1 }
             }));
-
-            elements.tableBody.append(emptyRow);
+            el.tableBody.append(emptyRow);
             return;
         }
 
-        /* ROWS */
+        rows.forEach(coach => {
+            const row = make('tr');
+            row.dataset.id = coach.id;
 
-        rows.forEach((coach, rowIndex) => {
-            const tableRow = createElement('tr', { id: `coachRow${rowIndex}` });
-            tableRow.dataset.id = coach.id;
+            columns.forEach(col => {
+                const cell = make('td');
+                const value = col.value(coach);
 
-            columns.forEach((col, cellIndex) => {
-                const tableCell = createElement('td', { id: `coachCell${rowIndex}${cellIndex}` });
-                tableCell.append(renderCell(col.key, coach));
-                tableRow.append(tableCell);
+                if (col.badge) {
+                    cell.append(make('span', {
+                        className: `statusBadge ${String(value).toLowerCase()}`,
+                        text: value
+                    }));
+                } else {
+                    cell.textContent = value || '--';
+                }
+
+                row.append(cell);
             });
 
-            tableRow.append(renderActionCell(coach, rowIndex));
+            const actionCell = make('td');
+            const editButton = make('button', {
+                className: 'btn btn-outline-secondary btn-sm',
+                attributes: { type: 'button', 'aria-label': `Edit ${coachName(coach)}`, title: 'Edit coach' }
+            });
+            editButton.append(make('i', { className: 'bi bi-pencil', attributes: { 'aria-hidden': 'true' } }));
+            editButton.addEventListener('click', () => openEditModal(coach.id));
+            actionCell.append(editButton);
+            row.append(actionCell);
 
-            elements.tableBody.append(tableRow);
+            el.tableBody.append(row);
         });
     }
 
-    /* =========================================================
-       SEARCH
-    ========================================================= */
+    el.search.addEventListener('input', renderTable);
 
-    elements.search.addEventListener('input', () => {
+    async function loadCoaches() {
+        const result = await api(URLS.data);
+
+        if (!result.ok) {
+            toastServerErrors(result, 'Unable to load coaches.');
+            return;
+        }
+
+        coaches = result.data.coaches || [];
+        courses = result.data.courses || [];
         renderTable();
-    });
+    }
 
     /* =========================================================
-       SHARED FORM HELPERS
+       ADD COACH — STEP NAVIGATION
     ========================================================= */
 
-    function getCheckedValues(selector) {
-        return Array.from(document.querySelectorAll(selector)).map(el => el.value);
+    function resetAddForm() {
+        [el.firstName, el.middleName, el.lastName, el.birthdate, el.email, el.phone,
+         el.emergencyName, el.emergencyPhone, el.username, el.password].forEach(i => { i.value = ''; });
+
+        el.suffix.value = '';
+        el.emergencyRelationship.value = '';
+        el.password.type = 'password';
+        el.showPassword.checked = false;
+        el.emailTarget.textContent = '';
+
+        document.querySelectorAll('input[name="coachAddSex"]').forEach(r => { r.checked = false; });
+        renderCourseChecks(el.addCourseRow, 'coachAddCourseCheckbox');
+
+        // Newest allowed birthdate = today minus the minimum age.
+        const limit = new Date();
+        limit.setFullYear(limit.getFullYear() - MIN_COACH_AGE);
+        el.birthdate.max = limit.toISOString().slice(0, 10);
     }
 
-    function setCheckedValues(selector, values) {
-        document.querySelectorAll(selector).forEach(el => {
-            el.checked = (values || []).includes(el.value);
-        });
+    function selectedSex() {
+        return document.querySelector('input[name="coachAddSex"]:checked')?.value || '';
     }
 
-    function getSex() {
-        const checked = document.querySelector('input[name="coachAddStep1Sex"]:checked');
-        return checked ? checked.value : '';
+    function validateStep1() {
+        if (!el.firstName.value.trim() || !el.lastName.value.trim()) {
+            showToast('First name and last name are required.', 'danger');
+            return false;
+        }
+
+        if (!el.birthdate.value) {
+            showToast('Please enter the birthdate.', 'danger');
+            return false;
+        }
+
+        if (ageFrom(el.birthdate.value) < MIN_COACH_AGE) {
+            showToast(`A coach must be at least ${MIN_COACH_AGE} years old.`, 'danger');
+            return false;
+        }
+
+        if (!selectedSex()) {
+            showToast('Please select the sex.', 'danger');
+            return false;
+        }
+
+        if (!checkedCourseIds('coachAddCourseCheckbox').length) {
+            showToast('Assign at least one course.', 'danger');
+            return false;
+        }
+
+        return true;
     }
 
-    function setSex(value) {
-        document.querySelectorAll('input[name="coachAddStep1Sex"]').forEach(el => {
-            el.checked = el.value === value;
-        });
+    function validateStep2() {
+        if (!el.email.value.trim() || !el.email.checkValidity()) {
+            showToast('Please enter a valid email address.', 'danger');
+            return false;
+        }
+
+        if (!PHONE_RE.test(el.phone.value)) {
+            showToast('Please enter a valid 11-digit Philippine mobile number (09XXXXXXXXX).', 'danger');
+            return false;
+        }
+
+        if (!el.emergencyName.value.trim()) {
+            showToast('Please enter the emergency contact name.', 'danger');
+            return false;
+        }
+
+        if (!el.emergencyRelationship.value) {
+            showToast('Please select the emergency contact relationship.', 'danger');
+            return false;
+        }
+
+        if (!PHONE_RE.test(el.emergencyPhone.value)) {
+            showToast('Please enter a valid emergency contact number (09XXXXXXXXX).', 'danger');
+            return false;
+        }
+
+        return true;
     }
 
-    function setDropdownValue(prefix, value) {
-        const selectedLabel = document.getElementById(`${prefix}Selected`);
-        const input = document.getElementById(`${prefix}Input`);
-        const optionsContainer = document.getElementById(`${prefix}Options`);
+    function validateStep3() {
+        if (!USERNAME_RE.test(el.username.value.trim())) {
+            showToast('Username must be 3 to 30 characters and may only contain letters, numbers, and underscores.', 'danger');
+            return false;
+        }
 
-        if (selectedLabel) selectedLabel.textContent = value;
-        if (input) input.value = value;
+        if (!PASSWORD_RE.test(el.password.value)) {
+            showToast('Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.', 'danger');
+            return false;
+        }
 
-        if (optionsContainer) {
-            optionsContainer.querySelectorAll('.registerDropdownOption').forEach(option => {
-                option.classList.toggle('active', option.dataset.value === value);
+        return true;
+    }
+
+    el.addButton.addEventListener('click', () => {
+        resetAddForm();
+        openModal(el.step1);
+    });
+
+    $('coachAddStep1CancelButton').addEventListener('click', () => closeModal(el.step1));
+
+    $('coachAddStep1NextButton').addEventListener('click', () => {
+        if (!validateStep1()) return;
+        closeModal(el.step1);
+        openModal(el.step2);
+    });
+
+    $('coachAddStep2BackButton').addEventListener('click', () => {
+        closeModal(el.step2);
+        openModal(el.step1);
+    });
+
+    // Step 3's username/password come from the server (it also makes sure
+    // the username is free), so fetch them before opening the modal.
+    $('coachAddStep2NextButton').addEventListener('click', async () => {
+        if (busy || !validateStep2()) return;
+
+        const nextButton = $('coachAddStep2NextButton');
+        busy = true;
+        nextButton.disabled = true;
+        nextButton.textContent = 'Preparing...';
+
+        try {
+            const result = await api(URLS.preview, {
+                method: 'POST',
+                body: {
+                    first_name: el.firstName.value.trim(),
+                    last_name: el.lastName.value.trim()
+                }
             });
+
+            if (!result.ok) {
+                toastServerErrors(result, 'Unable to prepare the account details.');
+                return;
+            }
+
+            el.username.value = result.data.username;
+            el.password.value = result.data.password;
+            el.password.type = 'password';
+            el.showPassword.checked = false;
+            el.emailTarget.textContent = el.email.value.trim();
+
+            closeModal(el.step2);
+            openModal(el.step3);
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while preparing the account details.', 'danger');
+        } finally {
+            busy = false;
+            nextButton.disabled = false;
+            nextButton.textContent = 'Next';
+        }
+    });
+
+    $('coachAddStep3BackButton').addEventListener('click', () => {
+        closeModal(el.step3);
+        openModal(el.step2);
+    });
+
+    el.showPassword.addEventListener('change', () => {
+        el.password.type = el.showPassword.checked ? 'text' : 'password';
+    });
+
+    async function copyText(value, label) {
+        try {
+            await navigator.clipboard.writeText(value);
+            showToast(`${label} copied.`, 'success', 2000);
+        } catch (error) {
+            showToast('Unable to copy automatically. Use Show Password and copy it by hand.', 'warning');
         }
     }
+
+    el.copyUsername.addEventListener('click', () => copyText(el.username.value, 'Username'));
+    el.copyPassword.addEventListener('click', () => copyText(el.password.value, 'Password'));
+
+    [el.phone, el.emergencyPhone].forEach(digitsOnly);
 
     /* =========================================================
-       PASSWORD VISIBILITY (Step 3 of the add-coach modals)
+       ADD COACH — SUBMIT
     ========================================================= */
 
-    // The admin types the username/password directly now, so this just
-    // flips the real input type between 'password' and 'text' — no more
-    // generating a value or hand-masking characters.
-    elements.coachAddStep3ShowPasswordCheckbox.addEventListener('change', () => {
-        elements.coachAddStep3Password.type = elements.coachAddStep3ShowPasswordCheckbox.checked
-            ? 'text'
-            : 'password';
-    });
-
-    /* =========================================================
-       ADD COACH MODALS — RESET / NAVIGATION
-    ========================================================= */
-
-    function resetAddCoachModals() {
-        elements.coachAddStep1FirstName.value = '';
-        elements.coachAddStep1MiddleName.value = '';
-        elements.coachAddStep1LastName.value = '';
-        elements.coachAddStep1Birthdate.value = '';
-        setSex('');
-        setCheckedValues('.coachAddStep1CourseCheckbox', []);
-
-        elements.coachAddStep2Email.value = '';
-        elements.coachAddStep2Contact.value = '';
-        elements.coachAddStep2EmergencyName.value = '';
-        elements.coachAddStep2EmergencyRelationship.value = '';
-        elements.coachAddStep2EmergencyContact.value = '';
-
-        elements.coachAddStep3Username.value = '';
-        elements.coachAddStep3Password.value = '';
-        elements.coachAddStep3Password.type = 'password';
-        elements.coachAddStep3EmailTarget.textContent = '';
-        elements.coachAddStep3ShowPasswordCheckbox.checked = false;
-    }
-
-    function openAddCoachModal() {
-        addContext = {};
-
-        resetAddCoachModals();
-        openModal(elements.coachAddStep1Modal);
-    }
-
-    elements.addCoachButton.addEventListener('click', openAddCoachModal);
-
-    /* --- Step 1: Basic info --- */
-
-    elements.coachAddStep1CancelButton.addEventListener('click', () => {
-        addContext = null;
-        closeModal(elements.coachAddStep1Modal);
-    });
-
-    elements.coachAddStep1NextButton.addEventListener('click', () => {
-        if (!addContext) return;
-
-        const firstName = elements.coachAddStep1FirstName.value.trim();
-        const middleName = elements.coachAddStep1MiddleName.value.trim();
-        const lastName = elements.coachAddStep1LastName.value.trim();
-        const birthdate = elements.coachAddStep1Birthdate.value.trim();
-        const sex = getSex();
-        const courses = getCheckedValues('.coachAddStep1CourseCheckbox');
-
-        if (!firstName || !middleName || !lastName || !birthdate || !sex || !courses.length) {
-            openInfoModal('Please complete all required fields (name, birthdate, sex, and at least one course) before continuing.');
-            return;
-        }
-
-        closeModal(elements.coachAddStep1Modal);
-        openModal(elements.coachAddStep2Modal);
-    });
-
-    /* --- Step 2: Contact info --- */
-
-    elements.coachAddStep2BackButton.addEventListener('click', () => {
-        closeModal(elements.coachAddStep2Modal);
-        openModal(elements.coachAddStep1Modal);
-    });
-
-    elements.coachAddStep2NextButton.addEventListener('click', () => {
-        if (!addContext) return;
-
-        const email = elements.coachAddStep2Email.value.trim();
-        const contact = elements.coachAddStep2Contact.value.trim();
-        const emergencyName = elements.coachAddStep2EmergencyName.value.trim();
-        const emergencyRelationship = elements.coachAddStep2EmergencyRelationship.value.trim();
-        const emergencyContact = elements.coachAddStep2EmergencyContact.value.trim();
-
-        if (!email || !contact || !emergencyName || !emergencyRelationship || !emergencyContact) {
-            openInfoModal('Please complete all required contact fields before continuing.');
-            return;
-        }
-
-        elements.coachAddStep3EmailTarget.textContent = email;
-
-        closeModal(elements.coachAddStep2Modal);
-        openModal(elements.coachAddStep3Modal);
-    });
-
-    /* --- Step 3: Authentication info (admin-entered) --- */
-
-    elements.coachAddStep3BackButton.addEventListener('click', () => {
-        closeModal(elements.coachAddStep3Modal);
-        openModal(elements.coachAddStep2Modal);
-    });
-
-    elements.coachAddStep3ConfirmButton.addEventListener('click', () => {
-        if (!addContext) return;
-
-        const username = elements.coachAddStep3Username.value.trim();
-        const password = elements.coachAddStep3Password.value;
-
-        if (!username || !password) {
-            openInfoModal('Please enter a username and password before continuing.');
-            return;
-        }
+    el.confirmButton.addEventListener('click', async () => {
+        if (busy || !validateStep3()) return;
 
         const payload = {
-            firstName: elements.coachAddStep1FirstName.value.trim() || '--',
-            middleName: elements.coachAddStep1MiddleName.value.trim() || '--',
-            lastName: elements.coachAddStep1LastName.value.trim() || '--',
-            birthdate: elements.coachAddStep1Birthdate.value.trim(),
-            sex: getSex(),
-            courses: getCheckedValues('.coachAddStep1CourseCheckbox'),
-            email: elements.coachAddStep2Email.value.trim(),
-            contact: elements.coachAddStep2Contact.value.trim(),
-            emergencyName: elements.coachAddStep2EmergencyName.value.trim(),
-            emergencyRelationship: elements.coachAddStep2EmergencyRelationship.value.trim(),
-            emergencyContact: elements.coachAddStep2EmergencyContact.value.trim(),
-            username: username,
-            password: password,
-            status: 'Active'
+            first_name: el.firstName.value.trim(),
+            middle_name: el.middleName.value.trim() || null,
+            last_name: el.lastName.value.trim(),
+            name_suffix: el.suffix.value,
+            birthdate: el.birthdate.value,
+            sex: selectedSex(),
+            courses: checkedCourseIds('coachAddCourseCheckbox'),
+            email_address: el.email.value.trim(),
+            phone_number: el.phone.value,
+            parent_guardian_fullname: el.emergencyName.value.trim(),
+            parent_guardian_relationship: el.emergencyRelationship.value,
+            parent_guardian_phone_number: el.emergencyPhone.value,
+            username: el.username.value.trim(),
+            password: el.password.value
         };
 
-        coaches.push({
-            id: coachId(),
-            registeredId: nextRegisteredId(),
-            ...payload
-        });
+        busy = true;
+        el.confirmButton.disabled = true;
+        el.confirmButton.textContent = 'Saving...';
 
-        const email = payload.email;
-        addContext = null;
-        closeModal(elements.coachAddStep3Modal);
-        renderTable();
+        try {
+            const result = await api(URLS.store, { method: 'POST', body: payload });
 
-        openInfoModal(`Successfully added coach ${getCoachName(payload)}. Account details were emailed to ${email}.`);
+            if (result.ok) {
+                closeModal(el.step3);
+                showToast(`Coach ${payload.first_name} ${payload.last_name} was added.`, 'success');
+
+                if (result.data.mail_sent === false) {
+                    showToast('The account was created, but the email could not be sent. Share the login details with the coach directly.', 'warning', 8000);
+                }
+
+                await loadCoaches();
+            } else {
+                const fields = toastServerErrors(result, 'Unable to add the coach.');
+
+                // Send the admin back to the earliest step with a problem.
+                const steps = fields.map(f => FIELD_STEP[f.split('.')[0]]).filter(Boolean);
+                const target = steps.length ? Math.min(...steps) : 3;
+
+                if (target !== 3) {
+                    closeModal(el.step3);
+                    openModal(target === 1 ? el.step1 : el.step2);
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while adding the coach.', 'danger');
+        } finally {
+            busy = false;
+            el.confirmButton.disabled = false;
+            el.confirmButton.textContent = 'Confirm';
+        }
     });
 
     /* =========================================================
-       EDIT MODAL — Status + Courses to assign only
+       EDIT COACH — STATUS + COURSES
     ========================================================= */
 
+    function setDropdownValue(prefix, value) {
+        const label = $(`${prefix}Selected`);
+        const input = $(`${prefix}Input`);
+        const options = $(`${prefix}Options`);
 
-    function openEditCoachModal(id) {
+        if (label) label.textContent = value;
+        if (input) input.value = value;
+        if (options) {
+            options.querySelectorAll('.registerDropdownOption').forEach(o => {
+                o.classList.toggle('active', o.dataset.value === value);
+            });
+        }
+    }
+
+    function openEditModal(id) {
         const coach = coaches.find(c => c.id === id);
         if (!coach) return;
 
-        editContext = { coachId: id };
-
-        elements.coachEditModalName.textContent = getCoachName(coach);
+        editId = id;
+        el.editName.textContent = coachName(coach);
         setDropdownValue('coachEditStatus', coach.status || 'Active');
-        setCheckedValues('.coachEditCourseCheckbox', coach.courses || []);
+        renderCourseChecks(el.editCourseRow, 'coachEditCourseCheckbox', coach.course_ids);
 
-        openModal(elements.coachEditModal);
+        openModal(el.editModal);
     }
 
-    elements.coachEditModalCancelButton.addEventListener('click', () => {
-        editContext = null;
-        closeModal(elements.coachEditModal);
+    $('coachEditModalCancelButton').addEventListener('click', () => {
+        editId = null;
+        closeModal(el.editModal);
     });
 
-    elements.coachEditModalUpdateButton.addEventListener('click', () => {
-        if (!editContext) {
-            closeModal(elements.coachEditModal);
+    el.editUpdateButton.addEventListener('click', async () => {
+        if (busy || editId === null) return;
+
+        const ids = checkedCourseIds('coachEditCourseCheckbox');
+
+        if (!ids.length) {
+            showToast('Assign at least one course.', 'danger');
             return;
         }
 
-        const courses = getCheckedValues('.coachEditCourseCheckbox');
+        busy = true;
+        el.editUpdateButton.disabled = true;
+        el.editUpdateButton.textContent = 'Updating...';
 
-        if (!courses.length) {
-            openInfoModal('Please assign at least one course before continuing.');
-            return;
-        }
-
-        const coach = coaches.find(c => c.id === editContext.coachId);
-
-        if (coach) {
-            coach.status = elements.coachEditStatusInput.value || 'Active';
-            coach.courses = courses;
-        }
-
-        editContext = null;
-        closeModal(elements.coachEditModal);
-        renderTable();
-
-        if (coach) openInfoModal(`Successfully updated coach ${getCoachName(coach)}.`);
-    });
-
-    /* =========================================================
-       CONFIRM / INFO MODAL
-    ========================================================= */
-
-    function openInfoModal(message) {
-        elements.coachConfirmModalMessage.textContent = message;
-        openModal(elements.coachConfirmModal);
-    }
-
-    elements.coachConfirmModalOkButton.addEventListener('click', () => {
-        closeModal(elements.coachConfirmModal);
-    });
-
-    /* =========================================================
-       DROPDOWN (Status field — reuses the same
-       .registerDropdown behavior as the Registers page)
-    ========================================================= */
-
-    function initializeDropdown(dropdown) {
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const selectedLabel = toggle?.querySelector('span');
-        const input = dropdown.querySelector('input[type="hidden"]');
-
-        if (!toggle || !options) return;
-
-        toggle.addEventListener('click', event => {
-            event.stopPropagation();
-            if (options.hidden) {
-                openDropdown(dropdown);
-            } else {
-                closeDropdown(dropdown);
-            }
-        });
-
-        options.addEventListener('click', event => {
-            const option = event.target.closest('.registerDropdownOption');
-            if (!option) return;
-
-            const value = option.dataset.value;
-
-            if (selectedLabel) selectedLabel.textContent = value;
-            if (input) input.value = value;
-
-            options.querySelectorAll('.registerDropdownOption').forEach(item => {
-                item.classList.toggle('active', item === option);
+        try {
+            const result = await api(URLS.update(editId), {
+                method: 'PUT',
+                body: { status: el.editStatusInput.value || 'Active', courses: ids }
             });
 
-            closeDropdown(dropdown);
-        });
+            if (result.ok) {
+                const coach = coaches.find(c => c.id === editId);
+                closeModal(el.editModal);
+                editId = null;
+                showToast(coach ? `Coach ${coachName(coach)} was updated.` : 'Coach was updated.', 'success');
+                await loadCoaches();
+            } else {
+                toastServerErrors(result, 'Unable to update the coach.');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while updating the coach.', 'danger');
+        } finally {
+            busy = false;
+            el.editUpdateButton.disabled = false;
+            el.editUpdateButton.textContent = 'Update';
+        }
+    });
 
-        dropdown.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeDropdown(dropdown);
-        });
-    }
+    /* =========================================================
+       DROPDOWN (theme .registerDropdown — needs this small JS)
+    ========================================================= */
 
     function positionDropdownOptions(dropdown) {
         const options = dropdown.querySelector('.registerDropdownOptions');
@@ -1292,39 +1085,56 @@
         options.style.width = `${rect.width}px`;
     }
 
-    function openDropdown(dropdown) {
-        closeAllDropdowns(dropdown);
-
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-
-        dropdown.classList.add('isOpen');
-        options.hidden = false;
-        toggle.setAttribute('aria-expanded', 'true');
-        positionDropdownOptions(dropdown);
-    }
-
     function closeDropdown(dropdown) {
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-
         dropdown.classList.remove('isOpen');
-        options.hidden = true;
-        toggle.setAttribute('aria-expanded', 'false');
+        dropdown.querySelector('.registerDropdownOptions').hidden = true;
+        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'false');
     }
 
     function closeAllDropdowns(except = null) {
-        document.querySelectorAll('[data-dropdown]').forEach(dropdown => {
-            if (dropdown !== except) closeDropdown(dropdown);
+        document.querySelectorAll('[data-dropdown]').forEach(d => {
+            if (d !== except) closeDropdown(d);
+        });
+    }
+
+    function openDropdown(dropdown) {
+        closeAllDropdowns(dropdown);
+        dropdown.classList.add('isOpen');
+        dropdown.querySelector('.registerDropdownOptions').hidden = false;
+        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'true');
+        positionDropdownOptions(dropdown);
+    }
+
+    function initializeDropdown(dropdown) {
+        const toggle = dropdown.querySelector('.registerDropdownToggle');
+        const options = dropdown.querySelector('.registerDropdownOptions');
+        const label = toggle?.querySelector('span');
+        const input = dropdown.querySelector('input[type="hidden"]');
+        if (!toggle || !options) return;
+
+        toggle.addEventListener('click', event => {
+            event.stopPropagation();
+            options.hidden ? openDropdown(dropdown) : closeDropdown(dropdown);
+        });
+
+        options.addEventListener('click', event => {
+            const option = event.target.closest('.registerDropdownOption');
+            if (!option) return;
+
+            if (label) label.textContent = option.dataset.value;
+            if (input) input.value = option.dataset.value;
+            options.querySelectorAll('.registerDropdownOption').forEach(o => {
+                o.classList.toggle('active', o === option);
+            });
+
+            closeDropdown(dropdown);
         });
     }
 
     document.querySelectorAll('#coachEditModal [data-dropdown]').forEach(initializeDropdown);
 
     document.addEventListener('click', event => {
-        if (!event.target.closest('[data-dropdown]')) {
-            closeAllDropdowns();
-        }
+        if (!event.target.closest('[data-dropdown]')) closeAllDropdowns();
     });
 
     window.addEventListener('resize', () => {
@@ -1333,37 +1143,29 @@
     });
 
     /* =========================================================
-       MODAL DISMISS (backdrop click / Escape)
+       MODAL DISMISS (Escape only; clicking outside the card does nothing)
     ========================================================= */
 
-    const addCoachModals = [elements.coachAddStep1Modal, elements.coachAddStep2Modal, elements.coachAddStep3Modal];
+    const allModals = [el.step1, el.step2, el.step3, el.editModal];
 
-    [...addCoachModals, elements.coachEditModal, elements.coachConfirmModal].forEach(modal => {
-        modal.addEventListener('click', event => {
-            if (event.target === modal) {
-                if (addCoachModals.includes(modal)) addContext = null;
-                if (modal === elements.coachEditModal) editContext = null;
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || busy) return;
+
+        allModals.forEach(modal => {
+            if (!modal.hidden) {
+                if (modal === el.editModal) editId = null;
                 closeModal(modal);
             }
         });
-    });
 
-    document.addEventListener('keydown', event => {
-        if (event.key !== 'Escape') return;
-
-        document.querySelectorAll('.modalOverlay:not([hidden])').forEach(modal => {
-            if (addCoachModals.includes(modal)) addContext = null;
-            if (modal === elements.coachEditModal) editContext = null;
-            closeModal(modal);
-        });
         closeAllDropdowns();
     });
 
     /* =========================================================
-       INITIALIZE
+       INIT
     ========================================================= */
 
-    renderTable();
+    loadCoaches();
 
 })();
 </script>

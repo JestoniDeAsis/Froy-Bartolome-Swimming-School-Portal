@@ -66,6 +66,13 @@ Route::get('/courses/{course_id}', [CourseController::class, 'show'])->middlewar
 Route::post('/courses', [CourseController::class, 'store'])->middleware('auth');
 Route::put('/courses/{course_id}', [CourseController::class, 'update'])->middleware('auth');
 
+use App\Http\Controllers\CoachController;
+ 
+Route::get('/coaches/data', [CoachController::class, 'data'])->middleware('auth');
+Route::post('/coaches/account-preview', [CoachController::class, 'accountPreview'])->middleware('auth');
+Route::post('/coaches', [CoachController::class, 'store'])->middleware('auth');
+Route::put('/coaches/{id}', [CoachController::class, 'update'])->middleware('auth')->whereNumber('id');
+
 use App\Http\Controllers\SalesInvoiceController;
 
 Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');
