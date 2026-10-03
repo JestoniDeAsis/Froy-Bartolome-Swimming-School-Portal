@@ -165,6 +165,7 @@ class AdminAttendanceController extends Controller
 
         $enrollments = $query->orderBy('p.last_name')->orderBy('p.first_name')->get([
             'e.enrollment_id as id',
+            'e.scheduled_time',
             'c.' . CoachController::COURSE_NAME_COL . ' as course_name',
             'c.course_session_count',
             'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix',
@@ -213,12 +214,119 @@ class AdminAttendanceController extends Controller
                 'name' => $this->formatName($e),
                 'coach' => $log ? ($loggerNames[$log->logged_by] ?? null) : null,
                 'course' => $e->course_name,
+                'schedule' => $e->scheduled_time,
                 'sessions' => $required > 0 ? "$done / $required" : (string) $done,
                 'time_in' => $this->hhmm($log->time_in ?? null),
                 'time_out' => $this->hhmm($log->time_out ?? null),
                 'state' => $log->attendance_state ?? null,
             ];
         })->values()->all();
+    }
+
+    /* =========================================================
+     * GET /admin/attendance/student-logs?enrollment_id=&filter=all|<enrollment_id>
+     *
+     * Every attendance log of the student that enrollment belongs to. The
+     * filter narrows it to one of the student's enrollments (so logs from
+     * courses they used to be enrolled in can be reviewed too); "all" also
+     * includes older logs that have no enrollment_id yet.
+     * ========================================================= */
+    public function studentLogs(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) {
+            return $denied;
+        }
+
+        $v = $request->validate([
+            'enrollment_id' => ['required', 'integer'],
+            'filter' => ['nullable', 'regex:/^(all|\d+)$/'],
+        ]);
+
+        $anchor = DB::table(self::ENROLLMENTS_TABLE . ' as e')
+            ->join('tbl_user_profile as p', 'p.user_id', '=', 'e.user_id')
+            ->where('e.enrollment_id', $v['enrollment_id'])
+            ->first(['e.user_id', 'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix']);
+
+        if (!$anchor) {
+            return response()->json(['success' => false, 'message' => 'Enrollment not found.'], 404);
+        }
+
+        $enrollments = DB::table(self::ENROLLMENTS_TABLE . ' as e')
+            ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id')
+            ->where('e.user_id', $anchor->user_id)
+            ->orderByDesc('e.enrollment_at')
+            ->get([
+                'e.enrollment_id as id',
+                'c.' . CoachController::COURSE_NAME_COL . ' as course_name',
+                'e.enrollment_at',
+                'e.graduation_at',
+            ]);
+
+        $filter = $v['filter'] ?? (string) $v['enrollment_id'];
+
+        if ($filter !== 'all' && !$enrollments->contains(fn ($e) => (int) $e->id === (int) $filter)) {
+            return $this->fail('That enrollment does not belong to this student.');
+        }
+
+        $query = DB::table(self::ATT_TABLE . ' as a')
+            ->leftJoin(self::ENROLLMENTS_TABLE . ' as e', 'e.enrollment_id', '=', 'a.enrollment_id')
+            ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id')
+            ->where('a.user_id', $anchor->user_id);
+
+        if ($filter !== 'all') {
+            $query->where('a.enrollment_id', (int) $filter);
+        }
+
+        $logs = $query
+            ->orderByDesc('a.attendance_at')
+            ->orderByRaw('a.time_in IS NULL')
+            ->orderByDesc('a.time_in')
+            ->limit(1000)
+            ->get([
+                'a.attendance_id as id',
+                'a.attendance_at',
+                'a.time_in',
+                'a.time_out',
+                'a.attendance_state',
+                'a.logged_by',
+                'c.' . CoachController::COURSE_NAME_COL . ' as course_name',
+            ]);
+
+        $loggerIds = $logs->pluck('logged_by')->filter()->unique()->values();
+
+        $loggerNames = $loggerIds->isEmpty()
+            ? []
+            : DB::table('tbl_user_profile')
+                ->whereIn('user_id', $loggerIds)
+                ->get(['user_id', 'first_name', 'middle_name', 'last_name', 'name_suffix'])
+                ->mapWithKeys(fn ($u) => [$u->user_id => $this->formatName($u)])
+                ->all();
+
+        return response()->json([
+            'success' => true,
+            'student' => $this->formatName($anchor),
+            'filter' => $filter,
+            'enrollments' => $enrollments->map(function ($e) {
+                $start = $e->enrollment_at ? Carbon::parse($e->enrollment_at)->format('M d, Y') : '?';
+                $end = $e->graduation_at
+                    ? 'Graduated ' . Carbon::parse($e->graduation_at)->format('M d, Y')
+                    : 'Present';
+
+                return [
+                    'id' => (int) $e->id,
+                    'label' => ($e->course_name ?? 'Course not assigned') . " ($start - $end)",
+                ];
+            })->values(),
+            'logs' => $logs->map(fn ($l) => [
+                'id' => (int) $l->id,
+                'date' => (string) $l->attendance_at,
+                'course' => $l->course_name,
+                'time_in' => $this->hhmm($l->time_in),
+                'time_out' => $this->hhmm($l->time_out),
+                'state' => $l->attendance_state,
+                'logged_by' => $loggerNames[$l->logged_by] ?? null,
+            ])->values(),
+        ]);
     }
 
     /* =========================================================

@@ -76,6 +76,7 @@ Route::put('/coaches/{id}', [CoachController::class, 'update'])->middleware('aut
 use App\Http\Controllers\AdminAttendanceController;
  
 Route::get('/admin/attendance/data', [AdminAttendanceController::class, 'data'])->middleware('auth');
+Route::get('/admin/attendance/student-logs', [AdminAttendanceController::class, 'studentLogs'])->middleware('auth');
 Route::post('/admin/attendance/coaches/time-in', [AdminAttendanceController::class, 'coachTimeIn'])->middleware('auth');
 Route::post('/admin/attendance/coaches/time-out', [AdminAttendanceController::class, 'coachTimeOut'])->middleware('auth');
 

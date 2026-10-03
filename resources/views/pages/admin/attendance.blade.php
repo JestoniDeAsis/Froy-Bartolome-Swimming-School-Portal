@@ -58,6 +58,10 @@
 
 .attendanceClassFilter .registerDropdownToggle { min-width: 160px; }
 
+/* Same fixed width whether "All", "Logged In" or "Not Logged In" is
+   selected, so the control doesn't shrink and grow as the choice changes. */
+.attendanceLoggedFilter .registerDropdownToggle { min-width: 160px; }
+
 /* Search */
 .attendanceSearchContainer {
     position: relative;
@@ -269,6 +273,54 @@
     padding: 1rem 1.25rem;
     border-top: 1px solid #e7ebef;
 }
+
+/* Dots inside the "Attendance" filter options */
+.attendanceOptionDot {
+    display: inline-block;
+    margin-right: .5rem;
+    vertical-align: middle;
+}
+
+/* Student log modal: wider, only the table area scrolls */
+.attendanceModal.isWide {
+    max-width: 780px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.attendanceModal.isWide .attendanceModalBody {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.attendanceLogToolbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: .5rem;
+}
+
+.attendanceLogFilter .registerDropdownToggle {
+    min-width: 280px;
+    max-width: 100%;
+}
+
+.attendanceLogSummary {
+    margin: 0;
+    font-size: .8125rem;
+    color: #667085;
+}
+
+.attendanceLogTableContainer {
+    max-height: 50vh;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+}
 </style>
 
 
@@ -324,6 +376,30 @@
             </div>
         </div>
 
+        <!-- Attendance filter: logged in that day or not (students tab only) -->
+        <div class="attendanceFilterGroup" id="loggedFilterGroup">
+            <label class="attendanceFilterLabel" id="loggedFilterLabel">Attendance</label>
+
+            <div class="registerDropdown attendanceLoggedFilter" id="loggedFilterDropdown" data-dropdown>
+                <button class="registerDropdownToggle" id="loggedFilterToggle" type="button" aria-expanded="false" aria-controls="loggedFilterOptions">
+                    <span id="loggedFilterSelected">All</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+
+                <div class="registerDropdownOptions" id="loggedFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="all">All</button>
+                    <button class="registerDropdownOption" type="button" data-value="in">
+                        <span class="attendanceStatusDot present attendanceOptionDot"></span>Logged In
+                    </button>
+                    <button class="registerDropdownOption" type="button" data-value="out">
+                        <span class="attendanceStatusDot absent attendanceOptionDot"></span>Not Logged In
+                    </button>
+                </div>
+
+                <input id="loggedFilterInput" name="loggedFilter" type="hidden" value="all">
+            </div>
+        </div>
+
         <!-- Search -->
         <div class="attendanceFilterGroup" id="attendanceSearchGroup">
             <label class="attendanceFilterLabel" for="attendanceSearch">Search</label>
@@ -339,6 +415,11 @@
         <div class="attendanceToolbarActions" id="attendanceToolbarActions">
             <button class="btn btn-primary" id="recordTimeInButton" type="button" disabled>Time In</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled>Time Out</button>
+        </div>
+
+        <!-- Student actions (students tab only) -->
+        <div class="attendanceToolbarActions" id="studentToolbarActions">
+            <button class="btn btn-primary" id="viewLogsButton" type="button" disabled>View Logs</button>
         </div>
 
     </div>
@@ -380,6 +461,53 @@
 </div>
 
 
+<!-- STUDENT ATTENDANCE LOG MODAL (view only) -->
+<div class="attendanceModalOverlay" id="logsModalOverlay" hidden>
+    <div class="attendanceModal isWide" id="logsModal" role="dialog" aria-modal="true" aria-labelledby="logsModalTitle">
+
+        <div class="attendanceModalHeader">
+            <h5 id="logsModalTitle">Attendance Log</h5>
+            <button class="attendanceModalClose" id="logsModalCloseButton" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="attendanceModalBody">
+            <p class="attendanceModalName" id="logsModalStudent"></p>
+
+            <div class="attendanceLogToolbar">
+                <div class="attendanceFilterGroup">
+                    <label class="attendanceFilterLabel">Course</label>
+
+                    <div class="registerDropdown attendanceLogFilter" id="logFilterDropdown" data-dropdown>
+                        <button class="registerDropdownToggle" id="logFilterToggle" type="button" aria-expanded="false" aria-controls="logFilterOptions">
+                            <span id="logFilterSelected">Loading...</span>
+                            <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                        </button>
+
+                        <div class="registerDropdownOptions" id="logFilterOptions" hidden></div>
+
+                        <input id="logFilterInput" name="logFilter" type="hidden" value="">
+                    </div>
+                </div>
+
+                <p class="attendanceLogSummary" id="logsSummary"></p>
+            </div>
+
+            <div class="attendanceLogTableContainer">
+                <table class="table attendanceTable" id="logsTable">
+                    <thead id="logsTableHead"></thead>
+                    <tbody id="logsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="attendanceModalFooter">
+            <button class="btn btn-outline-primary" id="logsModalDoneButton" type="button">Close</button>
+        </div>
+
+    </div>
+</div>
+
+
 <script>
 (function () {
     'use strict';
@@ -391,7 +519,8 @@
     const URLS = {
         data: '/admin/attendance/data',
         timeIn: '/admin/attendance/coaches/time-in',
-        timeOut: '/admin/attendance/coaches/time-out'
+        timeOut: '/admin/attendance/coaches/time-out',
+        studentLogs: '/admin/attendance/student-logs'
     };
 
     // Per-tab columns. "key" matches the field names the server returns.
@@ -409,12 +538,13 @@
             searchKeys: ['name', 'classes', 'state']
         },
         students: {
-            hint: 'View only. This is the attendance your coaches logged for their students.',
-            selectable: false,
+            hint: 'View only. This is the attendance your coaches logged. Select a student to view their full attendance log.',
+            selectable: true,
             columns: [
                 { label: 'Student Name', key: 'name', isNameColumn: true },
                 { label: 'Coach', key: 'coach' },
                 { label: 'Course Level', key: 'course' },
+                { label: 'Schedule', key: 'schedule' },
                 { label: 'Sessions Completed', key: 'sessions' },
                 { label: 'Time In', key: 'time_in', isTime: true },
                 { label: 'Time Out', key: 'time_out', isTime: true },
@@ -448,6 +578,23 @@
 
         search: $('attendanceSearch'),
 
+        loggedFilterGroup: $('loggedFilterGroup'),
+        loggedFilterInput: $('loggedFilterInput'),
+
+        studentActions: $('studentToolbarActions'),
+        viewLogsButton: $('viewLogsButton'),
+
+        logsOverlay: $('logsModalOverlay'),
+        logsStudent: $('logsModalStudent'),
+        logsSummary: $('logsSummary'),
+        logsTableHead: $('logsTableHead'),
+        logsTableBody: $('logsTableBody'),
+        logFilterOptions: $('logFilterOptions'),
+        logFilterSelected: $('logFilterSelected'),
+        logFilterInput: $('logFilterInput'),
+        logsClose: $('logsModalCloseButton'),
+        logsDone: $('logsModalDoneButton'),
+
         timeActions: $('attendanceToolbarActions'),
         timeInButton: $('recordTimeInButton'),
         timeOutButton: $('recordTimeOutButton'),
@@ -471,6 +618,9 @@
     let pendingAction = null;   // 'in' | 'out'
     let classOptionsBuilt = false;
     let busy = false;
+    let logsAnchorId = null;    // enrollment the log modal was opened from
+    let logsSeq = 0;            // ignores out-of-order log responses
+    let logFilterBuilt = false;
 
     /* =========================================================
        HELPERS
@@ -651,12 +801,29 @@
     function visibleRows() {
         const config = TAB_CONFIGS[activeTab];
         const term = el.search.value.trim().toLowerCase();
+        const logged = el.loggedFilterInput.value;   // 'all' | 'in' | 'out'
 
-        if (!term) return rows;
+        let list = rows;
 
-        return rows.filter(record =>
+        // Students tab: green dot = logged in that day, red dot = not.
+        if (activeTab === 'students' && logged !== 'all') {
+            list = list.filter(record => logged === 'in' ? Boolean(record.time_in) : !record.time_in);
+        }
+
+        if (!term) return list;
+
+        return list.filter(record =>
             config.searchKeys.some(key => String(record[key] ?? '').toLowerCase().includes(term))
         );
+    }
+
+    // Search / attendance filter: re-filter what is already loaded, and drop
+    // the selection if that row is no longer visible.
+    function applyLocalFilters() {
+        if (selectedId !== null && !visibleRows().some(r => r.id === selectedId)) selectedId = null;
+
+        updateToolbarState();
+        renderTable();
     }
 
     function renderTable() {
@@ -712,9 +879,15 @@
     function updateToolbarState() {
         const record = getSelectedRecord();
 
+        const isCoaches = activeTab === 'coaches';
+
         el.timeInButton.disabled = busy || !record || Boolean(record.time_in);
         el.timeOutButton.disabled = busy || !record || !record.time_in || Boolean(record.time_out);
-        el.timeActions.style.display = activeTab === 'coaches' ? 'flex' : 'none';
+        el.viewLogsButton.disabled = busy || !record;
+
+        el.timeActions.style.display = isCoaches ? '' : 'none';
+        el.studentActions.style.display = isCoaches ? 'none' : '';
+        el.loggedFilterGroup.style.display = isCoaches ? 'none' : '';
     }
 
     /* =========================================================
@@ -760,7 +933,7 @@
         renderTable();
     }
 
-    el.search.addEventListener('input', renderTable);
+    el.search.addEventListener('input', applyLocalFilters);
 
     /* =========================================================
        TABS
@@ -892,9 +1065,155 @@
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
 
+        if (!el.logsOverlay.hidden) closeLogsModal();
         if (!el.modalOverlay.hidden && !busy) closeTimeModal();
         closeAllDropdowns();
     });
+
+    /* =========================================================
+       STUDENT LOG MODAL (view only)
+       Opened from the Students tab with the View Logs button.
+       The Course filter lists every enrollment the student has had,
+       so logs from courses they used to be in can be reviewed too.
+    ========================================================= */
+
+    function logCell(value, dash = '--') {
+        return value
+            ? document.createTextNode(value)
+            : make('span', { className: 'attendanceEmptyValue', text: dash });
+    }
+
+    function renderLogs(list, isLoading) {
+        const headers = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
+
+        el.logsTableHead.replaceChildren();
+        el.logsTableBody.replaceChildren();
+
+        const headerRow = make('tr');
+        headers.forEach(h => headerRow.append(make('th', { text: h, attributes: { scope: 'col' } })));
+        el.logsTableHead.append(headerRow);
+
+        if (isLoading || !list.length) {
+            const emptyRow = make('tr');
+            emptyRow.append(make('td', {
+                className: 'attendanceEmptyState',
+                text: isLoading ? 'Loading...' : 'No attendance has been logged for this selection.',
+                attributes: { colSpan: headers.length }
+            }));
+            el.logsTableBody.append(emptyRow);
+            el.logsSummary.textContent = '';
+            return;
+        }
+
+        list.forEach(log => {
+            const row = make('tr', { className: 'attendanceRow' });
+
+            const dateCell = make('td');
+            const wrapper = make('span', { className: 'attendanceNameCell' });
+            wrapper.append(
+                make('span', { className: `attendanceStatusDot ${log.time_in ? 'present' : 'absent'}` }),
+                document.createTextNode(formatShortDate(parseISODate(log.date)))
+            );
+            dateCell.append(wrapper);
+            row.append(dateCell);
+
+            [
+                logCell(log.course),
+                logCell(formatTimeLabel(log.time_in), '-'),
+                logCell(formatTimeLabel(log.time_out), '-'),
+                logCell(log.state),
+                logCell(log.logged_by)
+            ].forEach(content => {
+                const cell = make('td');
+                cell.append(content);
+                row.append(cell);
+            });
+
+            el.logsTableBody.append(row);
+        });
+
+        const attended = list.filter(log => log.time_in).length;
+        el.logsSummary.textContent = `${list.length} log${list.length === 1 ? '' : 's'} · ${attended} attended`;
+    }
+
+    function buildLogFilter(enrollments) {
+        el.logFilterOptions.replaceChildren();
+
+        const choices = [{ value: 'all', label: 'All courses' }]
+            .concat(enrollments.map(e => ({ value: String(e.id), label: e.label })));
+
+        choices.forEach(choice => {
+            el.logFilterOptions.append(make('button', {
+                className: 'registerDropdownOption' + (el.logFilterInput.value === choice.value ? ' active' : ''),
+                text: choice.label,
+                attributes: { type: 'button', 'data-value': choice.value }
+            }));
+        });
+
+        const current = choices.find(c => c.value === el.logFilterInput.value) || choices[0];
+        el.logFilterInput.value = current.value;
+        el.logFilterSelected.textContent = current.label;
+
+        logFilterBuilt = true;
+    }
+
+    async function loadStudentLogs() {
+        const seq = ++logsSeq;
+
+        renderLogs([], true);
+
+        const params = new URLSearchParams({
+            enrollment_id: String(logsAnchorId),
+            filter: el.logFilterInput.value || String(logsAnchorId)
+        });
+
+        try {
+            const result = await api(`${URLS.studentLogs}?${params}`);
+            if (seq !== logsSeq) return;   // modal closed or a newer request replaced this one
+
+            if (!result.ok) {
+                renderLogs([], false);
+                toastServerErrors(result, 'Unable to load the attendance log.');
+                return;
+            }
+
+            if (!logFilterBuilt) buildLogFilter(result.data.enrollments || []);
+            renderLogs(result.data.logs || [], false);
+        } catch (error) {
+            if (seq !== logsSeq) return;
+            console.error(error);
+            renderLogs([], false);
+            showToast('Something went wrong while loading the attendance log.', 'danger');
+        }
+    }
+
+    function openLogsModal() {
+        const record = getSelectedRecord();
+        if (!record || activeTab !== 'students') return;
+
+        logsAnchorId = record.id;
+        logFilterBuilt = false;
+
+        // Start on the enrollment the admin clicked; "All courses" is one pick away.
+        el.logFilterInput.value = String(record.id);
+        el.logFilterSelected.textContent = record.course || 'Loading...';
+        el.logFilterOptions.replaceChildren();
+
+        el.logsStudent.replaceChildren(document.createTextNode('Student: '), make('strong', { text: record.name }));
+
+        el.logsOverlay.hidden = false;
+        loadStudentLogs();
+    }
+
+    function closeLogsModal() {
+        logsSeq++;   // discard any response still in flight
+        el.logsOverlay.hidden = true;
+        closeAllDropdowns();
+    }
+
+    el.viewLogsButton.addEventListener('click', openLogsModal);
+    el.logsClose.addEventListener('click', closeLogsModal);
+    el.logsDone.addEventListener('click', closeLogsModal);
 
     /* =========================================================
        DROPDOWN (shared .registerDropdown component)
@@ -959,7 +1278,11 @@
 
             closeDropdown(dropdown);
 
-            if (changed && input.id === 'classFilterInput') loadRows();
+            if (changed) {
+                if (input.id === 'classFilterInput') loadRows();
+                else if (input.id === 'loggedFilterInput') applyLocalFilters();
+                else if (input.id === 'logFilterInput') loadStudentLogs();
+            }
         });
     }
 
