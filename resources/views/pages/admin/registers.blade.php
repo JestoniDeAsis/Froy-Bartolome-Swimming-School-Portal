@@ -587,7 +587,7 @@
 
     <nav class="btn-tab-group" id="registersTabs" aria-label="Register sections">
         <button class="btn btn-outline-primary btn-tab registersTab active" type="button" data-register-tab="registrations" aria-selected="true">
-            Registers
+            Applicants
         </button>
         <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="students" aria-selected="false">
             Students

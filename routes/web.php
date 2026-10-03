@@ -73,6 +73,12 @@ Route::post('/coaches/account-preview', [CoachController::class, 'accountPreview
 Route::post('/coaches', [CoachController::class, 'store'])->middleware('auth');
 Route::put('/coaches/{id}', [CoachController::class, 'update'])->middleware('auth')->whereNumber('id');
 
+use App\Http\Controllers\AdminAttendanceController;
+ 
+Route::get('/admin/attendance/data', [AdminAttendanceController::class, 'data'])->middleware('auth');
+Route::post('/admin/attendance/coaches/time-in', [AdminAttendanceController::class, 'coachTimeIn'])->middleware('auth');
+Route::post('/admin/attendance/coaches/time-out', [AdminAttendanceController::class, 'coachTimeOut'])->middleware('auth');
+
 use App\Http\Controllers\SalesInvoiceController;
 
 Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');

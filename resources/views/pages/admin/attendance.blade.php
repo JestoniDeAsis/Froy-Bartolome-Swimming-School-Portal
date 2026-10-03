@@ -1,12 +1,10 @@
+@extends('layouts.toast')
+
 <style>
 /* =========================================================
-   Attendance
-   (mirrors the structure/conventions of the Registers section:
-   same header/tabs/toolbar/table skeleton, same shared
-   .registerDropdown component from our_theme.css, same
-   "trimmed to a few sample records" in-memory mockup pattern.
-   Class/element names below are Attendance-specific so they
-   don't collide with the Registers page's own classes.)
+   Attendance (admin)
+   Same skeleton as Registers/Coaches: header, tabs, toolbar,
+   table, shared .registerDropdown from our_theme.css.
 ========================================================= */
 
 .attendanceContainer {
@@ -25,10 +23,7 @@
     margin-bottom: 1rem;
 }
 
-/* =========================================================
-   Tabs (Active Students / Active Coaches)
-========================================================= */
-
+/* Tabs */
 .attendanceTabsContainer {
     flex: 0 0 auto;
     display: flex;
@@ -36,14 +31,9 @@
     margin-bottom: .75rem;
 }
 
-.attendanceTab {
-    min-width: 150px;
-}
+.attendanceTab { min-width: 150px; }
 
-/* =========================================================
-   Toolbar
-========================================================= */
-
+/* Toolbar */
 .attendanceToolbar {
     display: flex;
     align-items: flex-end;
@@ -66,24 +56,33 @@
     text-transform: uppercase;
 }
 
-/* Class filter reuses the shared .registerDropdown component
-   (see our_theme.css) — only the width is scoped here. */
-.attendanceClassFilter .registerDropdownToggle {
-    min-width: 160px;
+.attendanceClassFilter .registerDropdownToggle { min-width: 160px; }
+
+/* Search */
+.attendanceSearchContainer {
+    position: relative;
+    width: min(260px, 100%);
 }
 
-/* Date picker: a styled button with a real <input type="date">
-   layered underneath so the native picker still opens, while the
-   visible label can read "Today - Aug 10, 2026". The hidden input
-   has pointer-events disabled so it never steals the click — the
-   button is the single click target for the WHOLE control, and
-   its JS handler opens the picker via showPicker(). Without this,
-   only the browser's own tiny calendar-icon hit-region inside the
-   hidden input would open the picker, since clicks on it never
-   bubble to the (sibling) button. */
-.attendanceDatePicker {
-    position: relative;
+.attendanceSearchIcon {
+    position: absolute;
+    top: 50%;
+    left: .75rem;
+    transform: translateY(-50%);
+    color: #6c757d;
+    pointer-events: none;
 }
+
+.attendanceSearchInput {
+    height: 40px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    padding-left: 2.25rem;
+}
+
+/* Date picker: a styled button with a real <input type="date"> underneath.
+   The input ignores pointer events; the button opens it via showPicker(). */
+.attendanceDatePicker { position: relative; }
 
 .attendanceDateButton {
     display: inline-flex;
@@ -100,10 +99,7 @@
     cursor: pointer;
 }
 
-.attendanceDateButton i {
-    margin-left: auto;
-    color: #6c757d;
-}
+.attendanceDateButton i { margin-left: auto; color: #6c757d; }
 
 .attendanceDateInput {
     position: absolute;
@@ -121,10 +117,7 @@
     margin-left: auto;
 }
 
-/* =========================================================
-   Table
-========================================================= */
-
+/* Table */
 .attendanceTableContainer {
     --attendance-row-height: 49px;
     --attendance-header-height: 49px;
@@ -132,12 +125,7 @@
 
     flex: 0 1 auto;
     min-height: 0;
-
-    max-height: calc(
-        var(--attendance-header-height) +
-        (var(--attendance-row-height) * var(--attendance-visible-rows))
-    );
-
+    max-height: calc(var(--attendance-header-height) + (var(--attendance-row-height) * var(--attendance-visible-rows)));
     width: 100%;
     overflow: auto;
     background: #fff;
@@ -166,28 +154,17 @@
 }
 
 .attendanceTable th,
-.attendanceTable td {
-    padding: .75rem 1rem;
-    vertical-align: middle;
-}
+.attendanceTable td { padding: .75rem 1rem; vertical-align: middle; }
 
-/* Rows are clickable — selecting one enables the "Time In" /
-   "Time Out" toolbar buttons above, same pattern as the
-   Registers page's clickable .studentRow. */
-.attendanceRow {
-    cursor: pointer;
-    transition: background-color .1s ease;
-}
+.attendanceRow { transition: background-color .1s ease; }
+.attendanceRow:hover { background: #f8fafb; }
 
-.attendanceRow:hover {
-    background: #f8fafb;
-}
+/* Only the coaches tab has selectable rows. */
+.attendanceRow.isSelectable { cursor: pointer; }
 
 .attendanceRow.selectedRow,
 .attendanceRow.selectedRow:hover,
-.attendanceRow.selectedRow > td {
-    background: #e7f5ff;
-}
+.attendanceRow.selectedRow > td { background: #e7f5ff; }
 
 .attendanceEmptyState {
     padding: 2rem !important;
@@ -195,51 +172,21 @@
     text-align: center;
 }
 
-/* Name cell: status dot + name */
-.attendanceNameCell {
-    display: inline-flex;
-    align-items: center;
-    gap: .55rem;
-}
+.attendanceNameCell { display: inline-flex; align-items: center; gap: .55rem; }
 
-.attendanceStatusDot {
-    flex-shrink: 0;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
+.attendanceStatusDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
+.attendanceStatusDot.present { background: #2f9e44; }
+.attendanceStatusDot.absent  { background: #e03131; }
 
-.attendanceStatusDot.present {
-    background: #2f9e44;
-}
-
-.attendanceStatusDot.absent {
-    background: #e03131;
-}
-
-.attendanceEmptyValue {
-    color: #adb5bd;
-}
+.attendanceEmptyValue { color: #adb5bd; }
 
 @media (max-width: 575.98px) {
-    .attendanceContainer {
-        padding: 1rem;
-    }
-
-    .attendanceToolbarActions {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    .attendanceToolbarActions button {
-        flex: 1 1 auto;
-    }
+    .attendanceContainer { padding: 1rem; }
+    .attendanceToolbarActions { margin-left: 0; width: 100%; }
+    .attendanceToolbarActions button { flex: 1 1 auto; }
 }
 
-/* =========================================================
-   Time Entry Modal (opened by Time In / Time Out)
-========================================================= */
-
+/* Time entry modal */
 .attendanceModalOverlay {
     position: fixed;
     inset: 0;
@@ -251,9 +198,7 @@
     padding: 1rem;
 }
 
-.attendanceModalOverlay[hidden] {
-    display: none;
-}
+.attendanceModalOverlay[hidden] { display: none; }
 
 .attendanceModal {
     width: 100%;
@@ -272,11 +217,7 @@
     border-bottom: 1px solid #e7ebef;
 }
 
-.attendanceModalHeader h5 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-}
+.attendanceModalHeader h5 { margin: 0; font-size: 1rem; font-weight: 700; }
 
 .attendanceModalClose {
     border: none;
@@ -288,22 +229,12 @@
     padding: 0;
 }
 
-.attendanceModalBody {
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-}
+.attendanceModalBody { padding: 1.25rem; display: flex; flex-direction: column; gap: .5rem; }
 
-.attendanceModalName {
-    margin: 0 0 .5rem;
-    font-size: .875rem;
-    color: #344054;
-}
+.attendanceModalName { margin: 0 0 .25rem; font-size: .875rem; color: #344054; }
+.attendanceModalName strong { color: #101828; }
 
-.attendanceModalName strong {
-    color: #101828;
-}
+.attendanceModalMeta { margin: 0 0 .5rem; font-size: .8125rem; color: #667085; }
 
 .attendanceModalLabel {
     font-size: .7rem;
@@ -313,10 +244,7 @@
     color: #101828;
     transition: color .15s ease;
 }
-
-.attendanceModalLabel.isDimmed {
-    color: #adb5bd;
-}
+.attendanceModalLabel.isDimmed { color: #adb5bd; }
 
 .attendanceModalInput {
     height: 44px;
@@ -344,55 +272,42 @@
 </style>
 
 
-<!-- =========================================================
-     ATTENDANCE SECTION
-========================================================= -->
-
 <section class="attendanceContainer" id="attendanceContainer" aria-labelledby="attendanceTitle">
 
     <header class="attendanceHeader">
         <h2 class="mb-1" id="attendanceTitle">Attendance</h2>
         <p class="text-muted mb-0" id="attendanceDescription"></p>
+        <p class="text-muted small mb-0" id="attendanceHint"></p>
     </header>
 
-
-    <!-- =====================================================
-         TABS
-    ====================================================== -->
-
+    <!-- TABS -->
     <nav class="attendanceTabsContainer" id="attendanceTabs" aria-label="Attendance sections">
-        <button class="btn btn-primary attendanceTab active" type="button" id="activeStudentsTabButton" data-attendance-tab="students" aria-selected="true">
-            Active Students
-        </button>
-        <button class="btn btn-outline-primary attendanceTab" type="button" id="activeCoachesTabButton" data-attendance-tab="coaches" aria-selected="false">
+        <button class="btn btn-primary attendanceTab active" type="button" id="activeCoachesTabButton" data-attendance-tab="coaches" aria-selected="true">
             Active Coaches
+        </button>
+        <button class="btn btn-outline-primary attendanceTab" type="button" id="activeStudentsTabButton" data-attendance-tab="students" aria-selected="false">
+            Active Students
         </button>
     </nav>
 
-
-    <!-- =====================================================
-         TOOLBAR
-    ====================================================== -->
-
+    <!-- TOOLBAR -->
     <div class="attendanceToolbar">
 
-        <!-- Select Class -->
+        <!-- Select Class (options are built from the database) -->
         <div class="attendanceFilterGroup" id="classFilterGroup">
             <label class="attendanceFilterLabel" id="classFilterLabel">Select Class</label>
 
             <div class="registerDropdown attendanceClassFilter" id="classFilterDropdown" data-dropdown>
                 <button class="registerDropdownToggle" id="classFilterToggle" type="button" aria-expanded="false" aria-controls="classFilterOptions">
-                    <span id="classFilterSelected">Beginner</span>
+                    <span id="classFilterSelected">All Classes</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
                 </button>
 
                 <div class="registerDropdownOptions" id="classFilterOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="Beginner">Beginner</button>
-                    <button class="registerDropdownOption" type="button" data-value="Intermediate">Intermediate</button>
-                    <button class="registerDropdownOption" type="button" data-value="Advanced">Advanced</button>
+                    <button class="registerDropdownOption active" type="button" data-value="">All Classes</button>
                 </div>
 
-                <input id="classFilterInput" name="classFilter" type="hidden" value="Beginner">
+                <input id="classFilterInput" name="classFilter" type="hidden" value="">
             </div>
         </div>
 
@@ -409,7 +324,18 @@
             </div>
         </div>
 
-        <!-- Time Actions (enabled once a row is selected; hidden entirely on the Active Students tab) -->
+        <!-- Search -->
+        <div class="attendanceFilterGroup" id="attendanceSearchGroup">
+            <label class="attendanceFilterLabel" for="attendanceSearch">Search</label>
+
+            <div class="attendanceSearchContainer">
+                <i class="bi bi-search attendanceSearchIcon" aria-hidden="true"></i>
+                <input class="form-control attendanceSearchInput" id="attendanceSearch" type="search"
+                       placeholder="Search" autocomplete="off" aria-label="Search attendance">
+            </div>
+        </div>
+
+        <!-- Time actions (coaches tab only) -->
         <div class="attendanceToolbarActions" id="attendanceToolbarActions">
             <button class="btn btn-primary" id="recordTimeInButton" type="button" disabled>Time In</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled>Time Out</button>
@@ -417,11 +343,7 @@
 
     </div>
 
-
-    <!-- =====================================================
-         TABLE
-    ====================================================== -->
-
+    <!-- TABLE -->
     <div class="attendanceTableContainer" id="attendanceTableContainer">
         <table class="table attendanceTable" id="attendanceTable">
             <thead id="attendanceTableHead"></thead>
@@ -432,10 +354,7 @@
 </section>
 
 
-<!-- =========================================================
-     TIME ENTRY MODAL (used for both Time In and Time Out)
-========================================================= -->
-
+<!-- TIME ENTRY MODAL (Time In and Time Out) -->
 <div class="attendanceModalOverlay" id="timeModalOverlay" hidden>
     <div class="attendanceModal" id="timeModal" role="dialog" aria-modal="true" aria-labelledby="timeModalTitle">
 
@@ -446,13 +365,14 @@
 
         <div class="attendanceModalBody">
             <p class="attendanceModalName" id="timeModalRecordName"></p>
+            <p class="attendanceModalMeta" id="timeModalMeta" hidden></p>
 
             <label class="attendanceModalLabel" id="timeModalLabel" for="timeModalInput">Current Time</label>
             <input class="attendanceModalInput" id="timeModalInput" type="time">
         </div>
 
         <div class="attendanceModalFooter">
-            <button class="btn btn-outline-secondary" id="timeModalCancelButton" type="button">Cancel</button>
+            <button class="btn btn-outline-primary" id="timeModalCancelButton" type="button">Cancel</button>
             <button class="btn btn-primary" id="timeModalSaveButton" type="button">Save</button>
         </div>
 
@@ -465,114 +385,118 @@
     'use strict';
 
     /* =========================================================
-       IN-MEMORY DATA — same "no database, everything lives in
-       these arrays" approach as the Registers page. Trimmed to a
-       handful of sample records per list for mockup purposes.
+       CONFIG
     ========================================================= */
 
-    const CLASS_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
+    const URLS = {
+        data: '/admin/attendance/data',
+        timeIn: '/admin/attendance/coaches/time-in',
+        timeOut: '/admin/attendance/coaches/time-out'
+    };
 
-    let activeStudents = [
-        { id: 1, name: 'John Doe',        coach: 'Danica', courseLevel: 'Beginner', sessionsCompleted: '3/8', timeIn: '8:00 AM', timeOut: '' },
-        { id: 2, name: 'Paquito Santos',  coach: 'Danica', courseLevel: 'Beginner', sessionsCompleted: '5/8', timeIn: '8:02 AM', timeOut: '' },
-        { id: 3, name: 'Maria Clara',     coach: '',       courseLevel: 'Beginner', sessionsCompleted: '2/8', timeIn: '',        timeOut: '' },
-        { id: 4, name: 'Alfonso Reyes',   coach: 'Froy',   courseLevel: 'Beginner', sessionsCompleted: '4/8', timeIn: '8:05 AM', timeOut: '' },
-        { id: 5, name: 'Dina Santos',     coach: '',       courseLevel: 'Beginner', sessionsCompleted: '6/8', timeIn: '',        timeOut: '' }
-    ];
-
-    let activeCoaches = [
-        { id: 501, name: 'Danica Reyes',   assignedClass: 'Beginner',     courseLevel: 'Beginner',     timeIn: '7:45 AM', timeOut: '' },
-        { id: 502, name: 'Froilan Bautista', assignedClass: 'Beginner',   courseLevel: 'Beginner',     timeIn: '7:50 AM', timeOut: '' },
-        { id: 503, name: 'Ana Lim',        assignedClass: 'Intermediate', courseLevel: 'Intermediate', timeIn: '',         timeOut: '' }
-    ];
-
-    /* =========================================================
-       TAB CONFIG — maps each tab to its live data and columns.
-    ========================================================= */
-
-    const attendanceTabConfigs = {
+    // Per-tab columns. "key" matches the field names the server returns.
+    const TAB_CONFIGS = {
+        coaches: {
+            hint: 'Record the Time In and Time Out of each coach. Select a coach to enable the buttons.',
+            selectable: true,
+            columns: [
+                { label: 'Coach Name', key: 'name', isNameColumn: true },
+                { label: 'Assigned Classes', key: 'classes' },
+                { label: 'Time In', key: 'time_in', isTime: true },
+                { label: 'Time Out', key: 'time_out', isTime: true },
+                { label: 'Status', key: 'state' }
+            ],
+            searchKeys: ['name', 'classes', 'state']
+        },
         students: {
-            getRows: () => activeStudents,
+            hint: 'View only. This is the attendance your coaches logged for their students.',
+            selectable: false,
             columns: [
                 { label: 'Student Name', key: 'name', isNameColumn: true },
                 { label: 'Coach', key: 'coach' },
-                { label: 'Course Level', key: 'courseLevel' },
-                { label: 'Sessions Completed', key: 'sessionsCompleted' },
-                { label: 'Time In', key: 'timeIn' },
-                { label: 'Time Out', key: 'timeOut' }
-            ]
-        },
-        coaches: {
-            getRows: () => activeCoaches,
-            columns: [
-                { label: 'Coach Name', key: 'name', isNameColumn: true },
-                { label: 'Assigned Class', key: 'assignedClass' },
-                { label: 'Course Level', key: 'courseLevel' },
-                { label: 'Time In', key: 'timeIn' },
-                { label: 'Time Out', key: 'timeOut' }
-            ]
+                { label: 'Course Level', key: 'course' },
+                { label: 'Sessions Completed', key: 'sessions' },
+                { label: 'Time In', key: 'time_in', isTime: true },
+                { label: 'Time Out', key: 'time_out', isTime: true },
+                { label: 'Status', key: 'state' }
+            ],
+            searchKeys: ['name', 'coach', 'course', 'state']
         }
     };
 
     /* =========================================================
-       ELEMENTS
+       ELEMENTS + STATE
     ========================================================= */
 
-    const elements = {
-        description: document.getElementById('attendanceDescription'),
-        tabs: document.getElementById('attendanceTabs'),
+    const $ = id => document.getElementById(id);
 
-        tableContainer: document.getElementById('attendanceTableContainer'),
-        tableHead: document.getElementById('attendanceTableHead'),
-        tableBody: document.getElementById('attendanceTableBody'),
+    const el = {
+        description: $('attendanceDescription'),
+        hint: $('attendanceHint'),
+        tabs: $('attendanceTabs'),
 
-        classFilterInput: document.getElementById('classFilterInput'),
+        tableHead: $('attendanceTableHead'),
+        tableBody: $('attendanceTableBody'),
 
-        dateButton: document.getElementById('attendanceDateButton'),
-        dateSelected: document.getElementById('attendanceDateSelected'),
-        dateInput: document.getElementById('attendanceDateInput'),
+        classFilterOptions: $('classFilterOptions'),
+        classFilterSelected: $('classFilterSelected'),
+        classFilterInput: $('classFilterInput'),
 
-        timeActionsContainer: document.getElementById('attendanceToolbarActions'),
-        recordTimeInButton: document.getElementById('recordTimeInButton'),
-        recordTimeOutButton: document.getElementById('recordTimeOutButton'),
+        dateButton: $('attendanceDateButton'),
+        dateSelected: $('attendanceDateSelected'),
+        dateInput: $('attendanceDateInput'),
 
-        // Time entry modal
-        timeModalOverlay: document.getElementById('timeModalOverlay'),
-        timeModalTitle: document.getElementById('timeModalTitle'),
-        timeModalRecordName: document.getElementById('timeModalRecordName'),
-        timeModalLabel: document.getElementById('timeModalLabel'),
-        timeModalInput: document.getElementById('timeModalInput'),
-        timeModalCloseButton: document.getElementById('timeModalCloseButton'),
-        timeModalCancelButton: document.getElementById('timeModalCancelButton'),
-        timeModalSaveButton: document.getElementById('timeModalSaveButton')
+        search: $('attendanceSearch'),
+
+        timeActions: $('attendanceToolbarActions'),
+        timeInButton: $('recordTimeInButton'),
+        timeOutButton: $('recordTimeOutButton'),
+
+        modalOverlay: $('timeModalOverlay'),
+        modalTitle: $('timeModalTitle'),
+        modalName: $('timeModalRecordName'),
+        modalMeta: $('timeModalMeta'),
+        modalLabel: $('timeModalLabel'),
+        modalInput: $('timeModalInput'),
+        modalClose: $('timeModalCloseButton'),
+        modalCancel: $('timeModalCancelButton'),
+        modalSave: $('timeModalSaveButton')
     };
 
-    /* =========================================================
-       STATE
-    ========================================================= */
-
-    let activeAttendanceTab = 'students'; // 'students' | 'coaches'
-    let selectedRecordId = null;          // id of the currently selected row, within activeAttendanceTab
-    let pendingModalAction = null;        // 'in' | 'out' — which field the open modal is writing to
+    let activeTab = 'coaches';
+    let rows = [];
+    let loading = false;
+    let loadSeq = 0;            // ignores out-of-order responses
+    let selectedId = null;      // coaches tab only
+    let pendingAction = null;   // 'in' | 'out'
+    let classOptionsBuilt = false;
+    let busy = false;
 
     /* =========================================================
        HELPERS
     ========================================================= */
 
-    function createElement(tag, options = {}) {
-        const element = document.createElement(tag);
-        if (options.className) element.className = options.className;
-        if (options.id) element.id = options.id;
-        if (options.text !== undefined) element.textContent = options.text;
-        if (options.attributes) {
-            Object.entries(options.attributes).forEach(([name, value]) => element.setAttribute(name, value));
-        }
-        return element;
+    function make(tag, { className, text, attributes } = {}) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        if (attributes) Object.entries(attributes).forEach(([k, v]) => node.setAttribute(k, v));
+        return node;
     }
 
-    function capitalize(value) {
-        if (!value) return '';
-        return value.charAt(0).toUpperCase() + value.slice(1);
+    // Local (browser) date as YYYY-MM-DD. toISOString() would give the UTC
+    // date, which is "yesterday" for the first 8 hours of the day in the
+    // Philippines.
+    function toLocalISODate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function parseISODate(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d);
     }
 
     function formatLongDate(date) {
@@ -583,150 +507,292 @@
         return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
     }
 
-    function isSameDay(a, b) {
-        return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    }
-
-    function currentTimeLabel() {
-        return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    }
-
-    // "HH:MM" (24h) — the format <input type="time"> expects/returns.
     function currentTimeInputValue() {
         const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        return `${hours}:${minutes}`;
+        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     }
 
-    // Converts an <input type="time"> value ("HH:MM", 24h) into a
-    // display label like "8:05 AM".
-    function formatTimeInputValue(value) {
+    // "HH:MM" (24h) -> "8:05 AM"
+    function formatTimeLabel(value) {
         if (!value) return '';
-        const [hoursStr, minutesStr] = value.split(':');
-        const reference = new Date();
-        reference.setHours(Number(hoursStr), Number(minutesStr), 0, 0);
-        return reference.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const [h, m] = value.split(':').map(Number);
+        const ref = new Date();
+        ref.setHours(h, m, 0, 0);
+        return ref.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     }
 
-    /* =========================================================
-       HEADER DATE LINE
-    ========================================================= */
+    async function api(url, { method = 'GET', body } = {}) {
+        const headers = {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        };
+        if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-    function renderCurrentDateLine() {
-        elements.description.textContent = `Current date: ${formatLongDate(new Date())}`;
-    }
-
-    /* =========================================================
-       ATTENDANCE DATE PICKER
-    ========================================================= */
-
-    function initAttendanceDatePicker() {
-        const today = new Date();
-        elements.dateInput.value = today.toISOString().slice(0, 10);
-        updateAttendanceDateLabel();
-
-        // The hidden <input type="date"> has pointer-events: none (see CSS),
-        // so the visible button is the only click target for the WHOLE
-        // control — text, padding, and icon alike — not just wherever the
-        // browser happens to render its own internal calendar-icon hotspot.
-        elements.dateButton.addEventListener('click', () => {
-            if (typeof elements.dateInput.showPicker === 'function') {
-                elements.dateInput.showPicker();
-            } else {
-                elements.dateInput.focus();
-                elements.dateInput.click();
-            }
+        const response = await fetch(url, {
+            method,
+            headers,
+            body: body !== undefined ? JSON.stringify(body) : undefined
         });
 
-        elements.dateInput.addEventListener('change', () => {
-            updateAttendanceDateLabel();
-            // A live app would re-fetch attendance for the chosen date;
-            // this mockup keeps a single in-memory dataset regardless.
-        });
+        let data = {};
+        try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+
+        return { ok: response.ok, status: response.status, data };
     }
 
-    function updateAttendanceDateLabel() {
-        if (!elements.dateInput.value) {
-            elements.dateSelected.textContent = 'Select date';
+    function toastServerErrors(result, fallback) {
+        const errors = result.data.errors;
+
+        if (errors) {
+            [...new Set(Object.values(errors).flat())].slice(0, 3).forEach(m => showToast(m, 'danger'));
             return;
         }
 
-        const [year, month, day] = elements.dateInput.value.split('-').map(Number);
-        const picked = new Date(year, month - 1, day);
-        const today = new Date();
+        showToast(result.data.message || fallback, 'danger');
+    }
 
-        elements.dateSelected.textContent = isSameDay(picked, today)
+    /* =========================================================
+       HEADER + DATE PICKER
+    ========================================================= */
+
+    function renderCurrentDateLine() {
+        el.description.textContent = `Current date: ${formatLongDate(new Date())}`;
+    }
+
+    function updateDateLabel() {
+        if (!el.dateInput.value) {
+            el.dateSelected.textContent = 'Select date';
+            return;
+        }
+
+        const picked = parseISODate(el.dateInput.value);
+        const isToday = el.dateInput.value === toLocalISODate(new Date());
+
+        el.dateSelected.textContent = isToday
             ? `Today - ${formatShortDate(picked)}`
             : formatShortDate(picked);
     }
 
+    function initDatePicker() {
+        const today = toLocalISODate(new Date());
+        el.dateInput.max = today;          // no future dates
+        el.dateInput.value = today;
+        updateDateLabel();
+
+        el.dateButton.addEventListener('click', () => {
+            if (typeof el.dateInput.showPicker === 'function') {
+                el.dateInput.showPicker();
+            } else {
+                el.dateInput.focus();
+                el.dateInput.click();
+            }
+        });
+
+        el.dateInput.addEventListener('change', () => {
+            // Cleared or future date -> fall back to today.
+            if (!el.dateInput.value || el.dateInput.value > el.dateInput.max) {
+                el.dateInput.value = el.dateInput.max;
+            }
+
+            updateDateLabel();
+            loadRows();
+        });
+    }
+
     /* =========================================================
-       STATUS DOT / NAME CELL
+       CLASS FILTER (options come from the database)
     ========================================================= */
 
+    function buildClassOptions(courses) {
+        el.classFilterOptions.replaceChildren();
+
+        const addOption = (value, label) => {
+            const button = make('button', {
+                className: 'registerDropdownOption' + (el.classFilterInput.value === String(value) ? ' active' : ''),
+                text: label,
+                attributes: { type: 'button', 'data-value': String(value) }
+            });
+            el.classFilterOptions.append(button);
+        };
+
+        addOption('', 'All Classes');
+        courses.forEach(course => addOption(course.id, course.name));
+
+        classOptionsBuilt = true;
+    }
+
+    /* =========================================================
+       TABLE
+    ========================================================= */
+
+    function getSelectedRecord() {
+        return selectedId === null ? null : rows.find(r => r.id === selectedId) || null;
+    }
+
     function renderNameCell(record) {
-        const wrapper = createElement('span', { className: 'attendanceNameCell' });
-
-        const isPresent = Boolean(record.timeIn);
-
+        const wrapper = make('span', { className: 'attendanceNameCell' });
         wrapper.append(
-            createElement('span', { className: `attendanceStatusDot ${isPresent ? 'present' : 'absent'}` }),
+            make('span', { className: `attendanceStatusDot ${record.time_in ? 'present' : 'absent'}` }),
             document.createTextNode(record.name)
         );
-
         return wrapper;
     }
 
-    function renderTimeValue(value) {
-        return value
-            ? document.createTextNode(value)
-            : createElement('span', { className: 'attendanceEmptyValue', text: '-' });
-    }
-
-    function renderPlainValue(value) {
-        return value
-            ? document.createTextNode(value)
-            : createElement('span', { className: 'attendanceEmptyValue', text: '--' });
-    }
-
     function renderCell(column, record) {
-        const value = record[column.key] ?? '';
-
         if (column.isNameColumn) return renderNameCell(record);
-        if (column.key === 'timeIn' || column.key === 'timeOut') return renderTimeValue(value);
 
-        return renderPlainValue(value);
+        const value = column.isTime ? formatTimeLabel(record[column.key]) : (record[column.key] ?? '');
+
+        return value
+            ? document.createTextNode(value)
+            : make('span', { className: 'attendanceEmptyValue', text: column.isTime ? '-' : '--' });
+    }
+
+    function visibleRows() {
+        const config = TAB_CONFIGS[activeTab];
+        const term = el.search.value.trim().toLowerCase();
+
+        if (!term) return rows;
+
+        return rows.filter(record =>
+            config.searchKeys.some(key => String(record[key] ?? '').toLowerCase().includes(term))
+        );
+    }
+
+    function renderTable() {
+        const config = TAB_CONFIGS[activeTab];
+        const list = visibleRows();
+
+        el.tableHead.replaceChildren();
+        el.tableBody.replaceChildren();
+
+        const headerRow = make('tr');
+        headerRow.append(make('th', { text: 'No.', attributes: { scope: 'col' } }));
+        config.columns.forEach(c => headerRow.append(make('th', { text: c.label, attributes: { scope: 'col' } })));
+        el.tableHead.append(headerRow);
+
+        if (loading || !list.length) {
+            const emptyRow = make('tr');
+            emptyRow.append(make('td', {
+                className: 'attendanceEmptyState',
+                text: loading ? 'Loading...' : (rows.length ? 'No matching records found.' : 'No records found.'),
+                attributes: { colSpan: config.columns.length + 1 }
+            }));
+            el.tableBody.append(emptyRow);
+            return;
+        }
+
+        list.forEach((record, index) => {
+            const tableRow = make('tr', { className: 'attendanceRow' });
+
+            if (config.selectable) {
+                tableRow.classList.add('isSelectable');
+                if (selectedId === record.id) tableRow.classList.add('selectedRow');
+                tableRow.addEventListener('click', () => selectRow(record.id));
+            }
+
+            tableRow.append(make('td', { text: String(index + 1) }));
+
+            config.columns.forEach(column => {
+                const cell = make('td');
+                cell.append(renderCell(column, record));
+                tableRow.append(cell);
+            });
+
+            el.tableBody.append(tableRow);
+        });
+    }
+
+    function selectRow(id) {
+        selectedId = selectedId === id ? null : id;
+        updateToolbarState();
+        renderTable();
+    }
+
+    function updateToolbarState() {
+        const record = getSelectedRecord();
+
+        el.timeInButton.disabled = busy || !record || Boolean(record.time_in);
+        el.timeOutButton.disabled = busy || !record || !record.time_in || Boolean(record.time_out);
+        el.timeActions.style.display = activeTab === 'coaches' ? 'flex' : 'none';
     }
 
     /* =========================================================
-       ROW SELECTION
+       LOAD DATA (tab + date + class are all sent to the server)
     ========================================================= */
 
-    function selectAttendanceRow(recordId) {
-        selectedRecordId = (selectedRecordId === recordId) ? null : recordId;
-        updateToolbarActionState();
-        renderAttendanceTable();
+    async function loadRows({ keepSelection = false } = {}) {
+        const seq = ++loadSeq;
+
+        if (!el.dateInput.value) el.dateInput.value = el.dateInput.max;
+        if (!keepSelection) selectedId = null;
+
+        loading = true;
+        updateToolbarState();
+        renderTable();
+
+        const params = new URLSearchParams({ tab: activeTab, date: el.dateInput.value });
+        if (el.classFilterInput.value) params.set('course_id', el.classFilterInput.value);
+
+        try {
+            const result = await api(`${URLS.data}?${params}`);
+            if (seq !== loadSeq) return;   // a newer request replaced this one
+
+            loading = false;
+
+            if (!result.ok) {
+                rows = [];
+                toastServerErrors(result, 'Unable to load attendance.');
+            } else {
+                rows = result.data.rows || [];
+                if (!classOptionsBuilt) buildClassOptions(result.data.courses || []);
+                if (selectedId !== null && !rows.some(r => r.id === selectedId)) selectedId = null;
+            }
+        } catch (error) {
+            if (seq !== loadSeq) return;
+            console.error(error);
+            loading = false;
+            rows = [];
+            showToast('Something went wrong while loading attendance.', 'danger');
+        }
+
+        updateToolbarState();
+        renderTable();
     }
 
-    function getSelectedRecord() {
-        if (selectedRecordId === null) return null;
-        return attendanceTabConfigs[activeAttendanceTab].getRows().find(record => record.id === selectedRecordId) || null;
+    el.search.addEventListener('input', renderTable);
+
+    /* =========================================================
+       TABS
+    ========================================================= */
+
+    function updateTabButtons() {
+        el.tabs.querySelectorAll('[data-attendance-tab]').forEach(button => {
+            const isSelected = button.dataset.attendanceTab === activeTab;
+            button.classList.toggle('btn-primary', isSelected);
+            button.classList.toggle('btn-outline-primary', !isSelected);
+            button.classList.toggle('active', isSelected);
+            button.setAttribute('aria-selected', String(isSelected));
+        });
+
+        el.hint.textContent = TAB_CONFIGS[activeTab].hint;
     }
 
-    function updateToolbarActionState() {
-        const record = getSelectedRecord();
+    function switchTab(tabName) {
+        if (!TAB_CONFIGS[tabName] || tabName === activeTab) return;
 
-        elements.recordTimeInButton.disabled = !record || Boolean(record.timeIn);
-        elements.recordTimeOutButton.disabled = !record || !record.timeIn || Boolean(record.timeOut);
+        activeTab = tabName;
+        selectedId = null;
+        rows = [];
+
+        updateTabButtons();
+        loadRows();
     }
 
-    // Hides the Time In / Time Out toolbar actions on the Active Students
-    // tab; they remain visible for Active Coaches.
-    function updateTimeActionsVisibility() {
-        const isStudentsTab = activeAttendanceTab === 'students';
-        elements.timeActionsContainer.style.display = isStudentsTab ? 'none' : 'flex';
-    }
+    el.tabs.addEventListener('click', event => {
+        const button = event.target.closest('[data-attendance-tab]');
+        if (button) switchTab(button.dataset.attendanceTab);
+    });
 
     /* =========================================================
        TIME ENTRY MODAL
@@ -736,210 +802,103 @@
         const record = getSelectedRecord();
         if (!record) return;
 
-        pendingModalAction = action; // 'in' | 'out'
+        pendingAction = action;
 
-        elements.timeModalTitle.textContent = action === 'in' ? 'Record Time In' : 'Record Time Out';
-        elements.timeModalRecordName.innerHTML = '';
-        elements.timeModalRecordName.append(
-            document.createTextNode('Recording for '),
-            createElement('strong', { text: record.name })
-        );
+        el.modalTitle.textContent = action === 'in' ? 'Record Time In' : 'Record Time Out';
+        el.modalName.replaceChildren(document.createTextNode('Recording for '), make('strong', { text: record.name }));
 
-        // Default to the current time, and reset the label to its
-        // normal (non-dimmed) state each time the modal opens.
-        elements.timeModalInput.value = currentTimeInputValue();
-        elements.timeModalLabel.textContent = 'Current Time';
-        elements.timeModalLabel.classList.remove('isDimmed');
+        if (action === 'out' && record.time_in) {
+            el.modalMeta.textContent = `Time In: ${formatTimeLabel(record.time_in)}`;
+            el.modalMeta.hidden = false;
+        } else {
+            el.modalMeta.hidden = true;
+        }
 
-        elements.timeModalOverlay.hidden = false;
-        elements.timeModalInput.focus();
+        el.modalInput.value = currentTimeInputValue();
+        el.modalLabel.textContent = 'Current Time';
+        el.modalLabel.classList.remove('isDimmed');
+
+        el.modalOverlay.hidden = false;
+        el.modalInput.focus();
     }
 
     function closeTimeModal() {
-        elements.timeModalOverlay.hidden = true;
-        pendingModalAction = null;
+        el.modalOverlay.hidden = true;
+        pendingAction = null;
     }
 
-    function saveTimeModal() {
+    async function saveTimeModal() {
+        if (busy) return;
+
         const record = getSelectedRecord();
-        if (!record || !pendingModalAction) {
+        const action = pendingAction;
+
+        if (!record || !action) {
             closeTimeModal();
             return;
         }
 
-        const formattedTime = formatTimeInputValue(elements.timeModalInput.value);
-        if (!formattedTime) return; // no time chosen — do nothing
+        const time = el.modalInput.value;   // "HH:MM"
 
-        if (pendingModalAction === 'in') {
-            record.timeIn = formattedTime;
-        } else {
-            record.timeOut = formattedTime;
-        }
-
-        closeTimeModal();
-        updateToolbarActionState();
-        renderAttendanceTable();
-    }
-
-    elements.recordTimeInButton.addEventListener('click', () => openTimeModal('in'));
-    elements.recordTimeOutButton.addEventListener('click', () => openTimeModal('out'));
-
-    elements.timeModalCloseButton.addEventListener('click', closeTimeModal);
-    elements.timeModalCancelButton.addEventListener('click', closeTimeModal);
-    elements.timeModalSaveButton.addEventListener('click', saveTimeModal);
-
-    // Clicking the dimmed backdrop also closes the modal.
-    elements.timeModalOverlay.addEventListener('click', event => {
-        if (event.target === elements.timeModalOverlay) closeTimeModal();
-    });
-
-    document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && !elements.timeModalOverlay.hidden) closeTimeModal();
-    });
-
-    // As soon as the admin edits the time field, grey out the
-    // "Current Time" label to show it's no longer the live default.
-    elements.timeModalInput.addEventListener('input', () => {
-        elements.timeModalLabel.classList.add('isDimmed');
-    });
-
-    /* =========================================================
-       RENDER TABLE
-    ========================================================= */
-
-    function renderAttendanceTable() {
-        const config = attendanceTabConfigs[activeAttendanceTab];
-        const classFilter = elements.classFilterInput.value.trim().toLowerCase();
-
-        const rows = config.getRows().filter(record => {
-            const courseValue = String(record.courseLevel || '').toLowerCase();
-            return !classFilter || courseValue === classFilter;
-        });
-
-        elements.tableHead.replaceChildren();
-        elements.tableBody.replaceChildren();
-
-        /* HEADER */
-
-        const headerRow = createElement('tr');
-        headerRow.append(createElement('th', { text: 'No.', attributes: { scope: 'col' } }));
-
-        config.columns.forEach(column => {
-            headerRow.append(createElement('th', { text: column.label, attributes: { scope: 'col' } }));
-        });
-
-        elements.tableHead.append(headerRow);
-
-        /* EMPTY STATE */
-
-        if (!rows.length) {
-            const emptyRow = createElement('tr');
-            emptyRow.append(createElement('td', {
-                className: 'attendanceEmptyState',
-                text: 'No matching records found.',
-                attributes: { colSpan: config.columns.length + 1 }
-            }));
-            elements.tableBody.append(emptyRow);
+        if (!time) {
+            showToast('Please choose a time.', 'danger');
             return;
         }
 
-        /* ROWS */
+        if (action === 'out' && record.time_in && time <= record.time_in) {
+            showToast('Time Out must be later than Time In.', 'danger');
+            return;
+        }
 
-        rows.forEach((record, rowIndex) => {
-            const tableRow = createElement('tr', {
-                id: `attendanceRow${capitalize(activeAttendanceTab)}${rowIndex}`,
-                className: 'attendanceRow'
+        busy = true;
+        el.modalSave.disabled = true;
+        el.modalSave.textContent = 'Saving...';
+        updateToolbarState();
+
+        try {
+            const result = await api(action === 'in' ? URLS.timeIn : URLS.timeOut, {
+                method: 'POST',
+                body: { coach_id: record.id, date: el.dateInput.value, time }
             });
 
-            if (selectedRecordId === record.id) tableRow.classList.add('selectedRow');
-
-            tableRow.addEventListener('click', () => selectAttendanceRow(record.id));
-
-            tableRow.append(createElement('td', { text: String(rowIndex + 1) }));
-
-            config.columns.forEach(column => {
-                const cell = createElement('td');
-                cell.append(renderCell(column, record));
-                tableRow.append(cell);
-            });
-
-            elements.tableBody.append(tableRow);
-        });
+            if (result.ok) {
+                closeTimeModal();
+                showToast(`${action === 'in' ? 'Time In' : 'Time Out'} recorded for ${record.name}.`, 'success');
+                await loadRows({ keepSelection: true });
+            } else {
+                toastServerErrors(result, 'Unable to save the time.');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while saving the time.', 'danger');
+        } finally {
+            busy = false;
+            el.modalSave.disabled = false;
+            el.modalSave.textContent = 'Save';
+            updateToolbarState();
+        }
     }
 
-    /* =========================================================
-       TAB SWITCHING
-    ========================================================= */
+    el.timeInButton.addEventListener('click', () => openTimeModal('in'));
+    el.timeOutButton.addEventListener('click', () => openTimeModal('out'));
+    el.modalClose.addEventListener('click', () => { if (!busy) closeTimeModal(); });
+    el.modalCancel.addEventListener('click', () => { if (!busy) closeTimeModal(); });
+    el.modalSave.addEventListener('click', saveTimeModal);
 
-    function updateTabButtons() {
-        elements.tabs.querySelectorAll('[data-attendance-tab]').forEach(button => {
-            const isSelected = button.dataset.attendanceTab === activeAttendanceTab;
-            button.classList.toggle('btn-primary', isSelected);
-            button.classList.toggle('btn-outline-primary', !isSelected);
-            button.classList.toggle('active', isSelected);
-            button.setAttribute('aria-selected', String(isSelected));
-        });
-    }
+    // Greys out "Current Time" once the admin edits the field.
+    el.modalInput.addEventListener('input', () => el.modalLabel.classList.add('isDimmed'));
 
-    function switchAttendanceTab(tabName) {
-        if (!attendanceTabConfigs[tabName] || tabName === activeAttendanceTab) return;
+    // Clicking outside the card does NOT close the modal; Escape does.
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
 
-        activeAttendanceTab = tabName;
-        selectedRecordId = null;
-
-        updateTabButtons();
-        updateToolbarActionState();
-        updateTimeActionsVisibility();
-        renderAttendanceTable();
-    }
-
-    elements.tabs.addEventListener('click', event => {
-        const button = event.target.closest('[data-attendance-tab]');
-        if (!button) return;
-        switchAttendanceTab(button.dataset.attendanceTab);
+        if (!el.modalOverlay.hidden && !busy) closeTimeModal();
+        closeAllDropdowns();
     });
 
     /* =========================================================
-       DROPDOWN (shared .registerDropdown component — behavior
-       kept local to this page, same as the Registers script)
+       DROPDOWN (shared .registerDropdown component)
     ========================================================= */
-
-    function initializeDropdown(dropdown) {
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const selectedLabel = toggle?.querySelector('span');
-        const input = dropdown.querySelector('input[type="hidden"]');
-
-        if (!toggle || !options) return;
-
-        toggle.addEventListener('click', event => {
-            event.stopPropagation();
-            options.hidden ? openDropdown(dropdown) : closeDropdown(dropdown);
-        });
-
-        options.addEventListener('click', event => {
-            const option = event.target.closest('.registerDropdownOption');
-            if (!option) return;
-
-            const value = option.dataset.value;
-            if (selectedLabel) selectedLabel.textContent = value;
-            if (input) input.value = value;
-
-            options.querySelectorAll('.registerDropdownOption').forEach(item => {
-                item.classList.toggle('active', item === option);
-            });
-
-            closeDropdown(dropdown);
-
-            if (input && input.id === 'classFilterInput') {
-                renderAttendanceTable();
-            }
-        });
-
-        dropdown.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeDropdown(dropdown);
-        });
-    }
 
     function positionDropdownOptions(dropdown) {
         const options = dropdown.querySelector('.registerDropdownOptions');
@@ -952,30 +911,55 @@
         options.style.width = `${rect.width * 1.3}px`;
     }
 
-    function openDropdown(dropdown) {
-        closeAllDropdowns(dropdown);
-
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-
-        dropdown.classList.add('isOpen');
-        options.hidden = false;
-        toggle.setAttribute('aria-expanded', 'true');
-        positionDropdownOptions(dropdown);
-    }
-
     function closeDropdown(dropdown) {
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-
         dropdown.classList.remove('isOpen');
-        options.hidden = true;
-        toggle.setAttribute('aria-expanded', 'false');
+        dropdown.querySelector('.registerDropdownOptions').hidden = true;
+        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'false');
     }
 
     function closeAllDropdowns(except = null) {
-        document.querySelectorAll('[data-dropdown]').forEach(dropdown => {
-            if (dropdown !== except) closeDropdown(dropdown);
+        document.querySelectorAll('[data-dropdown]').forEach(d => {
+            if (d !== except) closeDropdown(d);
+        });
+    }
+
+    function openDropdown(dropdown) {
+        closeAllDropdowns(dropdown);
+        dropdown.classList.add('isOpen');
+        dropdown.querySelector('.registerDropdownOptions').hidden = false;
+        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'true');
+        positionDropdownOptions(dropdown);
+    }
+
+    function initializeDropdown(dropdown) {
+        const toggle = dropdown.querySelector('.registerDropdownToggle');
+        const options = dropdown.querySelector('.registerDropdownOptions');
+        const label = toggle?.querySelector('span');
+        const input = dropdown.querySelector('input[type="hidden"]');
+        if (!toggle || !options) return;
+
+        toggle.addEventListener('click', event => {
+            event.stopPropagation();
+            options.hidden ? openDropdown(dropdown) : closeDropdown(dropdown);
+        });
+
+        // Delegated, so options added later (from the database) work too.
+        options.addEventListener('click', event => {
+            const option = event.target.closest('.registerDropdownOption');
+            if (!option) return;
+
+            const changed = input && input.value !== option.dataset.value;
+
+            if (label) label.textContent = option.textContent.trim();
+            if (input) input.value = option.dataset.value;
+
+            options.querySelectorAll('.registerDropdownOption').forEach(o => {
+                o.classList.toggle('active', o === option);
+            });
+
+            closeDropdown(dropdown);
+
+            if (changed && input.id === 'classFilterInput') loadRows();
         });
     }
 
@@ -992,20 +976,17 @@
 
     document.addEventListener('scroll', event => {
         const open = document.querySelector('[data-dropdown].isOpen');
-        if (!open) return;
-        if (event.target === document || event.target.contains(open)) positionDropdownOptions(open);
+        if (open && (event.target === document || event.target.contains(open))) positionDropdownOptions(open);
     }, true);
 
     /* =========================================================
-       INITIALIZE
+       INIT
     ========================================================= */
 
     renderCurrentDateLine();
-    initAttendanceDatePicker();
+    initDatePicker();
     updateTabButtons();
-    updateToolbarActionState();
-    updateTimeActionsVisibility();
-    renderAttendanceTable();
+    loadRows();
 
 })();
 </script>
