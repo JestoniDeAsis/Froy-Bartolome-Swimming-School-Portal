@@ -1,3 +1,26 @@
+@if ((int) Auth::user()->role_id === 3)
+    <style>
+        .student-page{width:100%;max-width:1320px;margin:0 auto;padding:28px 32px 40px;color:#202b36}.student-page-header{margin:0 0 24px}.student-page-header h1{font-size:28px;font-weight:700;margin:0 0 5px;color:#173b63}.student-page-header p{margin:0;color:#657382;font-size:14px}.student-announcement-card{display:flex;justify-content:space-between;gap:24px;background:#fff;border:1px solid #dce3ea;border-left:4px solid #1683bd;border-radius:7px;padding:22px 24px;box-shadow:0 2px 8px rgba(26,51,77,.06)}.student-announcement-audience{display:inline-block;background:#e7f2fb;color:#1765a0;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700}.student-announcement-card h2{font-size:18px;color:#263d55;margin:12px 0 8px}.student-announcement-card p{color:#526273;font-size:14px;line-height:1.65;margin:0}.student-announcement-date{flex:0 0 auto;color:#778491;font-size:12px}@media(max-width:700px){.student-page{padding:22px 18px}.student-announcement-card{flex-direction:column;gap:14px}}@media(max-width:560px){.student-page{padding:18px 12px}.student-page-header h1{font-size:24px}}
+    </style>
+    <style>
+        #displayContainer:has(> .student-page){padding:50px}.student-page{width:100%;max-width:none;margin:0;padding:0}
+    </style>
+    <main class="student-page student-announcements-page">
+        <header class="student-page-header">
+            <h1>Announcements</h1>
+            <p>Stay updated with school events and alerts</p>
+        </header>
+
+        <article class="student-announcement-card">
+            <div>
+                <span class="student-announcement-audience">Student</span>
+                <h2>New Coach Guidelines and Skills Assessment Process</h2>
+                <p>We’ve upgraded our assessment tracker to support live feedback from Coach Emily. You’ll now see pass/fail criteria on your checklist within 24 hours of completing your assessment sessions.</p>
+            </div>
+            <time class="student-announcement-date" datetime="2025-07-28">Posted: Jul 28, 2025</time>
+        </article>
+    </main>
+@else
 <style>
 .announcements-container {
   width: 100%;
@@ -537,3 +560,4 @@
     loadAnnouncements();
 }());
 </script>
+@endif
