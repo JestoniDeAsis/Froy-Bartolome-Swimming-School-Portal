@@ -1,60 +1,459 @@
-@if ((int) Auth::user()->role_id === 3)
-<style>
-.student-page{width:100%;max-width:1320px;margin:0 auto;padding:28px 32px 40px;color:#202b36}.student-page-header{margin:0 0 24px}.student-page-header h1{font-size:28px;font-weight:700;margin:0 0 5px;color:#173b63}.student-page-header p{margin:0;color:#657382;font-size:14px}.student-card{background:#fff;border:1px solid #dce3ea;border-radius:8px;padding:20px 22px;box-shadow:0 2px 8px rgba(26,51,77,.06)}.student-attendance-toolbar{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:20px}.student-attendance-toolbar label{display:grid;gap:7px;color:#526273;font-size:13px;font-weight:600}.student-attendance-toolbar select{min-width:220px;border:1px solid #cbd5df;border-radius:5px;background:#fff;padding:9px 12px;color:#263d55;font:inherit}.student-scan-button{border:0;border-radius:5px;background:#176da8;color:#fff;padding:10px 16px;font-weight:600}.student-table-wrap{width:100%;overflow:auto}.student-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}.student-table th{font-weight:700;color:#526273;background:#f5f8fa;text-align:left;padding:12px}.student-table td{padding:14px 12px;border-bottom:1px solid #e9eef2;color:#344353}.student-attendance-date{font-weight:600}.student-attendance-mark{font-size:8px;color:#1585bf;margin-right:9px}.student-status-icon{color:#21834b;font-size:18px}@media(max-width:760px){.student-page{padding:22px 18px}.student-attendance-toolbar{align-items:stretch;flex-direction:column}.student-attendance-toolbar select{width:100%}}@media(max-width:560px){.student-page{padding:18px 12px}.student-card{padding:14px}.student-page-header h1{font-size:24px}}
-</style>
-<style>
-#displayContainer:has(> .student-page){padding:50px}.student-page{width:100%;max-width:none;margin:0;padding:0}
-</style>
-@php
-    $sampleAttendanceRecords = [
-        ['number' => 1, 'date' => 'AUGUST 4, 2026 - TUES', 'coach' => 'Danica Reyes', 'level' => 'Beginner', 'log' => 'ON TIME', 'in' => '8:04 AM', 'out' => '9:12 AM'],
-        ['number' => 2, 'date' => 'AUGUST 11, 2026 - TUES', 'coach' => 'Danica Reyes', 'level' => 'Beginner', 'log' => 'ON TIME', 'in' => '8:07 AM', 'out' => '9:02 AM'],
-        ['number' => 2, 'date' => 'AUGUST 13, 2026 - THUR', 'coach' => 'Froy Bartolome', 'level' => 'Beginner', 'log' => 'ON TIME', 'in' => '7:56 AM', 'out' => '9:17 AM'],
-    ];
-@endphp
+@extends('layouts.toast')
 
-<main class="student-page student-attendance-page">
-    <header class="student-page-header">
-        <h1>Attendance</h1>
-        <p>Check your attendance records</p>
+<style>
+/* =========================================================
+   Attendance (student, view only)
+   Same look as the admin / coach pages. Dropdowns use the shared
+   .registerDropdown + assets/js/fbss-dropdown.js (data-fbss-dropdown).
+========================================================= */
+
+.attendanceContainer {
+    width: 100%;
+    height: 100vh;
+    min-height: 0;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.attendanceHeader { flex: 0 0 auto; margin-bottom: 1rem; }
+
+/* Summary cards */
+.attendanceSummary {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.attendanceCard {
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+    padding: .85rem 1rem;
+    min-width: 0;
+}
+
+.attendanceCardLabel {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #667085;
+    margin-bottom: .25rem;
+}
+
+.attendanceCardValue { font-size: 1.05rem; font-weight: 600; color: #101828; overflow-wrap: anywhere; }
+
+.attendanceProgress {
+    height: 6px;
+    margin-top: .5rem;
+    background: #e9ecef;
+    border-radius: 99px;
+    overflow: hidden;
+}
+.attendanceProgressFill { height: 100%; width: 0; background: var(--fbss-blue, #0d6efd); border-radius: 99px; transition: width .2s ease; }
+
+/* Toolbar */
+.attendanceToolbar {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: .75rem;
+}
+
+.attendanceFilterGroup { display: flex; flex-direction: column; gap: .35rem; }
+
+.attendanceFilterLabel {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #667085;
+    text-transform: uppercase;
+}
+
+/* Sizes come from the shared dropdown variables (our_theme.css). */
+.attendanceCourseFilter { --dd-min-width: 300px; }
+.attendanceMonthFilter  { --dd-min-width: 180px; }
+
+.attendanceResultCount { margin-left: auto; font-size: .8125rem; color: #667085; white-space: nowrap; }
+
+/* Table */
+.attendanceTableContainer {
+    --attendance-row-height: 49px;
+    --attendance-header-height: 49px;
+    --attendance-visible-rows: 8;
+
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: calc(var(--attendance-header-height) + (var(--attendance-row-height) * var(--attendance-visible-rows)));
+    width: 100%;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.attendanceTable {
+    width: 100%;
+    margin: 0;
+    white-space: nowrap;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.attendanceTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f8fafb;
+    color: #667085;
+    font-weight: 600;
+    border-bottom: 1px solid #e7ebef;
+    box-shadow: 0 1px 0 #e7ebef;
+}
+
+.attendanceTable th,
+.attendanceTable td { padding: .75rem 1rem; vertical-align: middle; }
+
+.attendanceRow:hover { background: #f8fafb; }
+
+.attendanceEmptyState { padding: 2rem !important; color: #6c757d; text-align: center; }
+
+.attendanceNameCell { display: inline-flex; align-items: center; gap: .55rem; }
+
+.attendanceStatusDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
+.attendanceStatusDot.present { background: #2f9e44; }
+.attendanceStatusDot.absent  { background: #e03131; }
+
+.attendanceEmptyValue { color: #adb5bd; }
+
+@media (max-width: 575.98px) {
+    .attendanceContainer { padding: 1rem; }
+    .attendanceResultCount { margin-left: 0; width: 100%; }
+}
+</style>
+
+
+<section class="attendanceContainer" id="attendanceContainer" aria-labelledby="attendanceTitle">
+
+    <header class="attendanceHeader">
+        <h2 class="mb-1" id="attendanceTitle">My Attendance</h2>
+        <p class="text-muted mb-0" id="attendanceDescription"></p>
+        <p class="text-muted small mb-0">View only. Your coach records your Time In and Time Out for each session.</p>
     </header>
 
-    <section class="student-card" aria-label="Attendance records">
-        <div class="student-attendance-toolbar">
-            <label for="studentAttendanceClass">
-                Select Class
-                <select id="studentAttendanceClass" name="class">
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Advanced</option>
-                </select>
-            </label>
-            <button class="btn btn-primary btn-icon-label" type="button"><i class="bi bi-qr-code-scan" aria-hidden="true"></i>Scan QR</button>
+    <!-- SUMMARY -->
+    <div class="attendanceSummary" id="attendanceSummary">
+        <div class="attendanceCard">
+            <div class="attendanceCardLabel">Course</div>
+            <div class="attendanceCardValue" id="summaryCourse">--</div>
+        </div>
+        <div class="attendanceCard">
+            <div class="attendanceCardLabel">Schedule</div>
+            <div class="attendanceCardValue" id="summarySchedule">--</div>
+        </div>
+        <div class="attendanceCard">
+            <div class="attendanceCardLabel">Sessions Completed</div>
+            <div class="attendanceCardValue" id="summarySessions">--</div>
+            <div class="attendanceProgress" id="summaryProgress" hidden>
+                <div class="attendanceProgressFill" id="summaryProgressFill"></div>
+            </div>
+        </div>
+        <div class="attendanceCard">
+            <div class="attendanceCardLabel">Last Attended</div>
+            <div class="attendanceCardValue" id="summaryLast">--</div>
+        </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="attendanceToolbar">
+
+        <div class="attendanceFilterGroup">
+            <label class="attendanceFilterLabel">Course</label>
+
+            <div class="registerDropdown attendanceCourseFilter" id="courseFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="courseFilterToggle" type="button" aria-expanded="false" aria-controls="courseFilterOptions" aria-label="Filter by course">
+                    <span>Loading...</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+
+                <div class="registerDropdownOptions" id="courseFilterOptions" hidden></div>
+
+                <input id="courseFilterInput" name="courseFilter" type="hidden" value="">
+            </div>
         </div>
 
-        <div class="student-table-wrap">
-            <table class="student-table student-attendance-table">
-                <thead>
-                    <tr><th>No.</th><th>Date</th><th>Coach</th><th>Course Level</th><th>Log</th><th>Time In</th><th>Time Out</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                    @foreach ($sampleAttendanceRecords as $record)
-                        <tr>
-                            <td>{{ $record['number'] }}</td>
-                            <td class="student-attendance-date"><i class="bi bi-circle-fill student-attendance-mark" aria-hidden="true"></i>{{ $record['date'] }}</td>
-                            <td>{{ $record['coach'] }}</td>
-                            <td>{{ $record['level'] }}</td>
-                            <td>{{ $record['log'] }}</td>
-                            <td>{{ $record['in'] }}</td>
-                            <td>{{ $record['out'] }}</td>
-                            <td><i class="bi bi-check-circle-fill student-status-icon" aria-label="Present"></i></td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        <div class="attendanceFilterGroup">
+            <label class="attendanceFilterLabel">Month</label>
+
+            <div class="registerDropdown attendanceMonthFilter" id="monthFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="monthFilterToggle" type="button" aria-expanded="false" aria-controls="monthFilterOptions" aria-label="Filter by month">
+                    <span>All Dates</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+
+                <div class="registerDropdownOptions" id="monthFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All Dates</button>
+                </div>
+
+                <input id="monthFilterInput" name="monthFilter" type="hidden" value="">
+            </div>
         </div>
-    </section>
-</main>
-@else
-    ATTENDANCE NI STUDENT
-@endif
+
+        <span class="attendanceResultCount" id="attendanceResultCount"></span>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="attendanceTableContainer" id="attendanceTableContainer">
+        <table class="table attendanceTable" id="attendanceTable">
+            <thead id="attendanceTableHead"></thead>
+            <tbody id="attendanceTableBody"></tbody>
+        </table>
+    </div>
+
+</section>
+
+
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
+<script>
+(function () {
+    'use strict';
+
+    const URL_DATA = '/student/attendance/data';
+    const HEADERS = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
+
+    const $ = id => document.getElementById(id);
+
+    const el = {
+        description: $('attendanceDescription'),
+        courseFilter: $('courseFilterDropdown'),
+        monthFilter: $('monthFilterDropdown'),
+        count: $('attendanceResultCount'),
+        tableHead: $('attendanceTableHead'),
+        tableBody: $('attendanceTableBody'),
+        sCourse: $('summaryCourse'),
+        sSchedule: $('summarySchedule'),
+        sSessions: $('summarySessions'),
+        sProgress: $('summaryProgress'),
+        sProgressFill: $('summaryProgressFill'),
+        sLast: $('summaryLast')
+    };
+
+    let enrollments = [];
+    let logs = [];
+    let loading = true;
+
+    /* ---------- helpers ---------- */
+
+    function make(tag, { className, text, attributes } = {}) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        if (attributes) Object.entries(attributes).forEach(([k, v]) => node.setAttribute(k, v));
+        return node;
+    }
+
+    function parseISODate(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    const formatLongDate = d => d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const formatShortDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+
+    // "HH:MM" (24h) -> "8:05 AM"
+    function formatTimeLabel(value) {
+        if (!value) return '';
+        const [h, m] = value.split(':').map(Number);
+        const ref = new Date();
+        ref.setHours(h, m, 0, 0);
+        return ref.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    const dropdownValue = root => window.FBSSDropdown.get(root);
+
+    function cell(value, dash = '--') {
+        return value
+            ? document.createTextNode(value)
+            : make('span', { className: 'attendanceEmptyValue', text: dash });
+    }
+
+    /* ---------- filters ---------- */
+
+    // Logs for the chosen course ('all' = everything, including older logs with no course).
+    function logsForCourse() {
+        const course = dropdownValue(el.courseFilter);
+        return course === 'all' || course === ''
+            ? logs
+            : logs.filter(l => String(l.enrollment_id) === course);
+    }
+
+    function visibleLogs() {
+        const month = dropdownValue(el.monthFilter);
+        const list = logsForCourse();
+        return month ? list.filter(l => l.date.startsWith(month)) : list;
+    }
+
+    function buildMonthOptions() {
+        const months = [...new Set(logsForCourse().map(l => l.date.slice(0, 7)))].sort().reverse();
+
+        const items = [{ value: '', label: 'All Dates' }].concat(months.map(value => {
+            const [y, m] = value.split('-').map(Number);
+            return { value, label: new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
+        }));
+
+        // Keeps the current month when it still has logs, else "All Dates".
+        window.FBSSDropdown.setOptions(el.monthFilter, items, dropdownValue(el.monthFilter));
+    }
+
+    function buildCourseOptions(defaultId) {
+        const items = [{ value: 'all', label: 'All Courses' }]
+            .concat(enrollments.map(e => ({ value: String(e.id), label: e.label })));
+
+        window.FBSSDropdown.setOptions(el.courseFilter, items, defaultId ? String(defaultId) : 'all');
+    }
+
+    /* ---------- render ---------- */
+
+    function renderSummary() {
+        const course = dropdownValue(el.courseFilter);
+        const enrollment = enrollments.find(e => String(e.id) === course);
+
+        if (enrollment) {
+            el.sCourse.textContent = enrollment.course || 'Course not assigned';
+            el.sSchedule.textContent = enrollment.schedule || '--';
+            el.sSessions.textContent = enrollment.required > 0
+                ? `${enrollment.done} / ${enrollment.required}`
+                : String(enrollment.done);
+            el.sLast.textContent = enrollment.last_attended
+                ? formatShortDate(parseISODate(enrollment.last_attended))
+                : '--';
+
+            el.sProgress.hidden = enrollment.required <= 0;
+            el.sProgressFill.style.width = enrollment.required > 0
+                ? `${Math.min(100, Math.round((enrollment.done / enrollment.required) * 100))}%`
+                : '0';
+            return;
+        }
+
+        // All courses
+        const attended = logs.filter(l => l.time_in);
+        const last = attended.map(l => l.date).sort().pop();
+
+        el.sCourse.textContent = enrollments.length ? 'All courses' : '--';
+        el.sSchedule.textContent = '--';
+        el.sSessions.textContent = String(attended.length);
+        el.sLast.textContent = last ? formatShortDate(parseISODate(last)) : '--';
+        el.sProgress.hidden = true;
+    }
+
+    function renderTable() {
+        const list = visibleLogs();
+
+        el.tableHead.replaceChildren();
+        el.tableBody.replaceChildren();
+
+        const headerRow = make('tr');
+        headerRow.append(make('th', { text: 'No.', attributes: { scope: 'col' } }));
+        HEADERS.forEach(h => headerRow.append(make('th', { text: h, attributes: { scope: 'col' } })));
+        el.tableHead.append(headerRow);
+
+        if (loading || !list.length) {
+            const emptyRow = make('tr');
+            emptyRow.append(make('td', {
+                className: 'attendanceEmptyState',
+                text: loading
+                    ? 'Loading...'
+                    : (enrollments.length || logs.length ? 'No attendance has been logged for this selection.' : 'You are not enrolled in a course yet.'),
+                attributes: { colSpan: HEADERS.length + 1 }
+            }));
+            el.tableBody.append(emptyRow);
+            el.count.textContent = '';
+            return;
+        }
+
+        list.forEach((log, index) => {
+            const row = make('tr', { className: 'attendanceRow' });
+            row.append(make('td', { text: String(index + 1) }));
+
+            const dateCell = make('td');
+            const wrapper = make('span', { className: 'attendanceNameCell' });
+            wrapper.append(
+                make('span', { className: `attendanceStatusDot ${log.time_in ? 'present' : 'absent'}` }),
+                document.createTextNode(formatShortDate(parseISODate(log.date)))
+            );
+            dateCell.append(wrapper);
+            row.append(dateCell);
+
+            [
+                cell(log.course),
+                cell(formatTimeLabel(log.time_in), '-'),
+                cell(formatTimeLabel(log.time_out), '-'),
+                cell(log.state),
+                cell(log.logged_by)
+            ].forEach(content => {
+                const td = make('td');
+                td.append(content);
+                row.append(td);
+            });
+
+            el.tableBody.append(row);
+        });
+
+        const attended = list.filter(l => l.time_in).length;
+        el.count.textContent = `${list.length} log${list.length === 1 ? '' : 's'} · ${attended} attended`;
+    }
+
+    function render() {
+        renderSummary();
+        renderTable();
+    }
+
+    /* ---------- load ---------- */
+
+    async function load() {
+        renderTable();
+
+        try {
+            const response = await fetch(URL_DATA, { headers: { 'Accept': 'application/json' } });
+            let data = {};
+            try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+
+            loading = false;
+
+            if (!response.ok) {
+                showToast(data.message || 'Unable to load your attendance.', 'danger');
+                render();
+                return;
+            }
+
+            enrollments = data.enrollments || [];
+            logs = data.logs || [];
+
+            buildCourseOptions(data.default_enrollment_id);
+            buildMonthOptions();
+        } catch (error) {
+            console.error(error);
+            loading = false;
+            showToast('Something went wrong while loading your attendance.', 'danger');
+        }
+
+        render();
+    }
+
+    // Fired by the shared dropdown (assets/js/fbss-dropdown.js) when an option is picked.
+    el.courseFilter.addEventListener('dropdown:change', () => { buildMonthOptions(); render(); });
+    el.monthFilter.addEventListener('dropdown:change', render);
+
+    el.description.textContent = `Current date: ${formatLongDate(new Date())}`;
+    load();
+
+})();
+</script>

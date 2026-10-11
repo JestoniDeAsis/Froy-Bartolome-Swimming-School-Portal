@@ -80,6 +80,17 @@ Route::get('/admin/attendance/student-logs', [AdminAttendanceController::class, 
 Route::post('/admin/attendance/coaches/time-in', [AdminAttendanceController::class, 'coachTimeIn'])->middleware('auth');
 Route::post('/admin/attendance/coaches/time-out', [AdminAttendanceController::class, 'coachTimeOut'])->middleware('auth');
 
+use App\Http\Controllers\CoachAttendanceController;
+
+Route::get('/coach/attendance/data', [CoachAttendanceController::class, 'data'])->middleware('auth');
+Route::get('/coach/attendance/student-logs', [CoachAttendanceController::class, 'studentLogs'])->middleware('auth');
+Route::post('/coach/attendance/students/time-in', [CoachAttendanceController::class, 'studentTimeIn'])->middleware('auth');
+Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::class, 'studentTimeOut'])->middleware('auth');
+
+use App\Http\Controllers\StudentAttendanceController;
+ 
+Route::get('/student/attendance/data', [StudentAttendanceController::class, 'data'])->middleware('auth');
+
 use App\Http\Controllers\SalesInvoiceController;
 
 Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');
@@ -98,10 +109,3 @@ use App\Http\Controllers\RegistersController;
 Route::post('/registers/enroll', [RegistersController::class, 'enroll'])->middleware('auth');
 Route::put('/registers/students/{enrollment}', [RegistersController::class, 'updateCourse'])->middleware('auth');
 Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');
-
-use App\Http\Controllers\CoachAttendanceController;
-
-Route::get('/coach/attendance/data', [CoachAttendanceController::class, 'data'])->middleware('auth');
-Route::get('/coach/attendance/student-logs', [CoachAttendanceController::class, 'studentLogs'])->middleware('auth');
-Route::post('/coach/attendance/students/time-in', [CoachAttendanceController::class, 'studentTimeIn'])->middleware('auth');
-Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::class, 'studentTimeOut'])->middleware('auth');
