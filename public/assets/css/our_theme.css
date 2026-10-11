@@ -579,3 +579,24 @@
     color: #fff;
     border-color: var(--fbss-blue-active, #0056b3);
 }
+
+/* =============================================================
+   Modal overlay (shared)
+   Full-screen dimmed backdrop that also covers the topbar and
+   sidebar. Markup: <div class="modalOverlay" id="..." hidden>
+   with your own modal box inside. Toggle the `hidden` attribute.
+   ============================================================= */
+.modalOverlay[hidden] { display: none !important; }
+
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    background: rgba(0, 0, 0, .4);
+    z-index: 1050;
+}

@@ -247,20 +247,7 @@
     }
 }
 
-/* Add course dialog */
-.course-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1050;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem;
-    background: rgba(31, 41, 55, 0.45);
-}
-
-.course-modal.is-open { display: flex; }
-
+/* Add course dialog (backdrop = shared .modalOverlay in our_theme.css) */
 .course-modal-dialog {
     width: min(940px, 100%);
     max-height: calc(100vh - 2.5rem);
@@ -491,7 +478,7 @@
 </div>
 
 <!-- ADD COURSE DIALOG -->
-<div class="course-modal" id="courseModal" aria-hidden="true">
+<div class="modalOverlay" id="courseModal" hidden>
     <div class="course-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="courseModalTitle">
         <div class="course-modal-header">
             <h2 class="mb-1" id="courseModalTitle">Add a New Course</h2>
@@ -601,14 +588,12 @@
             document.getElementById('saveCourseButton').textContent = 'Save Course';
             render();
         }
-        modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
+        modal.hidden = false;
         document.getElementById('courseName').focus();
     }
 
     function closeModal() {
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
+        modal.hidden = true;
         form.reset();
         categories = [];
         selectedCategory = null;
@@ -963,16 +948,7 @@
     document.getElementById('addSkillButton').addEventListener('click', addSkill);
     categoryInput.addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); addCategory(); } });
     skillInput.addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); addSkill(); } });
-    // Only close on backdrop click if the drag started on the backdrop too —
-    // prevents accidental closes when selecting text inside the form and
-    // releasing the mouse outside the dialog.
-    let backdropMousedown = false;
-    modal.addEventListener('mousedown', function (event) { backdropMousedown = (event.target === modal); });
-    modal.addEventListener('click', function (event) {
-        if (event.target === modal && backdropMousedown) closeModal();
-        backdropMousedown = false;
-    });
-    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.hidden) closeModal(); });
 
     form.addEventListener('submit', async function (event) {
         event.preventDefault();

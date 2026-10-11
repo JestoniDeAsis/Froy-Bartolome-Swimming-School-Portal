@@ -245,22 +245,6 @@
    Shared Modal
 ========================================================= */
 
-.modalOverlay[hidden] {
-    display: none !important;
-}
-
-.modalOverlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, .4);
-    z-index: 1050;
-}
-
 .modalContentBox {
     width: min(500px, 95%);
     padding: 1.5rem 2rem;
@@ -2197,16 +2181,6 @@
             positionDropdownOptions(open);
         }
     }, true);
-
-    document.querySelectorAll('.modalOverlay').forEach(modal => {
-        modal.addEventListener('click', event => {
-            if (event.target === modal) {
-                if (modal === elements.studentModal) modalContext = null;
-                if (modal === elements.confirmModal) pendingConfirmAction = null;
-                closeModal(modal);
-            }
-        });
-    });
 
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;

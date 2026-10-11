@@ -190,20 +190,7 @@
     .attendanceToolbarActions button { flex: 1 1 auto; }
 }
 
-/* Time entry modal */
-.attendanceModalOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    background: rgba(16, 24, 40, .45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-}
-
-.attendanceModalOverlay[hidden] { display: none; }
-
+/* Time entry modal (backdrop = shared .modalOverlay in our_theme.css) */
 .attendanceModal {
     width: 100%;
     max-width: 360px;
@@ -436,7 +423,7 @@
 
 
 <!-- TIME ENTRY MODAL (Time In and Time Out) -->
-<div class="attendanceModalOverlay" id="timeModalOverlay" hidden>
+<div class="modalOverlay" id="timeModalOverlay" hidden>
     <div class="attendanceModal" id="timeModal" role="dialog" aria-modal="true" aria-labelledby="timeModalTitle">
 
         <div class="attendanceModalHeader">
@@ -462,7 +449,7 @@
 
 
 <!-- STUDENT ATTENDANCE LOG MODAL (view only) -->
-<div class="attendanceModalOverlay" id="logsModalOverlay" hidden>
+<div class="modalOverlay" id="logsModalOverlay" hidden>
     <div class="attendanceModal isWide" id="logsModal" role="dialog" aria-modal="true" aria-labelledby="logsModalTitle">
 
         <div class="attendanceModalHeader">

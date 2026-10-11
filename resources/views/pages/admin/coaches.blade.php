@@ -125,20 +125,7 @@
 .statusBadge.held     { background: #fff4e0; color: #b26a00; }
 .statusBadge.inactive { background: #fdebec; color: #c22b3a; }
 
-/* Shared modal */
-.modalOverlay[hidden] { display: none !important; }
-
-.modalOverlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, .4);
-    z-index: 1050;
-}
+/* Shared modal (backdrop = .modalOverlay in our_theme.css) */
 
 .modalContentBox {
     width: min(500px, 95%);

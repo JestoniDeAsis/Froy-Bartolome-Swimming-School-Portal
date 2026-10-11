@@ -1092,7 +1092,6 @@
     });
     document.getElementById('printReceipt').addEventListener('click', () => window.print());
     document.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
-    document.querySelectorAll('.sales-dialog').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
     document.addEventListener('keydown', event => { if (event.key === 'Escape') pendingRemoval = null; });
     async function loadData() {
         try {
