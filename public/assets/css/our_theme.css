@@ -419,6 +419,16 @@
    fields in the shared student modal, and any future page can
    reuse it the same way.
 
+   SIZE: every dimension is a CSS variable (--dd-width, --dd-min-width,
+   --dd-height, --dd-font-size, --dd-panel-scale ...) set on
+   .registerDropdown — see the block below. Presets: .ddSm / .ddLg /
+   .ddBlock.
+
+   JS: pages can use the shared assets/js/fbss-dropdown.js (give the
+   root `data-fbss-dropdown` instead of `data-dropdown`; it positions the
+   panel, handles selection and fires a `dropdown:change` event).
+   Older pages still carry their own copy of the logic.
+
    IMPORTANT — this needs a small amount of JS wherever it's used:
    the options panel is `position: fixed` (not `absolute`) so it
    can never get clipped by a parent's `overflow: hidden`/`auto`
@@ -447,22 +457,45 @@
    ============================================================= */
 
 .registerDropdown {
+    /* ---- Size knobs: override on the element, e.g.
+       <div class="registerDropdown" style="--dd-min-width: 220px">
+       or in a page rule:  .myFilter { --dd-width: 100%; }
+       Defaults = the Attendance page design. ---- */
+    --dd-width: fit-content;        /* toggle width (fit-content = size to the text, but never under min-width) */
+    --dd-min-width: 160px;         /* keeps the control from shrinking when a short option is picked */
+    --dd-max-width: 100%;
+    --dd-height: 40px;
+    --dd-padding-x: 14px;
+    --dd-font-size: 1rem;
+    --dd-radius: 10px;
+    --dd-panel-scale: 1.3;         /* options panel width = toggle width x this */
+    --dd-panel-min-width: 0px;
+    --dd-panel-max-height: 180px;  /* the panel scrolls past this */
+
     position: relative;
 }
+
+/* Quick size presets: add next to .registerDropdown */
+.registerDropdown.ddSm    { --dd-height: 34px; --dd-min-width: 130px; --dd-font-size: .875rem; --dd-padding-x: 12px; }
+.registerDropdown.ddLg    { --dd-height: 46px; --dd-min-width: 200px; --dd-font-size: 1.0625rem; }
+.registerDropdown.ddBlock { --dd-width: 100%; --dd-min-width: 0px; --dd-panel-scale: 1; }  /* fills its parent (forms/modals) */
 
 .registerDropdownToggle {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .5rem;
-    width: fit-content;
-    height: 40px;
+    width: var(--dd-width);
+    min-width: var(--dd-min-width);
+    max-width: var(--dd-max-width);
+    height: var(--dd-height);
     box-sizing: border-box;
-    padding: 0 14px;
+    padding: 0 var(--dd-padding-x);
     border: 1px solid #d1d5db;
-    border-radius: 10px;
+    border-radius: var(--dd-radius);
     background: #fff;
     color: #212529;
+    font-size: var(--dd-font-size);
     text-align: left;
     transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
@@ -500,16 +533,18 @@
     z-index: 1080; /* above .modalOverlay's 1050, since this also opens inside the shared student modal */
     display: grid;
     gap: .25rem;
-    max-height: 180px;
+    max-height: var(--dd-panel-max-height, 180px);
     overflow-y: auto;
     overflow-x: hidden;
     padding: .5rem;
     background: #fff;
     border: 1px solid #e7ebef;
-    border-radius: 10px;
+    border-radius: var(--dd-radius, 10px);
     box-shadow: 0 8px 18px rgba(20, 30, 50, .12);
     animation: dropdownOpen .15s ease;
 }
+
+.registerDropdownOptions[hidden] { display: none; }
 
 @keyframes dropdownOpen {
     from {

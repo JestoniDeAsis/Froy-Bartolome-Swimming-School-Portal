@@ -98,3 +98,10 @@ use App\Http\Controllers\RegistersController;
 Route::post('/registers/enroll', [RegistersController::class, 'enroll'])->middleware('auth');
 Route::put('/registers/students/{enrollment}', [RegistersController::class, 'updateCourse'])->middleware('auth');
 Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');
+
+use App\Http\Controllers\CoachAttendanceController;
+
+Route::get('/coach/attendance/data', [CoachAttendanceController::class, 'data'])->middleware('auth');
+Route::get('/coach/attendance/student-logs', [CoachAttendanceController::class, 'studentLogs'])->middleware('auth');
+Route::post('/coach/attendance/students/time-in', [CoachAttendanceController::class, 'studentTimeIn'])->middleware('auth');
+Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::class, 'studentTimeOut'])->middleware('auth');
