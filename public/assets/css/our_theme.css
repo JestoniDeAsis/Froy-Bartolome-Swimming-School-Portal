@@ -563,8 +563,7 @@
     border: 0;
     border-radius: 7px;
     background: transparent;
-    color: blue;
-    /* color: #212529; */
+    color: #212529;
     text-align: left;
     transition: background-color .15s ease, color .15s ease;
 }

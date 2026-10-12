@@ -66,6 +66,11 @@ Route::get('/courses/{course_id}', [CourseController::class, 'show'])->middlewar
 Route::post('/courses', [CourseController::class, 'store'])->middleware('auth');
 Route::put('/courses/{course_id}', [CourseController::class, 'update'])->middleware('auth');
 
+use App\Http\Controllers\CoachSkillsAssessmentController;
+
+Route::get('/coach/skills-assessment/data', [CoachSkillsAssessmentController::class, 'data'])->middleware('auth');
+Route::put('/coach/skills-assessment/{enrollment}', [CoachSkillsAssessmentController::class, 'save'])->middleware('auth')->whereNumber('enrollment');
+
 use App\Http\Controllers\CoachController;
  
 Route::get('/coaches/data', [CoachController::class, 'data'])->middleware('auth');
