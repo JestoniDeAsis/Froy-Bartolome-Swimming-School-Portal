@@ -1,3 +1,5 @@
+@extends('layouts.toast')
+
 <style>
 .sales-page, .sales-dialog {
     --sales-blue: var(--fbss-blue, #0D6EFD);
@@ -8,70 +10,135 @@
     --sales-canvas: #f4f7f6;
 }
 
+/* =========================================================
+   Page frame + components — deliberately the same values as the
+   Attendance / Registers / Graduation pages, so every admin page
+   looks alike (header, stat cards, tabs, search, table, modals).
+========================================================= */
 .sales-page {
-    color: var(--sales-ink);
+    width: 100%;
+    min-width: 0;
+    height: 100vh;
+    min-height: 0;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+    color: var(--sales-ink);
+}
+
+.sales-heading {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 1rem;
-    min-width: 0;
-    padding: 1.25rem 1.5rem 2rem;
+    margin-bottom: 1rem;
+}
+
+.sales-tabs { flex: 0 0 auto; margin-bottom: 1rem; }
+.sales-tabs .btn-tab { min-width: 150px; }
+
+.sales-stats { flex: 0 0 auto; margin-bottom: 1rem; }
+
+.sales-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1.1rem;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+}
+
+.sales-stat-label { margin: 0 0 .2rem; font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #667085; }
+.sales-stat-value { margin: 0; font-size: 1.45rem; font-weight: 700; line-height: 1; }
+
+.sales-stat-icon--blue  { background: #e7f1ff; color: #0d6efd; }
+.sales-stat-icon--green { background: #e6f7ec; color: #1a7f3c; }
+.sales-stat-icon--amber { background: #fff4e0; color: #b26a00; }
+.sales-stat-icon--red   { background: #fdebec; color: #c22b3a; }
+
+.sales-toolbar { flex: 0 0 auto; margin-bottom: .75rem; }
+
+.sales-search { position: relative; width: min(260px, 100%); }
+.sales-search input { height: 40px; box-sizing: border-box; border-radius: 20px; padding-left: 2.25rem; }
+
+.sales-panel { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.sales-panel[hidden] { display: none; }
+
+.sales-table-wrap {
+    --sales-row-height: 49px;
+    --sales-header-height: 49px;
+    --sales-visible-rows: 8;
+
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: calc(var(--sales-header-height) + (var(--sales-row-height) * var(--sales-visible-rows)));
+    width: 100%;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.sales-table {
+    width: 100%;
+    margin: 0;
+    white-space: nowrap;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.sales-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f8fafb;
+    color: #667085;
+    font-weight: 600;
+    border-bottom: 1px solid #e7ebef;
+    box-shadow: 0 1px 0 #e7ebef;
+}
+
+.sales-table th,
+.sales-table td { padding: .75rem 1rem; vertical-align: middle; text-align: left; }
+
+.sales-table tbody tr { transition: background-color .1s ease; }
+.sales-table tbody tr:hover { background: #f8fafb; }
+
+/* Modals: same card as the other pages' modals. */
+.sales-dialog {
+    width: min(500px, calc(100vw - 2rem));
+    max-height: min(90vh, 850px);
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(16, 24, 40, .18);
+    background: #fff;
+    color: var(--sales-ink);
+    color-scheme: light;
+}
+
+.sales-dialog::backdrop { background: rgba(0, 0, 0, .4); }
+
+.sales-dialog-inner { padding: 1.5rem 2rem; }
+
+@media (max-width: 575.98px) {
+    .sales-dialog-inner { padding: 1.25rem; }
 }
 
 .sales-page *, .sales-page *::before, .sales-page *::after {
     box-sizing: border-box;
 }
 
-.sales-heading {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.sales-heading h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    line-height: 1.2;
-    font-weight: 700;
-}
-
-.sales-heading p {
-    color: var(--sales-muted);
-    margin: .25rem 0 0;
-    font-size: .82rem;
-}
-
 .sales-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: .75rem;
-}
-
-.sales-stat {
-    min-height: 88px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    padding: 1rem 1.2rem;
-    background: #fff;
-    border: 1px solid var(--sales-line);
-    border-radius: var(--fbss-radius, .5rem);
-}
-
-.sales-stat-label {
-    margin: 0 0 .25rem;
-    font-size: .72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #303946;
-}
-
-.sales-stat-value {
-    margin: 0;
-    font-size: 1.55rem;
-    font-weight: 700;
-    line-height: 1;
 }
 
 .sales-stat-icon {
@@ -82,26 +149,6 @@
     place-items: center;
     border-radius: 9px;
     font-size: 1rem;
-}
-
-.sales-stat-icon--green {
-    background: var(--fbss-success-tint, #E9F5EF);
-    color: var(--fbss-success, #198754);
-}
-
-.sales-stat-icon--red {
-    background: var(--fbss-danger-tint, #FBEAEC);
-    color: var(--fbss-danger, #DC3545);
-}
-
-.sales-stat-icon--blue {
-    background: var(--fbss-blue-tint, #E7F1FF);
-    color: var(--fbss-blue, #0D6EFD);
-}
-
-.sales-stat-icon--amber {
-    background: #FFF7E0;
-    color: var(--fbss-warning-text, #6A4E00);
 }
 
 .sales-toolbar {
@@ -119,11 +166,6 @@
     flex-wrap: wrap;
 }
 
-.sales-search {
-    position: relative;
-    width: min(320px, 100%);
-}
-
 .sales-search i {
     position: absolute;
     left: .8rem;
@@ -133,95 +175,12 @@
     pointer-events: none;
 }
 
-.sales-search input, .sales-field input, .sales-field select, .sales-field textarea {
-    width: 100%;
-    min-height: 42px;
-    border: 1px solid var(--sales-line);
-    border-radius: 7px;
-    background: #fff;
-    color: var(--sales-ink);
-    padding: .65rem .75rem;
-    font: inherit;
-    font-size: .86rem;
-}
-
-.sales-search input {
-    height: 40px;
-    border-radius: 20px;
-    padding-left: 2.25rem;
-}
-
-.sales-field textarea {
-    min-height: 68px;
-    resize: vertical;
-}
-
-.sales-field input:focus, .sales-field select:focus, .sales-field textarea:focus, .sales-search input:focus {
-    outline: 2px solid rgba(var(--fbss-blue-rgb, 13, 110, 253), .35);
-    outline-offset: 1px;
-}
-
-.sales-filter {
-    min-width: 142px;
-    height: 40px;
-    border: 1px solid var(--sales-line);
-    border-radius: 6px;
-    padding: 0 .7rem;
-    background: #fff;
-    font: inherit;
-    font-size: .84rem;
-}
-
-.sales-table-wrap {
-    overflow: auto;
-    background: #fff;
-    border: 1px solid var(--sales-line);
-    border-radius: 12px;
-}
-
-.sales-table {
-    width: 100%;
-    border-collapse: collapse;
-    white-space: nowrap;
-}
-
-.sales-table thead {
-    background: #f7f9fb;
-}
-
-.sales-table th {
-    height: 42px;
-    padding: .6rem .7rem;
-    border-bottom: 1px solid var(--sales-line);
-    color: #5e6f81;
-    font-size: .76rem;
-    font-weight: 700;
-    text-align: center;
-}
-
-.sales-table td {
-    min-height: 50px;
-    padding: .65rem .7rem;
-    border-bottom: 1px solid #e8edf1;
-    font-size: .8rem;
-    text-align: center;
-    vertical-align: middle;
-}
-
-.sales-table tbody tr:last-child td {
-    border-bottom: 0;
-}
-
-.sales-table tbody tr:nth-child(even) {
-    background: #fafbfd;
-}
+/* Dropdowns use the shared defaults (our_theme.css), same as every other page.
+   Only the filter's minimum width is set, matching Attendance's filters. */
+.sales-filter { --dd-min-width: 160px; }
 
 .sales-table .sales-name {
     font-weight: 600;
-}
-
-.sales-table .btn-row-actions {
-    justify-content: center;
 }
 
 .sales-badge {
@@ -254,45 +213,6 @@
     color: var(--sales-muted);
     text-align: center !important;
     white-space: normal;
-}
-
-.sales-notice {
-    position: fixed;
-    z-index: 2100;
-    top: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: min(420px, calc(100vw - 2rem));
-    padding: .75rem 1rem;
-    border-radius: 6px;
-    background: var(--fbss-success, #198754);
-    color: #fff;
-    box-shadow: 0 5px 20px #172b3a33;
-    font-size: .9rem;
-}
-
-.sales-notice--danger {
-    background: var(--fbss-danger, #DC3545);
-}
-
-.sales-dialog {
-    width: min(520px, calc(100vw - 2rem));
-    max-height: min(90vh, 850px);
-    padding: 0;
-    border: 0;
-    border-radius: 12px;
-    box-shadow: 0 18px 50px #16202c33;
-    background: #fff;
-    color: var(--sales-ink);
-    color-scheme: light;
-}
-
-.sales-dialog::backdrop {
-    background: #17212a75;
-}
-
-.sales-dialog-inner {
-    padding: 1.35rem 1.5rem 1.2rem;
 }
 
 .sales-dialog h2 {
@@ -344,7 +264,7 @@
     color: var(--fbss-danger, #DC3545);
 }
 
-.sales-field select.is-invalid {
+.sales-field .registerDropdown.isInvalid .registerDropdownToggle {
     border-color: var(--fbss-danger, #DC3545);
 }
 
@@ -533,7 +453,7 @@
 
 @media (max-width: 700px) {
     .sales-page {
-        padding: 1rem .75rem 1.5rem;
+        padding: 1rem;
     }
 
     .sales-heading {
@@ -550,6 +470,7 @@
 
     .sales-filter {
         flex: 1;
+        --dd-width: 100%;
     }
 
     .sales-form-grid {
@@ -618,13 +539,13 @@
 <section class="sales-page" id="salesPage" aria-labelledby="salesTitle">
     <header class="sales-heading">
         <div>
-            <h1 id="salesTitle">Purchases</h1>
-            <p>Track fees, collections, and balances</p>
+            <h2 class="mb-1" id="salesTitle">Purchases</h2>
+            <p class="text-muted mb-0">Track fees, collections, and balances</p>
         </div>
         <button class="btn btn-primary btn-icon-label" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
     </header>
 
-    <nav class="btn-tab-group" aria-label="Purchase sections" role="tablist">
+    <nav class="btn-tab-group sales-tabs" aria-label="Purchase sections" role="tablist">
         <button class="btn btn-outline-primary btn-tab active" id="salesTabCourse" type="button" role="tab" aria-selected="true" aria-controls="salesPanelCourse" data-sales-tab="course">Course payment</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabLogs" type="button" role="tab" aria-selected="false" aria-controls="salesPanelLogs" data-sales-tab="logs">Item logs</button>
         <button class="btn btn-outline-primary btn-tab" id="salesTabItems" type="button" role="tab" aria-selected="false" aria-controls="salesPanelItems" data-sales-tab="items">Items</button>
@@ -639,23 +560,32 @@
 
     <div class="sales-toolbar">
         <div class="sales-toolbar-start">
-            <label class="sales-search"><i class="bi bi-search" aria-hidden="true"></i><input id="salesSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search rows"></label>
-            <select class="sales-filter" id="salesStatusFilter" aria-label="Filter by payment status">
-                <option value="">All Status</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="partial">Partial</option>
-            </select>
+            <label class="sales-search"><i class="bi bi-search" aria-hidden="true"></i><input class="form-control" id="salesSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search rows"></label>
+            <div class="registerDropdown sales-filter" id="salesStatusFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="salesStatusFilterToggle" type="button" aria-expanded="false" aria-controls="salesStatusFilterOptions" aria-label="Filter by payment status">
+                    <span>All Status</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+                <div class="registerDropdownOptions" id="salesStatusFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All Status</button>
+                    <button class="registerDropdownOption" type="button" data-value="paid">Paid</button>
+                    <button class="registerDropdownOption" type="button" data-value="unpaid">Unpaid</button>
+                    <button class="registerDropdownOption" type="button" data-value="partial">Partial</button>
+                </div>
+                <input id="salesStatusFilter" name="statusFilter" type="hidden" value="">
+            </div>
         </div>
     </div>
 
     <section class="sales-panel" id="salesPanelCourse" role="tabpanel" aria-labelledby="salesTabCourse" data-sales-panel="course">
-        <div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelLogs" role="tabpanel" aria-labelledby="salesTabLogs" data-sales-panel="logs" hidden>
-        <div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelItems" role="tabpanel" aria-labelledby="salesTabItems" data-sales-panel="items" hidden>
-        <div class="sales-table-wrap"><table class="sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="itemCatalogRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="itemCatalogRows"></tbody></table></div>
     </section>
-    <div class="sales-notice" id="salesNotice" role="status" aria-live="polite" hidden></div>
 </section>
 
 <dialog class="sales-dialog" id="coursePaymentDialog" aria-labelledby="coursePaymentTitle">
@@ -665,9 +595,15 @@
             <input type="hidden" name="id">
             <input type="hidden" name="paymentId">
             <div class="sales-balance-line"><strong>Balance</strong><strong id="coursePaymentBalance">₱0</strong></div>
-            <div class="sales-field"><label for="coursePaymentAmount">Payment <span class="sales-required">*</span></label><input id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
-            <div class="sales-field"><label for="coursePaymentMethod">Payment Method <span class="sales-required">*</span></label><select id="coursePaymentMethod" name="method"><option value="">Select method</option><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option><option value="Other">Other</option></select></div>
-            <div class="sales-field"><label for="coursePaymentReference">Reference Number</label><input id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
+            <div class="sales-field"><label for="coursePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
+            <div class="sales-field"><label for="coursePaymentMethodToggle">Payment Method <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="coursePaymentMethodDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="coursePaymentMethodToggle" type="button" aria-expanded="false" aria-controls="coursePaymentMethodOptions"><span>Select method</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="coursePaymentMethodOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">Select method</button>
+                    <button class="registerDropdownOption" type="button" data-value="Cash">Cash</button>
+                    <button class="registerDropdownOption" type="button" data-value="GCash">GCash</button>
+                    <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
+                    <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
+                </div><input id="coursePaymentMethod" name="method" type="hidden" value=""></div></div>
+            <div class="sales-field"><label for="coursePaymentReference">Reference Number</label><input class="form-control" id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="coursePaymentStatus"></span></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="coursePaymentSubmit">Update</button></div>
         </form>
@@ -679,11 +615,17 @@
         <h2 id="purchaseDialogTitle">Adding New Purchase</h2><p class="sales-dialog-subtitle" id="purchaseDialogSubtitle">New Purchase</p>
         <form class="sales-form" id="purchaseForm">
             <input type="hidden" name="id">
-            <div class="sales-field"><label for="purchaseItem">Item *</label><select id="purchaseItem" name="itemId" required></select></div>
-            <div class="sales-form-grid"><div class="sales-field"><label for="purchaseQuantity">Quantity *</label><input id="purchaseQuantity" name="quantity" type="number" min="1" step="1" value="1" required></div><div class="sales-field"><label for="purchaseUnitPrice">Price</label><input id="purchaseUnitPrice" type="text" readonly></div></div>
+            <div class="sales-field"><label for="purchaseItemToggle">Item *</label><div class="registerDropdown ddBlock" id="purchaseItemDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="purchaseItemToggle" type="button" aria-expanded="false" aria-controls="purchaseItemOptions"><span>Select an item</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="purchaseItemOptions" hidden>
+
+                </div><input id="purchaseItem" name="itemId" type="hidden" value=""></div></div>
+            <div class="sales-form-grid"><div class="sales-field"><label for="purchaseQuantity">Quantity *</label><input class="form-control" id="purchaseQuantity" name="quantity" type="number" min="1" step="1" value="1" required></div><div class="sales-field"><label for="purchaseUnitPrice">Price</label><input class="form-control" id="purchaseUnitPrice" type="text" readonly></div></div>
             <div class="sales-balance-line"><strong>To Pay</strong><strong id="purchaseToPay">₱0</strong></div>
-            <div class="sales-form-grid"><div class="sales-field"><label for="purchasePaid">Payment *</label><input id="purchasePaid" name="paid" type="number" min="0" step="0.01" value="0" required></div><div class="sales-field"><label for="purchaseMethod">Mode of Payment *</label><select id="purchaseMethod" name="method" required><option value="Cash">Cash</option><option value="GCash">GCash</option><option value="Bank Transfer">Bank Transfer</option></select></div></div>
-            <div class="sales-field"><label for="purchaseDescription">Description</label><input id="purchaseDescription" name="description" maxlength="255" placeholder="Color and stuff"></div>
+            <div class="sales-form-grid"><div class="sales-field"><label for="purchasePaid">Payment *</label><input class="form-control" id="purchasePaid" name="paid" type="number" min="0" step="0.01" value="0" required></div><div class="sales-field"><label for="purchaseMethodToggle">Mode of Payment *</label><div class="registerDropdown ddBlock" id="purchaseMethodDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="purchaseMethodToggle" type="button" aria-expanded="false" aria-controls="purchaseMethodOptions"><span>Cash</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="purchaseMethodOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="Cash">Cash</button>
+                    <button class="registerDropdownOption" type="button" data-value="GCash">GCash</button>
+                    <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
+                </div><input id="purchaseMethod" name="method" type="hidden" value="Cash"></div></div></div>
+            <div class="sales-field"><label for="purchaseDescription">Description</label><input class="form-control" id="purchaseDescription" name="description" maxlength="255" placeholder="Color and stuff"></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="purchaseSubmit">Add</button></div>
         </form>
     </div>
@@ -694,9 +636,9 @@
         <h2 id="itemDialogTitle">Adding New Item</h2><p class="sales-dialog-subtitle" id="itemDialogSubtitle">New Item</p>
         <form class="sales-form" id="itemForm">
             <input type="hidden" name="id">
-            <div class="sales-field"><label for="catalogItemName">Item name *</label><input id="catalogItemName" name="name" maxlength="150" required></div>
-            <div class="sales-field"><label for="catalogItemDescription">Description</label><input id="catalogItemDescription" name="description" maxlength="255"></div>
-            <div class="sales-form-grid"><div class="sales-field"><label for="catalogItemPrice">Price *</label><input id="catalogItemPrice" name="price" type="number" min="0" step="0.01" required></div><div class="sales-field"><label for="catalogItemStock">Stock *</label><input id="catalogItemStock" name="stock" type="number" min="0" step="1" required></div></div>
+            <div class="sales-field"><label for="catalogItemName">Item name *</label><input class="form-control" id="catalogItemName" name="name" maxlength="150" required></div>
+            <div class="sales-field"><label for="catalogItemDescription">Description</label><input class="form-control" id="catalogItemDescription" name="description" maxlength="255"></div>
+            <div class="sales-form-grid"><div class="sales-field"><label for="catalogItemPrice">Price *</label><input class="form-control" id="catalogItemPrice" name="price" type="number" min="0" step="0.01" required></div><div class="sales-field"><label for="catalogItemStock">Stock *</label><input class="form-control" id="catalogItemStock" name="stock" type="number" min="0" step="1" required></div></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="itemSubmit">Add</button></div>
         </form>
     </div>
@@ -711,6 +653,7 @@
     <div class="sales-dialog-inner"><h2 id="confirmTitle">Remove this record?</h2><p class="sales-dialog-subtitle" id="confirmMessage">This action only changes this preview until the page is reloaded.</p><div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-danger" type="button" id="confirmDelete">Remove</button></div></div>
 </dialog>
 
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
     const page = document.getElementById('salesPage');
@@ -734,16 +677,24 @@
     const badge = status => `<span class="sales-badge sales-badge--${status}">${statusLabel(status)}</span>`;
     const byId = (list, id) => list.find(row => Number(row.id) === Number(id));
     const search = document.getElementById('salesSearch');
-    const statusFilter = document.getElementById('salesStatusFilter');
-    const addButton = document.getElementById('salesAddButton');
-    const notice = document.getElementById('salesNotice');
+    const statusFilter = document.getElementById('salesStatusFilter');            // hidden input holding the value
+    const statusFilterRoot = document.getElementById('salesStatusFilterDropdown'); // the shared dropdown
 
+    // Selects `value` on a shared dropdown (silent). Resets to the first option
+    // first, so an unknown value (e.g. an old payment method) can't leave a stale pick.
+    function setDropdown(root, value) {
+        const first = root.querySelector('.registerDropdownOption');
+        if (first) window.FBSSDropdown.set(root, first.dataset.value ?? '');
+        if (value !== '' && value != null) window.FBSSDropdown.set(root, value);
+    }
+    const addButton = document.getElementById('salesAddButton');
+    // Uses the app-wide toast (layouts.toast), same as every other page.
     function notify(message, type = 'success') {
-        notice.textContent = message;
-        notice.classList.toggle('sales-notice--danger', type === 'danger');
-        notice.hidden = false;
-        window.clearTimeout(notify.timer);
-        notify.timer = window.setTimeout(() => { notice.hidden = true; }, 2800);
+        if (typeof showToast === 'function') {
+            showToast(message, type);
+        } else {
+            console.log('[' + type + ']', message);
+        }
     }
 
     function currentFilter() {
@@ -813,11 +764,11 @@
         });
         document.querySelectorAll('[data-sales-panel]').forEach(panel => { panel.hidden = panel.dataset.salesPanel !== tab; });
         search.value = '';
-        statusFilter.value = '';
+        setDropdown(statusFilterRoot, '');
         const labels = { course: 'Add New Purchase', logs: 'Add New Purchase', items: 'Add New Item' };
         addButton.querySelector('span').textContent = labels[tab];
         addButton.hidden = tab === 'course';
-        statusFilter.hidden = tab === 'items';
+        statusFilterRoot.hidden = tab === 'items';
     }
 
     // State of the open payment dialog. `others` = everything already paid on
@@ -837,8 +788,8 @@
         form.elements.id.value = row.enrollmentId;
         form.elements.paymentId.value = editing ? row.id : '';
         form.elements.amount.value = editing ? row.paid : '';
-        form.elements.method.value = editing ? (row.method || '') : '';
-        form.elements.method.classList.remove('is-invalid');
+        setDropdown(document.getElementById('coursePaymentMethodDropdown'), editing ? (row.method || '') : '');
+        document.getElementById('coursePaymentMethodDropdown').classList.remove('isInvalid');
         form.elements.reference.value = editing ? (row.reference || '') : '';
 
         document.getElementById('coursePaymentTitle').textContent = editing ? 'Updating course payment' : 'Recording course payment';
@@ -880,8 +831,12 @@
     }
 
     function fillItemOptions(selectedId = null) {
-        const select = document.getElementById('purchaseItem');
-        select.innerHTML = items.map(item => `<option value="${item.id}" ${Number(selectedId) === Number(item.id) ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
+        // Rebuilds the shared dropdown's option list from the catalog (silent).
+        window.FBSSDropdown.setOptions(
+            document.getElementById('purchaseItemDropdown'),
+            items.map(item => ({ value: item.id, label: item.name })),
+            selectedId ?? ''
+        );
     }
 
     function showPurchase(row = null) {
@@ -892,7 +847,7 @@
         fillItemOptions(row?.itemId ?? items[0]?.id);
         form.elements.quantity.value = row?.quantity ?? 1;
         form.elements.paid.value = row?.paid ?? 0;
-        form.elements.method.value = row?.method || 'Cash';
+        setDropdown(document.getElementById('purchaseMethodDropdown'), row?.method || 'Cash');
         document.getElementById('purchaseDescription').value = row?.description || '';
         const editing = Boolean(row);
         document.getElementById('purchaseDialogTitle').textContent = editing ? 'Updating Purchase' : 'Adding New Purchase';
@@ -957,9 +912,9 @@
 
     document.querySelectorAll('[data-sales-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.salesTab)));
     search.addEventListener('input', render);
-    statusFilter.addEventListener('change', render);
+    statusFilterRoot.addEventListener('dropdown:change', render);
     addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : notify('Record a payment from a course row.'));
-    document.getElementById('purchaseItem').addEventListener('change', refreshPurchasePrice);
+    document.getElementById('purchaseItemDropdown').addEventListener('dropdown:change', refreshPurchasePrice);
     document.getElementById('purchaseQuantity').addEventListener('input', refreshPurchasePrice);
 
     page.addEventListener('click', event => {
@@ -994,8 +949,8 @@
         if (!row) { notify('This enrollment is no longer in the list.', 'danger'); return; }
 
         if (!form.elements.method.value) {
-            form.elements.method.classList.add('is-invalid');
-            form.elements.method.focus();
+            document.getElementById('coursePaymentMethodDropdown').classList.add('isInvalid');
+            document.getElementById('coursePaymentMethodToggle').focus();
             notify('Select a payment method.', 'danger');
             return;
         }
@@ -1047,7 +1002,7 @@
     });
 
     document.getElementById('coursePaymentAmount').addEventListener('input', refreshPaymentPreview);
-    document.getElementById('coursePaymentMethod').addEventListener('change', event => event.target.classList.remove('is-invalid'));
+    document.getElementById('coursePaymentMethodDropdown').addEventListener('dropdown:change', event => event.currentTarget.classList.remove('isInvalid'));
 
     document.getElementById('purchaseForm').addEventListener('submit', event => {
         event.preventDefault();

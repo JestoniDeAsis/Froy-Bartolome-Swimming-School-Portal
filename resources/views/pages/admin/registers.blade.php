@@ -487,14 +487,16 @@
    page needs its own copy. Check DevTools → Sources for
    .registerDropdownOptions to confirm what's really loaded.
 
-   The options panel is positioned by JS (positionDropdownOptions,
-   in the DROPDOWN section of the script below), because
-   our_theme.css makes it `position: fixed` — fixed is relative
-   to the viewport, not to .registerDropdown, so top/left/width
-   have to be set from JS on open. This is what keeps the Course
-   Filter panel from being clipped by .registersToolbar's
-   overflow-x: auto.
+   Behaviour (open/close, selection, positioning) comes from the
+   shared assets/js/fbss-dropdown.js: give the root
+   `data-fbss-dropdown` and listen for its `dropdown:change` event.
+   The panel is `position: fixed`, which is what keeps the Course
+   Filter from being clipped by .registersToolbar's overflow-x: auto.
 ========================================================= */
+
+/* Invalid state for a shared dropdown (set with .isInvalid on the .registerDropdown root). */
+.registerDropdown.isInvalid .registerDropdownToggle { border-color: #dc3545; }
+.registerDropdown.isInvalid .registerDropdownToggle:focus { box-shadow: 0 0 0 .2rem rgba(220, 53, 69, .15); }
 
 /* =========================================================
    Toolbar Course Filter
@@ -598,7 +600,7 @@
         </div>
 
         <!-- Course Filter -->
-        <div class="registerDropdown registerCourseFilter" id="courseFilterDropdown" data-dropdown hidden>
+        <div class="registerDropdown registerCourseFilter" id="courseFilterDropdown" data-fbss-dropdown hidden>
             <button class="registerDropdownToggle" id="courseFilterToggle" type="button" aria-expanded="false" aria-controls="courseFilterOptions">
                 <span id="courseFilterSelected">Filter by Course</span>
                 <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
@@ -653,7 +655,7 @@
         <!-- Course -->
         <div class="formGroup" id="modalCourseGroup">
             <label for="courseToggle">Course <span class="requiredMark">*</span></label>
-            <div class="registerDropdown" data-dropdown>
+            <div class="registerDropdown" id="courseDropdown" data-fbss-dropdown>
                 <button class="registerDropdownToggle" id="courseToggle" type="button" aria-expanded="false" aria-controls="courseOptions">
                     <span id="courseSelected">{{ $courses[0]['name'] ?? 'Select a course' }}</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
@@ -680,7 +682,7 @@
         <!-- Schedule -->
         <div class="formGroup" id="modalScheduleGroup">
             <label for="scheduleToggle">Schedule Time <span class="requiredMark">*</span></label>
-            <div class="registerDropdown" data-dropdown>
+            <div class="registerDropdown" id="scheduleDropdown" data-fbss-dropdown>
                 <button class="registerDropdownToggle" id="scheduleToggle" type="button" aria-expanded="false" aria-controls="scheduleOptions">
                     <span id="scheduleSelected">Morning</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
@@ -726,14 +728,23 @@
 
         <!-- Payment Method -->
         <div class="formGroup" id="modalPaymentMethodGroup" hidden>
-            <label for="paymentMethodInput">Payment Method <span class="requiredMark">*</span></label>
-            <select class="form-control" id="paymentMethodInput">
-                <option value="">Select method</option>
-                <option value="Cash">Cash</option>
-                <option value="GCash">GCash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Other">Other</option>
-            </select>
+            <label for="paymentMethodToggle">Payment Method <span class="requiredMark">*</span></label>
+            <div class="registerDropdown ddBlock" id="paymentMethodDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="paymentMethodToggle" type="button" aria-expanded="false" aria-controls="paymentMethodOptions">
+                    <span>Select method</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+
+                <div class="registerDropdownOptions" id="paymentMethodOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">Select method</button>
+                    <button class="registerDropdownOption" type="button" data-value="Cash">Cash</button>
+                    <button class="registerDropdownOption" type="button" data-value="GCash">GCash</button>
+                    <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
+                    <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
+                </div>
+
+                <input id="paymentMethodInput" name="paymentMethod" type="hidden" value="">
+            </div>
         </div>
 
         <!-- Reference Number -->
@@ -845,6 +856,7 @@
 </div>
 
 
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -982,6 +994,7 @@
         modalPaymentMethodGroup: document.getElementById('modalPaymentMethodGroup'),
         modalReferenceNumberGroup: document.getElementById('modalReferenceNumberGroup'),
         paymentMethodInput: document.getElementById('paymentMethodInput'),
+        paymentMethodDropdown: document.getElementById('paymentMethodDropdown'),
         referenceNumberInput: document.getElementById('referenceNumberInput'),
         studentNotes: document.getElementById('studentNotes'),
         courseInput: document.getElementById('courseInput'),
@@ -1085,19 +1098,10 @@
         return days.length ? `${prefix} - ${days.join('/')}` : prefix;
     }
 
+    // Select an option on one of the modal's shared dropdowns (silent: no change event).
     function setDropdownValue(prefix, value) {
-        const selectedLabel = document.getElementById(`${prefix}Selected`);
-        const input = document.getElementById(`${prefix}Input`);
-        const optionsContainer = document.getElementById(`${prefix}Options`);
-
-        if (selectedLabel) selectedLabel.textContent = value;
-        if (input) input.value = value;
-
-        if (optionsContainer) {
-            optionsContainer.querySelectorAll('.registerDropdownOption').forEach(option => {
-                option.classList.toggle('active', option.dataset.value === value);
-            });
-        }
+        const root = document.getElementById(`${prefix}Toggle`)?.closest('[data-fbss-dropdown]');
+        if (root) window.FBSSDropdown.set(root, value);
     }
 
     function setActiveDays(days) {
@@ -1470,14 +1474,10 @@
             selectedStudentId = null;
             updateStudentToolbarState();
 
-            elements.courseFilterInput.value = '';
-
-            const filterSelected = document.getElementById('courseFilterSelected');
-            if (filterSelected) filterSelected.textContent = 'Filter by Course';
-
-            document.querySelectorAll('#courseFilterOptions .registerDropdownOption').forEach((option, index) => {
-                option.classList.toggle('active', index === 0);
-            });
+            window.FBSSDropdown.set(elements.courseFilterDropdown, '');
+            // back to the placeholder wording until a course is chosen
+            const filterLabel = elements.courseFilterDropdown.querySelector('.registerDropdownToggle span');
+            if (filterLabel) filterLabel.textContent = 'Filter by Course';
 
             updateTabButtons(activeTab);
             updateToolbar(activeTab);
@@ -1520,8 +1520,8 @@
         elements.modalPaymentStatusGroup.hidden = true;
 
         elements.paymentInput.value = '';
-        elements.paymentMethodInput.value = '';
-        elements.paymentMethodInput.classList.remove('is-invalid');
+        window.FBSSDropdown.set(elements.paymentMethodDropdown, '');
+        elements.paymentMethodDropdown.classList.remove('isInvalid');
         elements.referenceNumberInput.value = '';
         elements.studentNotes.value = '';
 
@@ -1635,8 +1635,8 @@
         openPaymentUpdateModal(selectedStudentId);
     });
 
-    elements.paymentMethodInput.addEventListener('change', () => {
-        elements.paymentMethodInput.classList.remove('is-invalid');
+    elements.paymentMethodDropdown.addEventListener('dropdown:change', () => {
+        elements.paymentMethodDropdown.classList.remove('isInvalid');
     });
 
     elements.paymentInput.addEventListener('input', () => {
@@ -1780,8 +1780,8 @@
         const amount = Math.max(Number(elements.paymentInput.value) || 0, 0);
 
         if (!elements.paymentMethodInput.value) {
-            elements.paymentMethodInput.classList.add('is-invalid');
-            elements.paymentMethodInput.focus();
+            elements.paymentMethodDropdown.classList.add('isInvalid');
+            document.getElementById('paymentMethodToggle').focus();
             showToast('Select a payment method.', 'danger');
             return;
         }
@@ -2066,121 +2066,13 @@
     });
 
     /* =========================================================
-       DROPDOWN
+       DROPDOWNS — behaviour lives in assets/js/fbss-dropdown.js
+       (open/close, selection, positioning). This page only reacts
+       to the `dropdown:change` event the shared script fires.
     ========================================================= */
 
-    function initializeDropdown(dropdown) {
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const selectedLabel = toggle?.querySelector('span');
-        const input = dropdown.querySelector('input[type="hidden"]');
-
-        if (!toggle || !options) return;
-
-        toggle.addEventListener('click', event => {
-            event.stopPropagation();
-
-            if (options.hidden) {
-                openDropdown(dropdown);
-            } else {
-                closeDropdown(dropdown);
-            }
-        });
-
-        options.addEventListener('click', event => {
-            const option = event.target.closest('.registerDropdownOption');
-            if (!option) return;
-
-            const value = option.dataset.value;
-
-            if (selectedLabel) selectedLabel.textContent = value || 'Filter by Course';
-            if (input) input.value = value;
-
-            options.querySelectorAll('.registerDropdownOption').forEach(item => {
-                item.classList.toggle('active', item === option);
-            });
-
-            closeDropdown(dropdown);
-
-            if (input && input.id === 'courseFilterInput') {
-                renderTable(activeTab);
-            }
-
-            if (input && input.id === 'courseInput') {
-                updatePriceChange();
-            }
-        });
-
-        dropdown.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeDropdown(dropdown);
-        });
-    }
-
-    function positionDropdownOptions(dropdown) {
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        if (!options || !toggle) return;
-
-        // .registerDropdownOptions is `position: fixed` (see our_theme.css) so it
-        // paints above every ancestor regardless of overflow — like the Graduates
-        // tab's Course Filter, which sits inside .registersToolbar's
-        // `overflow-x: auto` and would otherwise get clipped. Coordinates are
-        // computed here, relative to the viewport, instead of in CSS.
-        const rect = toggle.getBoundingClientRect();
-        options.style.top = `${rect.bottom + 8}px`;
-        options.style.left = `${rect.left}px`;
-        options.style.width = `${rect.width * 1.3}px`;
-    }
-
-    function openDropdown(dropdown) {
-        closeAllDropdowns(dropdown);
-
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-
-        dropdown.classList.add('isOpen');
-        options.hidden = false;
-        toggle.setAttribute('aria-expanded', 'true');
-        positionDropdownOptions(dropdown);
-    }
-
-    function closeDropdown(dropdown) {
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-
-        dropdown.classList.remove('isOpen');
-        options.hidden = true;
-        toggle.setAttribute('aria-expanded', 'false');
-    }
-
-    function closeAllDropdowns(except = null) {
-        document.querySelectorAll('[data-dropdown]').forEach(dropdown => {
-            if (dropdown !== except) closeDropdown(dropdown);
-        });
-    }
-
-    document.querySelectorAll('[data-dropdown]').forEach(initializeDropdown);
-
-    document.addEventListener('click', event => {
-        if (!event.target.closest('[data-dropdown]')) {
-            closeAllDropdowns();
-        }
-    });
-
-    // Keep an open panel lined up with its toggle if the window resizes
-    // (e.g. rotating a device) or the toolbar is scrolled horizontally.
-    window.addEventListener('resize', () => {
-        const open = document.querySelector('[data-dropdown].isOpen');
-        if (open) positionDropdownOptions(open);
-    });
-
-    document.addEventListener('scroll', event => {
-        const open = document.querySelector('[data-dropdown].isOpen');
-        if (!open) return;
-        if (event.target === document || event.target.contains(open)) {
-            positionDropdownOptions(open);
-        }
-    }, true);
+    elements.courseFilterDropdown.addEventListener('dropdown:change', () => renderTable(activeTab));
+    document.getElementById('courseDropdown').addEventListener('dropdown:change', updatePriceChange);
 
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
@@ -2190,7 +2082,7 @@
             if (modal === elements.confirmModal) pendingConfirmAction = null;
             closeModal(modal);
         });
-        closeAllDropdowns();
+        // open dropdowns are closed by the shared script on Escape
     });
 
     /* =========================================================

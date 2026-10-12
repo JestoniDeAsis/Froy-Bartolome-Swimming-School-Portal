@@ -56,11 +56,12 @@
     text-transform: uppercase;
 }
 
-.attendanceClassFilter .registerDropdownToggle { min-width: 160px; }
+/* Sizes come from the shared dropdown variables (our_theme.css). */
+.attendanceClassFilter { --dd-min-width: 160px; }
 
 /* Same fixed width whether "All", "Logged In" or "Not Logged In" is
    selected, so the control doesn't shrink and grow as the choice changes. */
-.attendanceLoggedFilter .registerDropdownToggle { min-width: 160px; }
+.attendanceLoggedFilter { --dd-min-width: 160px; }
 
 /* Search */
 .attendanceSearchContainer {
@@ -290,10 +291,7 @@
     margin-bottom: .5rem;
 }
 
-.attendanceLogFilter .registerDropdownToggle {
-    min-width: 280px;
-    max-width: 100%;
-}
+.attendanceLogFilter { --dd-min-width: 280px; }
 
 .attendanceLogSummary {
     margin: 0;
@@ -336,7 +334,7 @@
         <div class="attendanceFilterGroup" id="classFilterGroup">
             <label class="attendanceFilterLabel" id="classFilterLabel">Select Class</label>
 
-            <div class="registerDropdown attendanceClassFilter" id="classFilterDropdown" data-dropdown>
+            <div class="registerDropdown attendanceClassFilter" id="classFilterDropdown" data-fbss-dropdown>
                 <button class="registerDropdownToggle" id="classFilterToggle" type="button" aria-expanded="false" aria-controls="classFilterOptions">
                     <span id="classFilterSelected">All Classes</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
@@ -367,7 +365,7 @@
         <div class="attendanceFilterGroup" id="loggedFilterGroup">
             <label class="attendanceFilterLabel" id="loggedFilterLabel">Attendance</label>
 
-            <div class="registerDropdown attendanceLoggedFilter" id="loggedFilterDropdown" data-dropdown>
+            <div class="registerDropdown attendanceLoggedFilter" id="loggedFilterDropdown" data-fbss-dropdown>
                 <button class="registerDropdownToggle" id="loggedFilterToggle" type="button" aria-expanded="false" aria-controls="loggedFilterOptions">
                     <span id="loggedFilterSelected">All</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
@@ -464,7 +462,7 @@
                 <div class="attendanceFilterGroup">
                     <label class="attendanceFilterLabel">Course</label>
 
-                    <div class="registerDropdown attendanceLogFilter" id="logFilterDropdown" data-dropdown>
+                    <div class="registerDropdown attendanceLogFilter" id="logFilterDropdown" data-fbss-dropdown>
                         <button class="registerDropdownToggle" id="logFilterToggle" type="button" aria-expanded="false" aria-controls="logFilterOptions">
                             <span id="logFilterSelected">Loading...</span>
                             <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
@@ -495,6 +493,7 @@
 </div>
 
 
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -555,8 +554,7 @@
         tableHead: $('attendanceTableHead'),
         tableBody: $('attendanceTableBody'),
 
-        classFilterOptions: $('classFilterOptions'),
-        classFilterSelected: $('classFilterSelected'),
+        classFilter: $('classFilterDropdown'),
         classFilterInput: $('classFilterInput'),
 
         dateButton: $('attendanceDateButton'),
@@ -576,8 +574,7 @@
         logsSummary: $('logsSummary'),
         logsTableHead: $('logsTableHead'),
         logsTableBody: $('logsTableBody'),
-        logFilterOptions: $('logFilterOptions'),
-        logFilterSelected: $('logFilterSelected'),
+        logFilter: $('logFilterDropdown'),
         logFilterInput: $('logFilterInput'),
         logsClose: $('logsModalCloseButton'),
         logsDone: $('logsModalDoneButton'),
@@ -741,19 +738,11 @@
     ========================================================= */
 
     function buildClassOptions(courses) {
-        el.classFilterOptions.replaceChildren();
+        const items = [{ value: '', label: 'All Classes' }]
+            .concat(courses.map(course => ({ value: String(course.id), label: course.name })));
 
-        const addOption = (value, label) => {
-            const button = make('button', {
-                className: 'registerDropdownOption' + (el.classFilterInput.value === String(value) ? ' active' : ''),
-                text: label,
-                attributes: { type: 'button', 'data-value': String(value) }
-            });
-            el.classFilterOptions.append(button);
-        };
-
-        addOption('', 'All Classes');
-        courses.forEach(course => addOption(course.id, course.name));
+        // Keeps the current pick when it is still in the list.
+        window.FBSSDropdown.setOptions(el.classFilter, items, el.classFilterInput.value);
 
         classOptionsBuilt = true;
     }
@@ -1054,7 +1043,7 @@
 
         if (!el.logsOverlay.hidden) closeLogsModal();
         if (!el.modalOverlay.hidden && !busy) closeTimeModal();
-        closeAllDropdowns();
+        // open dropdowns are closed by the shared script on Escape
     });
 
     /* =========================================================
@@ -1124,22 +1113,12 @@
     }
 
     function buildLogFilter(enrollments) {
-        el.logFilterOptions.replaceChildren();
-
         const choices = [{ value: 'all', label: 'All courses' }]
             .concat(enrollments.map(e => ({ value: String(e.id), label: e.label })));
 
-        choices.forEach(choice => {
-            el.logFilterOptions.append(make('button', {
-                className: 'registerDropdownOption' + (el.logFilterInput.value === choice.value ? ' active' : ''),
-                text: choice.label,
-                attributes: { type: 'button', 'data-value': choice.value }
-            }));
-        });
-
+        // Keeps the current pick when it is still in the list, else "All courses".
         const current = choices.find(c => c.value === el.logFilterInput.value) || choices[0];
-        el.logFilterInput.value = current.value;
-        el.logFilterSelected.textContent = current.label;
+        window.FBSSDropdown.setOptions(el.logFilter, choices, current.value);
 
         logFilterBuilt = true;
     }
@@ -1182,9 +1161,11 @@
         logFilterBuilt = false;
 
         // Start on the enrollment the admin clicked; "All courses" is one pick away.
-        el.logFilterInput.value = String(record.id);
-        el.logFilterSelected.textContent = record.course || 'Loading...';
-        el.logFilterOptions.replaceChildren();
+        window.FBSSDropdown.setOptions(
+            el.logFilter,
+            [{ value: String(record.id), label: record.course || 'Loading...' }],
+            String(record.id)
+        );
 
         el.logsStudent.replaceChildren(document.createTextNode('Student: '), make('strong', { text: record.name }));
 
@@ -1195,7 +1176,7 @@
     function closeLogsModal() {
         logsSeq++;   // discard any response still in flight
         el.logsOverlay.hidden = true;
-        closeAllDropdowns();
+        window.FBSSDropdown.close();
     }
 
     el.viewLogsButton.addEventListener('click', openLogsModal);
@@ -1203,91 +1184,14 @@
     el.logsDone.addEventListener('click', closeLogsModal);
 
     /* =========================================================
-       DROPDOWN (shared .registerDropdown component)
+       DROPDOWNS — open/close, selection and positioning come from the
+       shared assets/js/fbss-dropdown.js. This page only reacts to the
+       `dropdown:change` event it fires.
     ========================================================= */
 
-    function positionDropdownOptions(dropdown) {
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        if (!options || !toggle) return;
-
-        const rect = toggle.getBoundingClientRect();
-        options.style.top = `${rect.bottom + 8}px`;
-        options.style.left = `${rect.left}px`;
-        options.style.width = `${rect.width * 1.3}px`;
-    }
-
-    function closeDropdown(dropdown) {
-        dropdown.classList.remove('isOpen');
-        dropdown.querySelector('.registerDropdownOptions').hidden = true;
-        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'false');
-    }
-
-    function closeAllDropdowns(except = null) {
-        document.querySelectorAll('[data-dropdown]').forEach(d => {
-            if (d !== except) closeDropdown(d);
-        });
-    }
-
-    function openDropdown(dropdown) {
-        closeAllDropdowns(dropdown);
-        dropdown.classList.add('isOpen');
-        dropdown.querySelector('.registerDropdownOptions').hidden = false;
-        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'true');
-        positionDropdownOptions(dropdown);
-    }
-
-    function initializeDropdown(dropdown) {
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const label = toggle?.querySelector('span');
-        const input = dropdown.querySelector('input[type="hidden"]');
-        if (!toggle || !options) return;
-
-        toggle.addEventListener('click', event => {
-            event.stopPropagation();
-            options.hidden ? openDropdown(dropdown) : closeDropdown(dropdown);
-        });
-
-        // Delegated, so options added later (from the database) work too.
-        options.addEventListener('click', event => {
-            const option = event.target.closest('.registerDropdownOption');
-            if (!option) return;
-
-            const changed = input && input.value !== option.dataset.value;
-
-            if (label) label.textContent = option.textContent.trim();
-            if (input) input.value = option.dataset.value;
-
-            options.querySelectorAll('.registerDropdownOption').forEach(o => {
-                o.classList.toggle('active', o === option);
-            });
-
-            closeDropdown(dropdown);
-
-            if (changed) {
-                if (input.id === 'classFilterInput') loadRows();
-                else if (input.id === 'loggedFilterInput') applyLocalFilters();
-                else if (input.id === 'logFilterInput') loadStudentLogs();
-            }
-        });
-    }
-
-    document.querySelectorAll('[data-dropdown]').forEach(initializeDropdown);
-
-    document.addEventListener('click', event => {
-        if (!event.target.closest('[data-dropdown]')) closeAllDropdowns();
-    });
-
-    window.addEventListener('resize', () => {
-        const open = document.querySelector('[data-dropdown].isOpen');
-        if (open) positionDropdownOptions(open);
-    });
-
-    document.addEventListener('scroll', event => {
-        const open = document.querySelector('[data-dropdown].isOpen');
-        if (open && (event.target === document || event.target.contains(open))) positionDropdownOptions(open);
-    }, true);
+    el.classFilter.addEventListener('dropdown:change', () => loadRows());
+    $('loggedFilterDropdown').addEventListener('dropdown:change', applyLocalFilters);
+    el.logFilter.addEventListener('dropdown:change', loadStudentLogs);
 
     /* =========================================================
        INIT
@@ -1300,4 +1204,3 @@
 
 })();
 </script>
-

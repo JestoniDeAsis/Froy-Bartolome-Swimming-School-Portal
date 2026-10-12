@@ -268,16 +268,25 @@
             </div>
 
             <div class="formGroup">
-                <label for="coachAddSuffix">Name suffix</label>
-                <select class="form-select" id="coachAddSuffix">
-                    <option value="" selected>None</option>
-                    <option value="Jr.">Jr.</option>
-                    <option value="Sr.">Sr.</option>
-                    <option value="II">II</option>
-                    <option value="III">III</option>
-                    <option value="IV">IV</option>
-                    <option value="V">V</option>
-                </select>
+                <label for="coachAddSuffixToggle">Name suffix</label>
+                <div class="registerDropdown ddBlock" id="coachAddSuffixDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" id="coachAddSuffixToggle" type="button" aria-expanded="false" aria-controls="coachAddSuffixOptions">
+                        <span>None</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="registerDropdownOptions" id="coachAddSuffixOptions" hidden>
+                        <button class="registerDropdownOption active" type="button" data-value="">None</button>
+                        <button class="registerDropdownOption" type="button" data-value="Jr.">Jr.</button>
+                        <button class="registerDropdownOption" type="button" data-value="Sr.">Sr.</button>
+                        <button class="registerDropdownOption" type="button" data-value="II">II</button>
+                        <button class="registerDropdownOption" type="button" data-value="III">III</button>
+                        <button class="registerDropdownOption" type="button" data-value="IV">IV</button>
+                        <button class="registerDropdownOption" type="button" data-value="V">V</button>
+                    </div>
+
+                    <input id="coachAddSuffix" name="name_suffix" type="hidden" value="">
+                </div>
             </div>
 
             <div class="formGroup">
@@ -340,23 +349,32 @@
             </div>
 
             <div class="formGroup">
-                <label for="coachAddEmergencyRelationship">Emergency contact relationship *</label>
-                <select class="form-select" id="coachAddEmergencyRelationship">
-                    <option value="" selected disabled>Select relationship</option>
-                    <option value="Mother">Mother</option>
-                    <option value="Father">Father</option>
-                    <option value="Wife">Wife</option>
-                    <option value="Husband">Husband</option>
-                    <option value="Partner">Partner</option>
-                    <option value="Sibling">Sibling</option>
-                    <option value="Grandmother">Grandmother</option>
-                    <option value="Grandfather">Grandfather</option>
-                    <option value="Aunt">Aunt</option>
-                    <option value="Uncle">Uncle</option>
-                    <option value="Legal Guardian">Legal Guardian</option>
-                    <option value="Friend">Friend</option>
-                    <option value="Other">Other</option>
-                </select>
+                <label for="coachAddEmergencyRelationshipToggle">Emergency contact relationship *</label>
+                <div class="registerDropdown ddBlock" id="coachAddEmergencyRelationshipDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" id="coachAddEmergencyRelationshipToggle" type="button" aria-expanded="false" aria-controls="coachAddEmergencyRelationshipOptions">
+                        <span>Select relationship</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="registerDropdownOptions" id="coachAddEmergencyRelationshipOptions" hidden>
+                        <button class="registerDropdownOption active" type="button" data-value="">Select relationship</button>
+                        <button class="registerDropdownOption" type="button" data-value="Mother">Mother</button>
+                        <button class="registerDropdownOption" type="button" data-value="Father">Father</button>
+                        <button class="registerDropdownOption" type="button" data-value="Wife">Wife</button>
+                        <button class="registerDropdownOption" type="button" data-value="Husband">Husband</button>
+                        <button class="registerDropdownOption" type="button" data-value="Partner">Partner</button>
+                        <button class="registerDropdownOption" type="button" data-value="Sibling">Sibling</button>
+                        <button class="registerDropdownOption" type="button" data-value="Grandmother">Grandmother</button>
+                        <button class="registerDropdownOption" type="button" data-value="Grandfather">Grandfather</button>
+                        <button class="registerDropdownOption" type="button" data-value="Aunt">Aunt</button>
+                        <button class="registerDropdownOption" type="button" data-value="Uncle">Uncle</button>
+                        <button class="registerDropdownOption" type="button" data-value="Legal Guardian">Legal Guardian</button>
+                        <button class="registerDropdownOption" type="button" data-value="Friend">Friend</button>
+                        <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
+                    </div>
+
+                    <input id="coachAddEmergencyRelationship" name="emergency_relationship" type="hidden" value="">
+                </div>
             </div>
 
             <div class="formGroup">
@@ -440,7 +458,7 @@
 
             <div class="formGroup">
                 <label for="coachEditStatusToggle">Status *</label>
-                <div class="registerDropdown" data-dropdown>
+                <div class="registerDropdown ddBlock" id="coachEditStatusDropdown" data-fbss-dropdown>
                     <button class="registerDropdownToggle" id="coachEditStatusToggle" type="button"
                             aria-expanded="false" aria-controls="coachEditStatusOptions">
                         <span id="coachEditStatusSelected">Active</span>
@@ -471,6 +489,7 @@
 
     </div>
 </div>
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -747,8 +766,8 @@
         [el.firstName, el.middleName, el.lastName, el.birthdate, el.email, el.phone,
          el.emergencyName, el.emergencyPhone, el.username, el.password].forEach(i => { i.value = ''; });
 
-        el.suffix.value = '';
-        el.emergencyRelationship.value = '';
+        window.FBSSDropdown.set($('coachAddSuffixDropdown'), '');
+        window.FBSSDropdown.set($('coachAddEmergencyRelationshipDropdown'), '');
         el.password.type = 'password';
         el.showPassword.checked = false;
         el.emailTarget.textContent = '';
@@ -987,18 +1006,10 @@
        EDIT COACH — STATUS + COURSES
     ========================================================= */
 
+    // Select an option on a shared dropdown (silent: no change event).
     function setDropdownValue(prefix, value) {
-        const label = $(`${prefix}Selected`);
-        const input = $(`${prefix}Input`);
-        const options = $(`${prefix}Options`);
-
-        if (label) label.textContent = value;
-        if (input) input.value = value;
-        if (options) {
-            options.querySelectorAll('.registerDropdownOption').forEach(o => {
-                o.classList.toggle('active', o.dataset.value === value);
-            });
-        }
+        const root = $(`${prefix}Dropdown`);
+        if (root) window.FBSSDropdown.set(root, value);
     }
 
     function openEditModal(id) {
@@ -1058,76 +1069,11 @@
     });
 
     /* =========================================================
-       DROPDOWN (theme .registerDropdown — needs this small JS)
+       DROPDOWNS — open/close, selection and positioning come from
+       the shared assets/js/fbss-dropdown.js (data-fbss-dropdown).
+       Each dropdown's hidden <input> keeps the old id, so reading
+       el.suffix.value / el.editStatusInput.value works unchanged.
     ========================================================= */
-
-    function positionDropdownOptions(dropdown) {
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        if (!options || !toggle) return;
-
-        const rect = toggle.getBoundingClientRect();
-        options.style.top = `${rect.bottom + 8}px`;
-        options.style.left = `${rect.left}px`;
-        options.style.width = `${rect.width}px`;
-    }
-
-    function closeDropdown(dropdown) {
-        dropdown.classList.remove('isOpen');
-        dropdown.querySelector('.registerDropdownOptions').hidden = true;
-        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'false');
-    }
-
-    function closeAllDropdowns(except = null) {
-        document.querySelectorAll('[data-dropdown]').forEach(d => {
-            if (d !== except) closeDropdown(d);
-        });
-    }
-
-    function openDropdown(dropdown) {
-        closeAllDropdowns(dropdown);
-        dropdown.classList.add('isOpen');
-        dropdown.querySelector('.registerDropdownOptions').hidden = false;
-        dropdown.querySelector('.registerDropdownToggle').setAttribute('aria-expanded', 'true');
-        positionDropdownOptions(dropdown);
-    }
-
-    function initializeDropdown(dropdown) {
-        const toggle = dropdown.querySelector('.registerDropdownToggle');
-        const options = dropdown.querySelector('.registerDropdownOptions');
-        const label = toggle?.querySelector('span');
-        const input = dropdown.querySelector('input[type="hidden"]');
-        if (!toggle || !options) return;
-
-        toggle.addEventListener('click', event => {
-            event.stopPropagation();
-            options.hidden ? openDropdown(dropdown) : closeDropdown(dropdown);
-        });
-
-        options.addEventListener('click', event => {
-            const option = event.target.closest('.registerDropdownOption');
-            if (!option) return;
-
-            if (label) label.textContent = option.dataset.value;
-            if (input) input.value = option.dataset.value;
-            options.querySelectorAll('.registerDropdownOption').forEach(o => {
-                o.classList.toggle('active', o === option);
-            });
-
-            closeDropdown(dropdown);
-        });
-    }
-
-    document.querySelectorAll('#coachEditModal [data-dropdown]').forEach(initializeDropdown);
-
-    document.addEventListener('click', event => {
-        if (!event.target.closest('[data-dropdown]')) closeAllDropdowns();
-    });
-
-    window.addEventListener('resize', () => {
-        const open = document.querySelector('[data-dropdown].isOpen');
-        if (open) positionDropdownOptions(open);
-    });
 
     /* =========================================================
        MODAL DISMISS (Escape only; clicking outside the card does nothing)
@@ -1144,8 +1090,7 @@
                 closeModal(modal);
             }
         });
-
-        closeAllDropdowns();
+        // open dropdowns are closed by the shared script on Escape
     });
 
     /* =========================================================
