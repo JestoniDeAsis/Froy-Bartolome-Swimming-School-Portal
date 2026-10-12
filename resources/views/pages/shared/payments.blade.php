@@ -1,6 +1,14 @@
 @if ((int) Auth::user()->role_id === 3)
     <style>
         .student-page{width:100%;max-width:1320px;margin:0 auto;padding:28px 32px 40px;color:#202b36}.student-page-header{margin:0 0 24px}.student-page-header h1{font-size:28px;font-weight:700;margin:0 0 5px;color:#173b63}.student-page-header p{margin:0;color:#657382;font-size:14px}.student-card{background:#fff;border:1px solid #dce3ea;border-radius:8px;padding:20px 22px;box-shadow:0 2px 8px rgba(26,51,77,.06)}.student-card-title{font-size:18px;font-weight:700;margin:0;color:#263d55}.student-divider{height:1px;background:#e8edf2;margin:14px 0 16px}.student-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}.student-overview-label{display:block;color:#74818e;font-size:12px;margin-bottom:7px}.student-overview-value{display:block;color:#263d55;font-size:15px}.student-overview-value.is-success{color:#21834b}.student-status-badge{display:inline-block;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700}.student-status-badge.is-paid{background:#e7f6ed;color:#217344}.student-status-badge.is-partial{background:#fff3df;color:#9a6411}.student-table-wrap{width:100%;overflow:auto}.student-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}.student-table th{font-weight:700;color:#526273;background:#f5f8fa;text-align:left;padding:11px 12px}.student-table td{padding:12px;border-bottom:1px solid #e9eef2;color:#344353}.student-icon-button{border:1px solid #ced8e1;border-radius:5px;background:#fff;color:#176da8;width:34px;height:32px}.student-dialog{width:min(560px,calc(100% - 28px));max-height:90vh;padding:0;border:0;border-radius:8px;box-shadow:0 18px 60px rgba(13,35,55,.3)}.student-dialog::backdrop{background:rgba(10,25,40,.55)}.student-receipt-head{background:#176da8;color:white;padding:22px 26px}.student-receipt-head-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.student-receipt-head h2{font-size:18px;margin:0 0 5px}.student-receipt-head p{font-size:12px;margin:3px 0;color:#e6f1f8}.student-receipt-body{padding:22px 26px}.student-receipt-line,.student-receipt-total{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #e9eef2;font-size:13px}.student-receipt-total{font-size:16px;font-weight:700;color:#176da8}.student-receipt-amounts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0;padding:12px 0;border-block:1px solid #e9eef2}.student-receipt-amounts div{display:grid;gap:4px}.student-receipt-amounts small{color:#74818e}.student-receipt-method{font-size:12px;padding:14px 0}.student-receipt-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 26px 20px}@media(max-width:800px){.student-page{padding:22px 18px}.student-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.student-page{padding:18px 12px}.student-card{padding:16px}.student-page-header h1{font-size:24px}.student-overview-grid{gap:14px}.student-receipt-body{padding:18px}.student-receipt-head{padding:18px}}
+        .student-mode-switch{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:-8px 0 20px;padding:12px 14px;background:#fff;border:1px solid #dee2e6;border-radius:var(--fbss-radius,.5rem)}
+        .student-mode-label{margin:0;color:#495057;font-size:.875rem;font-weight:600}
+        .student-mode-help{margin:0;color:#6c757d;font-size:.75rem}
+        .student-applicant-empty{min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+        .student-applicant-empty-icon{display:grid;place-items:center;width:96px;height:96px;margin-bottom:14px;background:var(--fbss-gray-tint,#f1f2f3);color:var(--fbss-blue,#0d6efd);font-size:46px}
+        .student-applicant-empty h2{font-size:1.05rem;font-weight:700;color:#212529;margin:0 0 8px}
+        .student-applicant-empty p{max-width:460px;margin:0;color:#657382;font-size:.875rem}
+        @media(max-width:560px){.student-mode-switch{align-items:flex-start;flex-direction:column;margin-top:0}.student-mode-switch .btn-tab-group{width:100%}.student-mode-switch .btn-tab{flex:1}}
     </style>
     <style>
         #displayContainer:has(> .student-page){padding:50px}.student-page{width:100%;max-width:none;margin:0;padding:0}
@@ -8,9 +16,27 @@
     <main class="student-page student-payments-page">
         <header class="student-page-header">
             <h1>Payments</h1>
-            <p>Track fees, collections, and balances</p>
+            <p id="studentPaymentsRole">Swimmer — Applicant</p>
         </header>
 
+        <div class="student-mode-switch" aria-label="Choose a portal preview">
+            <div>
+                <p class="student-mode-label">UI preview only</p>
+                <p class="student-mode-help">Switching modes previews each screen; it does not change account access.</p>
+            </div>
+            <div class="btn-tab-group" role="group" aria-label="Preview the applicant or student screen">
+                <button class="btn btn-outline-primary btn-tab active" type="button" data-student-mode-button="applicant" aria-pressed="true">Applicant</button>
+                <button class="btn btn-outline-primary btn-tab" type="button" data-student-mode-button="student" aria-pressed="false">Student</button>
+            </div>
+        </div>
+
+        <section class="student-card student-applicant-empty mb-4" data-student-mode-panel="applicant" aria-labelledby="applicantPaymentsTitle">
+            <div class="student-applicant-empty-icon" aria-hidden="true"><i class="bi bi-receipt-cutoff"></i></div>
+            <h2 id="applicantPaymentsTitle">No payment records yet.</h2>
+            <p>Once you enroll in our programs, your fees, outstanding balances, and invoices will appear here.</p>
+        </section>
+
+        <div data-student-mode-panel="student" hidden>
         <section class="student-card mb-4" aria-labelledby="studentPaymentOverviewTitle">
             <h2 class="student-card-title" id="studentPaymentOverviewTitle">Payment Overview</h2>
             <div class="student-divider"></div>
@@ -79,10 +105,33 @@
                 <button class="btn btn-icon btn-icon-square btn-outline-secondary btn-icon-sm" type="button" data-student-close aria-label="Close receipt"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
         </dialog>
+        </div>
     </main>
 
     <script>
         (() => {
+            const buttons = document.querySelectorAll('[data-student-mode-button]');
+            const panels = document.querySelectorAll('[data-student-mode-panel]');
+            const roleLabel = document.getElementById('studentPaymentsRole');
+
+            buttons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const mode = button.dataset.studentModeButton;
+
+                    buttons.forEach((option) => {
+                        const isActive = option === button;
+                        option.classList.toggle('active', isActive);
+                        option.setAttribute('aria-pressed', String(isActive));
+                    });
+
+                    panels.forEach((panel) => {
+                        panel.hidden = panel.dataset.studentModePanel !== mode;
+                    });
+
+                    roleLabel.textContent = `Swimmer — ${mode === 'applicant' ? 'Applicant' : 'Student'}`;
+                });
+            });
+
             const receiptDialog = document.getElementById('studentReceiptDialog');
             document.querySelectorAll('[data-student-receipt]').forEach((button) => {
                 button.addEventListener('click', () => receiptDialog.showModal());
