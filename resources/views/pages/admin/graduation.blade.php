@@ -1,59 +1,18 @@
 @extends('layouts.toast')
 
 @php
-    use App\Http\Controllers\CoachController as C;
+    // Data comes from GraduationController::pageData(). The page is still rendered
+    // by name from role_menus.php (no route), so the controller is called here.
+    $graduation = app(\App\Http\Controllers\GraduationController::class)->pageData();
 
-    // Self-contained like courses.blade.php: loads its own data so it can be
-    // rendered by name from role_menus.php without a dedicated controller.
-    // Real data: ACTIVE enrollments (not graduated yet, account status Active).
-    $enrollments = \DB::table('tbl_enrollments as e')
-        ->join(C::USERS_TABLE . ' as u', 'u.' . C::USER_PK, '=', 'e.user_id')
-        ->join('tbl_user_profile as p', 'p.user_id', '=', 'e.user_id')
-        ->join(C::STATUS_TABLE . ' as st', 'st.' . C::STATUS_ID_COL, '=', 'u.' . C::STATUS_COL)
-        ->leftJoin(C::COURSES_TABLE . ' as c', 'c.' . C::COURSE_ID_COL, '=', 'e.course_id')
-        ->whereNull('e.graduation_at')
-        ->where('st.' . C::STATUS_NAME_COL, 'Active')
-        ->orderBy('p.last_name')
-        ->orderBy('p.first_name')
-        ->get([
-            'e.enrollment_id',
-            'e.enrollment_at',
-            'e.scheduled_time',
-            'c.' . C::COURSE_ID_COL . ' as course_id',
-            'c.' . C::COURSE_NAME_COL . ' as course_name',
-            'c.course_session_count',
-            'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix',
-        ]);
+    $graduationStudents = collect($graduation['active']);
+    $graduatedStudents  = collect($graduation['graduated']);
+    $assessments        = $graduation['assessments'];   // keyed by enrollment id
 
-    // Sessions attended = attendance rows with a Time In, per enrollment
-    // (same rule as the Attendance page).
-    $attendance = $enrollments->isEmpty()
-        ? collect()
-        : \DB::table('tbl_attendances')
-            ->whereIn('enrollment_id', $enrollments->pluck('enrollment_id'))
-            ->whereNotNull('time_in')
-            ->groupBy('enrollment_id')
-            ->selectRaw('enrollment_id, COUNT(*) as sessions, MAX(attendance_at) as last_session')
-            ->get()
-            ->keyBy('enrollment_id');
-
-    $graduationStudents = $enrollments->map(function ($e) use ($attendance) {
-        $given = trim($e->first_name . ' ' . ($e->middle_name ?? ''));
-        $name = trim($e->last_name . ', ' . $given . ($e->name_suffix ? ' ' . $e->name_suffix : ''));
-        $row = $attendance->get($e->enrollment_id);
-
-        return [
-            'id'          => (int) $e->enrollment_id,
-            'name'        => $name,
-            'courseId'    => $e->course_id !== null ? (int) $e->course_id : null,
-            'course'      => $e->course_name ?? 'No course',
-            'schedule'    => $e->scheduled_time ?: null,
-            'enrolledAt'  => $e->enrollment_at ? substr((string) $e->enrollment_at, 0, 10) : null,
-            'done'        => $row ? (int) $row->sessions : 0,
-            'total'       => max(0, (int) $e->course_session_count),
-            'lastSession' => $row && $row->last_session ? substr((string) $row->last_session, 0, 10) : null,
-        ];
-    })->values();
+    // Everyone who attended every session is "Ready for Assessment".
+    $readyStudents = $graduationStudents
+        ->filter(fn ($s) => $s['total'] > 0 && $s['done'] >= $s['total'])
+        ->values();
 
     $graduationCourses = $graduationStudents
         ->filter(fn ($s) => $s['courseId'] !== null)
@@ -62,15 +21,11 @@
         ->sortBy('name')
         ->values();
 
-    // SAMPLE DATA ONLY (placeholder display for the Ready / Graduates tabs
-    // until they are connected to real records).
-    $sampleReady = [
-        ['name' => 'Santos, Maria P.',   'level' => 'Beginner',     'sessions' => '8 / 8 sessions',   'last_session' => 'Oct 09, 2026'],
-        ['name' => 'Reyes, Carlo D.',    'level' => 'Intermediate', 'sessions' => '12 / 12 sessions', 'last_session' => 'Oct 10, 2026'],
-    ];
-    $sampleGraduated = [
-        ['name' => 'Cruz, Angela M.',    'level' => 'Beginner',     'sessions' => '8 / 8 sessions',   'certificate' => 'CERT-2026-0001'],
-        ['name' => 'Garcia, Paolo R.',   'level' => 'Advanced',     'sessions' => '16 / 16 sessions', 'certificate' => 'CERT-2026-0002'],
+    // Badge class + text for the coach's skills assessment status.
+    $assessmentBadges = [
+        'eligible'     => ['is-ready',      'Eligible to graduate'],
+        'assessed'     => ['is-almost',     'Assessed'],
+        'not_assessed' => ['is-notstarted', 'Not yet assessed'],
     ];
 @endphp
 
@@ -124,7 +79,7 @@
 .graduationStatIcon.amber { background: #fff4e0; color: #b26a00; }
 .graduationStatIcon.red   { background: #fdebec; color: #c22b3a; }
 
-/* Real-data view (Active tab) and the sample panels share the space under the tabs. */
+/* Real-data view (Active tab) and the Ready / Graduates panels share the space under the tabs. */
 .graduationRealView, .graduationSample { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .graduationRealView[hidden], .graduationSample[hidden] { display: none !important; }
 .graduationSample { overflow-y: auto; }
@@ -366,6 +321,8 @@
     .assessment-result { padding: .08rem .38rem; border-radius: 3px; font-size: .57rem; font-weight: 700; }
     .assessment-result--passed { color: #087443; background: #d8f6e6; }
     .assessment-result--failed { color: #b42318; background: #fde4e2; }
+    .assessment-result--none { color: #667085; background: #f1f3f5; }
+    .assessment-note { margin: 0 0 .6rem; font-size: .72rem; color: #667085; }
     .assessment-balance { color: var(--fbss-danger); font-size: .85rem; font-style: italic; }
     .assessment-back { min-width: 76px; }
 
@@ -400,7 +357,7 @@
 
     <div class="graduationStats" aria-label="Active student summary">
         <article class="graduationStat">
-            <div><p class="graduationStatLabel">Active studentss</p><p class="graduationStatValue" id="graduationStatActive">0</p></div>
+            <div><p class="graduationStatLabel">Active students</p><p class="graduationStatValue" id="graduationStatActive">0</p></div>
             <span class="graduationStatIcon blue"><i class="bi bi-people"></i></span>
         </article>
         <article class="graduationStat">
@@ -487,59 +444,70 @@
 
     </div>
 
-    {{-- ===== SAMPLE DISPLAY (not real data yet) ===== --}}
+    {{-- ===== READY FOR ASSESSMENT (every session attended) ===== --}}
     <div class="graduationSample" id="graduationSampleReady" hidden>
         <section class="graduation-panel">
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-patch-check" aria-hidden="true"></i>
-                Ready for Assessment <span class="group-count">({{ count($sampleReady) }})</span>
-                <span class="badge text-bg-secondary ms-auto">Sample data</span>
+                Ready for Assessment <span class="group-count">({{ $readyStudents->count() }})</span>
             </h2>
             <div class="graduation-student-list">
-                @foreach ($sampleReady as $student)
+                @forelse ($readyStudents as $student)
+                    @php
+                        $status = $assessments[$student['id']]['status'] ?? 'not_assessed';
+                        [$badgeClass, $badgeText] = $assessmentBadges[$status];
+                    @endphp
                     <article class="graduation-student graduation-student--ready">
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
-                            <div class="graduation-student-meta"><strong>{{ $student['level'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['sessions'] }}</strong></div>
+                            <div class="graduation-student-meta">
+                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }} / {{ $student['total'] }} sessions</strong><span class="mx-2">&middot;</span><span class="graduationBadge {{ $badgeClass }}">{{ $badgeText }}</span>
+                            </div>
                         </div>
                         <div class="graduation-ready-actions">
-                            <span class="graduation-ready-session">LAST SESSION: {{ $student['last_session'] }}</span>
-                            <button type="button" class="btn btn-primary btn-sm graduation-ready-graduate" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-student="{{ $student['name'] }}" data-assessment-type="ready" data-assessment-mode="graduate">
+                            <span class="graduation-ready-session">LAST SESSION: {{ $student['lastSession'] ? \Illuminate\Support\Carbon::parse($student['lastSession'])->format('M d, Y') : 'None' }}</span>
+                            <button type="button" class="btn btn-primary btn-sm graduation-ready-graduate" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-type="ready" data-assessment-mode="graduate" @disabled($status !== 'eligible') @if ($status !== 'eligible') title="The coach has not marked this student as eligible yet." @endif>
                                 <i class="bi bi-award" aria-hidden="true"></i> Graduate
                             </button>
                             <label class="graduation-ready-upload" for="certificate-{{ $loop->index }}">
                                 <i class="bi bi-upload" aria-hidden="true"></i> Upload Certificate
                                 <input type="file" id="certificate-{{ $loop->index }}" accept=".pdf,image/*" data-certificate-input>
                             </label>
-                            <button type="button" class="btn btn-primary btn-sm graduation-ready-view" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-student="{{ $student['name'] }}" data-assessment-type="ready" data-assessment-mode="view">View</button>
+                            <button type="button" class="btn btn-primary btn-sm graduation-ready-view" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-type="ready" data-assessment-mode="view">View</button>
                             <span class="graduation-ready-file" data-certificate-name></span>
                         </div>
                     </article>
-                @endforeach
+                @empty
+                    <p class="graduation-empty">No students have completed all their sessions yet.</p>
+                @endforelse
             </div>
         </section>
     </div>
 
+    {{-- ===== GRADUATES (enrollments with a graduation date) ===== --}}
     <div class="graduationSample" id="graduationSampleGraduated" hidden>
         <section class="graduation-panel">
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-mortarboard" aria-hidden="true"></i>
-                Graduates <span class="group-count">({{ count($sampleGraduated) }})</span>
-                <span class="badge text-bg-secondary ms-auto">Sample data</span>
+                Graduates <span class="group-count">({{ $graduatedStudents->count() }})</span>
             </h2>
             <div class="graduation-student-list">
-                @foreach ($sampleGraduated as $student)
+                @forelse ($graduatedStudents as $student)
                     <article class="graduation-student graduation-student--graduated">
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
-                            <div class="graduation-student-meta"><strong>{{ $student['level'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['sessions'] }}</strong></div>
+                            <div class="graduation-student-meta">
+                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }}{{ $student['total'] > 0 ? ' / ' . $student['total'] : '' }} sessions</strong><span class="mx-2">&middot;</span>Graduated {{ \Illuminate\Support\Carbon::parse($student['graduatedAt'])->format('M d, Y') }}
+                            </div>
                         </div>
                         <div class="graduation-graduate-actions">
-                            <span class="graduation-certificate-number">{{ $student['certificate'] }}</span>
-                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-student="{{ $student['name'] }}" data-assessment-type="graduated" data-assessment-mode="view">View Details</button>
+                            <span class="graduation-certificate-number">Certificate not recorded</span>
+                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-type="graduated" data-assessment-mode="view">View Details</button>
                         </div>
                     </article>
-                @endforeach
+                @empty
+                    <p class="graduation-empty">No students have graduated yet.</p>
+                @endforelse
             </div>
         </section>
     </div>
@@ -553,13 +521,16 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h2 class="assessment-student-name" id="assessmentStudent">Maria P. Santos</h2>
+                    <h2 class="assessment-student-name" id="assessmentStudent">Student</h2>
                     <div class="text-muted small" id="assessmentLevel">Core Skills Assessment List</div>
+                    <div class="text-muted small" id="assessmentMeta"></div>
                 </div>
                 <span class="assessment-payment ms-auto me-2">Unpaid</span>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div class="mb-2"><span class="graduationBadge" id="assessmentEligibility"></span></div>
+                <p class="assessment-note" id="assessmentNote" hidden></p>
                 <div class="assessment-progress-summary">
                     <span class="assessment-progress-count"><span id="assessmentPassed">4</span> / <span id="assessmentTotal">18</span> passed</span>
                     <span class="assessment-progress-percent" id="assessmentPercent">22.7%</span>
@@ -568,50 +539,10 @@
                     <div class="progress-bar" style="width: 22.7%"></div>
                 </div>
 
-                <div class="assessment-categories">
-                    <div class="assessment-category">
-                        <button type="button" class="assessment-category-toggle" data-bs-toggle="collapse" data-bs-target="#skills-water" aria-expanded="true" aria-controls="skills-water">
-                            <i class="bi bi-chevron-down" aria-hidden="true"></i><span>Water Comfort &amp; Safety</span><span class="assessment-category-count">2 / 4 passed</span>
-                        </button>
-                        <div class="collapse show" id="skills-water">
-                            <div class="assessment-skills">
-                                <div class="assessment-skill"><span>Entering and exiting the pool safely</span><span class="assessment-result assessment-result--passed">Passed</span></div>
-                                <div class="assessment-skill"><span>Submerging face underwater comfortably</span><span class="assessment-result assessment-result--passed">Passed</span></div>
-                                <div class="assessment-skill"><span>Floating on front (face in water)</span><span class="assessment-result assessment-result--failed">Failed</span></div>
-                                <div class="assessment-skill"><span>Floating on back (supine position)</span><span class="assessment-result assessment-result--failed">Failed</span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="assessment-category">
-                        <button type="button" class="assessment-category-toggle" data-bs-toggle="collapse" data-bs-target="#skills-breathing" aria-expanded="true" aria-controls="skills-breathing">
-                            <i class="bi bi-chevron-down" aria-hidden="true"></i><span>Breathing Skills</span><span class="assessment-category-count">2 / 3 passed</span>
-                        </button>
-                        <div class="collapse show" id="skills-breathing">
-                            <div class="assessment-skills">
-                                <div class="assessment-skill"><span>Exhaling underwater (bubbles)</span><span class="assessment-result assessment-result--passed">Passed</span></div>
-                                <div class="assessment-skill"><span>Inhaling above water</span><span class="assessment-result assessment-result--passed">Passed</span></div>
-                                <div class="assessment-skill"><span>Rhythmic breathing while swimming</span><span class="assessment-result assessment-result--failed">Failed</span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="assessment-category">
-                        <button type="button" class="assessment-category-toggle" data-bs-toggle="collapse" data-bs-target="#skills-arms" aria-expanded="true" aria-controls="skills-arms">
-                            <i class="bi bi-chevron-down" aria-hidden="true"></i><span>Arm Pulls &amp; Kicking Fundamentals</span><span class="assessment-category-count">0 / 3 passed</span>
-                        </button>
-                        <div class="collapse show" id="skills-arms">
-                            <div class="assessment-skills">
-                                <div class="assessment-skill"><span>Rhythmic breathing while swimming</span><span class="assessment-result assessment-result--failed">Failed</span></div>
-                                <div class="assessment-skill"><span>Rhythmic breathing while swimming</span><span class="assessment-result assessment-result--failed">Failed</span></div>
-                                <div class="assessment-skill"><span>Rhythmic breathing while swimming</span><span class="assessment-result assessment-result--failed">Failed</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="assessment-categories" id="assessmentCategories"></div>
             </div>
             <div class="modal-footer justify-content-between">
-                <strong class="assessment-balance">Balance: ₱3,000</strong>
+                <strong class="assessment-balance">Balance: ₱0</strong>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-primary btn-sm assessment-back" data-bs-dismiss="modal">Back</button>
                     <button type="button" class="btn btn-primary btn-sm d-none" id="confirmGraduationButton" data-bs-dismiss="modal">Confirm</button>
@@ -630,7 +561,8 @@
     const ALMOST_LEFT = 2;
 
     const students = @json($graduationStudents);
-    const SAMPLE_COUNTS = { ready: {{ count($sampleReady) }}, graduated: {{ count($sampleGraduated) }} };
+    const COUNTS = { ready: {{ $readyStudents->count() }}, graduated: {{ $graduatedStudents->count() }} };
+    const ASSESSMENTS = @json($assessments);   // keyed by enrollment id
     let activeTab = 'active';
 
     const $ = id => document.getElementById(id);
@@ -726,7 +658,7 @@
        FILTER + SORT
     ========================================================= */
 
-    // Real data: every active student (Ready / Graduates tabs are sample panels for now).
+    // Active tab: every active student (the Ready / Graduates tabs are rendered by the server).
     function tabStudents() {
         return students;
     }
@@ -851,7 +783,7 @@
             button.setAttribute('aria-selected', String(on));
         });
 
-        const counts = { ready: SAMPLE_COUNTS.ready, active: students.length, graduated: SAMPLE_COUNTS.graduated };
+        const counts = { ready: COUNTS.ready, active: students.length, graduated: COUNTS.graduated };
         el.tabs.querySelectorAll('[data-tab-count]').forEach(span => {
             span.textContent = `(${counts[span.dataset.tabCount]})`;
         });
@@ -874,97 +806,139 @@
     render();
 
     /* =========================================================
-       SAMPLE ASSESSMENT POPUP (placeholder data, Ready / Graduates tabs)
+       ASSESSMENT POPUP (real skills results + payment, Ready / Graduates tabs)
     ========================================================= */
     (function () {
-        const assessmentModal = document.getElementById('assessmentModal');
-        const paymentBadge = assessmentModal.querySelector('.assessment-payment');
-        const passedCount = document.getElementById('assessmentPassed');
-        const totalCount = document.getElementById('assessmentTotal');
-        const percentage = document.getElementById('assessmentPercent');
-        const progressBar = assessmentModal.querySelector('.assessment-progress .progress-bar');
-        const progressTrack = assessmentModal.querySelector('.assessment-progress');
-        const categoryCounts = assessmentModal.querySelectorAll('.assessment-category-count');
-        const skillResults = assessmentModal.querySelectorAll('.assessment-result');
-        const categoryToggles = assessmentModal.querySelectorAll('.assessment-category-toggle');
-        const categoryPanels = assessmentModal.querySelectorAll('.assessment-category .collapse');
-        const balance = assessmentModal.querySelector('.assessment-balance');
-        const confirmGraduationButton = document.getElementById('confirmGraduationButton');
-        const graduationFeedback = document.getElementById('graduationFeedback');
+        const modalEl = $('assessmentModal');
+        const paymentBadge = modalEl.querySelector('.assessment-payment');
+        const progressBar = modalEl.querySelector('.assessment-progress .progress-bar');
+        const progressTrack = modalEl.querySelector('.assessment-progress');
+        const balance = modalEl.querySelector('.assessment-balance');
+        const categoriesEl = $('assessmentCategories');
+        const eligibility = $('assessmentEligibility');
+        const note = $('assessmentNote');
+        const confirmGraduationButton = $('confirmGraduationButton');
+        const graduationFeedback = $('graduationFeedback');
 
-        const defaultAssessment = {
-            payment: paymentBadge.textContent.trim(),
-            passed: passedCount.textContent,
-            total: totalCount.textContent,
-            percentage: percentage.textContent,
-            balance: balance.textContent,
-            categoryCounts: Array.from(categoryCounts, (count) => count.textContent),
-            skillResults: Array.from(skillResults, (result) => result.textContent),
+        const STATUS = {
+            eligible: { cls: 'is-ready', text: 'Eligible to graduate' },
+            assessed: { cls: 'is-almost', text: 'Assessed' },
+            not_assessed: { cls: 'is-notstarted', text: 'Not yet assessed' }
         };
 
-        assessmentModal.addEventListener('show.bs.modal', (event) => {
-            const trigger = event.relatedTarget;
-            const displayName = trigger.dataset.student || 'Student';
-            const assessmentType = trigger.dataset.assessmentType || 'active';
-            const assessmentMode = trigger.dataset.assessmentMode || 'view';
-            const nameParts = displayName.split(', ');
-            const modalName = nameParts.length === 2 ? `${nameParts[1]} ${nameParts[0]}` : displayName;
+        const RESULT = {
+            pass: { cls: 'assessment-result--passed', text: 'Passed' },
+            failed: { cls: 'assessment-result--failed', text: 'Failed' },
+            none: { cls: 'assessment-result--none', text: 'Not marked' }
+        };
 
-            document.getElementById('assessmentStudent').textContent = modalName;
-            document.getElementById('assessmentLevel').textContent = 'Core Skills Assessment List';
-            confirmGraduationButton.classList.toggle('d-none', !(assessmentType === 'ready' && assessmentMode === 'graduate'));
+        const peso = n => '₱' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-            if (assessmentType === 'ready' || assessmentType === 'graduated') {
-                paymentBadge.textContent = 'Paid';
-                paymentBadge.classList.add('assessment-payment--paid');
-                passedCount.textContent = '10';
-                totalCount.textContent = '10';
-                percentage.textContent = '100%';
-                progressBar.style.width = '100%';
-                progressTrack.setAttribute('aria-valuenow', '100');
-                balance.textContent = 'Balance: ₱0';
-                ['4 / 4 passed', '3 / 3 passed', '3 / 3 passed'].forEach((count, index) => {
-                    categoryCounts[index].textContent = count;
-                });
-                skillResults.forEach((result) => {
-                    result.textContent = 'Passed';
-                    result.classList.remove('assessment-result--failed');
-                    result.classList.add('assessment-result--passed');
-                });
-                categoryPanels.forEach((panel, index) => {
-                    const isExpanded = assessmentType === 'graduated' || assessmentMode === 'view';
-                    panel.classList.toggle('show', isExpanded);
-                    categoryToggles[index].setAttribute('aria-expanded', String(isExpanded));
-                    categoryToggles[index].querySelector('i').className = `bi ${isExpanded ? 'bi-chevron-down' : 'bi-chevron-right'}`;
-                });
+        function renderCategories(categories) {
+            categoriesEl.replaceChildren();
+
+            if (!categories.length) {
+                categoriesEl.append(make('p', 'assessment-note', 'No skill categories have been set up for this course.'));
                 return;
             }
 
-            paymentBadge.textContent = defaultAssessment.payment;
-            paymentBadge.classList.remove('assessment-payment--paid');
-            passedCount.textContent = defaultAssessment.passed;
-            totalCount.textContent = defaultAssessment.total;
-            percentage.textContent = defaultAssessment.percentage;
-            progressBar.style.width = `${defaultAssessment.percentage}`;
-            progressTrack.setAttribute('aria-valuenow', '22.7');
-            balance.textContent = defaultAssessment.balance;
-            categoryCounts.forEach((count, index) => {
-                count.textContent = defaultAssessment.categoryCounts[index];
+            categories.forEach((category, index) => {
+                const panelId = `assessment-skills-${index}`;
+                const wrapper = make('div', 'assessment-category');
+
+                const toggle = make('button', 'assessment-category-toggle');
+                toggle.type = 'button';
+                toggle.setAttribute('data-bs-toggle', 'collapse');
+                toggle.setAttribute('data-bs-target', `#${panelId}`);
+                toggle.setAttribute('aria-expanded', 'true');
+                toggle.setAttribute('aria-controls', panelId);
+                toggle.append(
+                    icon('bi-chevron-down'),
+                    make('span', null, category.name),
+                    make('span', 'assessment-category-count', `${category.passed} / ${category.total} passed`)
+                );
+
+                const panel = make('div', 'collapse show');
+                panel.id = panelId;
+                const skills = make('div', 'assessment-skills');
+
+                category.skills.forEach(skill => {
+                    const result = RESULT[skill.result] || RESULT.none;
+                    const row = make('div', 'assessment-skill');
+                    row.append(make('span', null, skill.name), make('span', `assessment-result ${result.cls}`, result.text));
+                    skills.append(row);
+                });
+
+                panel.append(skills);
+                wrapper.append(toggle, panel);
+                categoriesEl.append(wrapper);
             });
-            skillResults.forEach((result, index) => {
-                const isPassed = defaultAssessment.skillResults[index] === 'Passed';
-                result.textContent = defaultAssessment.skillResults[index];
-                result.classList.toggle('assessment-result--passed', isPassed);
-                result.classList.toggle('assessment-result--failed', !isPassed);
-            });
-            categoryPanels.forEach((panel, index) => {
-                panel.classList.add('show');
-                categoryToggles[index].setAttribute('aria-expanded', 'true');
-                categoryToggles[index].querySelector('i').className = 'bi bi-chevron-down';
-            });
+        }
+
+        modalEl.addEventListener('show.bs.modal', event => {
+            const trigger = event.relatedTarget;
+            const detail = ASSESSMENTS[trigger.dataset.enrollmentId];
+            const displayName = trigger.dataset.student || 'Student';
+            const nameParts = displayName.split(', ');
+            const modalName = nameParts.length === 2 ? `${nameParts[1]} ${nameParts[0]}` : displayName;
+            const type = trigger.dataset.assessmentType || 'ready';
+            const mode = trigger.dataset.assessmentMode || 'view';
+
+            $('assessmentStudent').textContent = modalName;
+            $('assessmentLevel').textContent = `${trigger.dataset.course || 'Course'} · Core Skills Assessment List`;
+            confirmGraduationButton.classList.toggle('d-none', !(type === 'ready' && mode === 'graduate'));
+
+            if (!detail) {
+                $('assessmentMeta').textContent = '';
+                eligibility.className = 'graduationBadge is-notstarted';
+                eligibility.textContent = 'No assessment data';
+                note.hidden = true;
+                $('assessmentPassed').textContent = '0';
+                $('assessmentTotal').textContent = '0';
+                $('assessmentPercent').textContent = '0%';
+                progressBar.style.width = '0%';
+                progressTrack.setAttribute('aria-valuenow', '0');
+                paymentBadge.textContent = '-';
+                balance.textContent = '';
+                categoriesEl.replaceChildren();
+                return;
+            }
+
+            // Who assessed + when
+            $('assessmentMeta').textContent = detail.assessed_by
+                ? `Assessed by ${detail.assessed_by}${detail.assessed_at ? ' on ' + formatDay(detail.assessed_at) : ''}`
+                : 'Not assessed by a coach yet';
+
+            // Eligibility badge
+            const status = STATUS[detail.status] || STATUS.not_assessed;
+            eligibility.className = `graduationBadge ${status.cls}`;
+            eligibility.textContent = status.text;
+
+            if (detail.status === 'eligible' && detail.ready_to_graduate && detail.passed < detail.total) {
+                note.textContent = 'The coach marked this student as eligible even though not every skill was passed.';
+                note.hidden = false;
+            } else {
+                note.hidden = true;
+            }
+
+            // Progress
+            const percent = detail.total > 0 ? Math.round((detail.passed / detail.total) * 1000) / 10 : 0;
+            $('assessmentPassed').textContent = detail.passed;
+            $('assessmentTotal').textContent = detail.total;
+            $('assessmentPercent').textContent = `${percent}%`;
+            progressBar.style.width = `${percent}%`;
+            progressTrack.setAttribute('aria-valuenow', String(percent));
+
+            // Payment
+            const paid = detail.balance <= 0;
+            paymentBadge.textContent = paid ? 'Paid' : 'Unpaid';
+            paymentBadge.classList.toggle('assessment-payment--paid', paid);
+            balance.textContent = `Balance: ${peso(detail.balance)}`;
+
+            renderCategories(detail.categories || []);
         });
 
-        document.querySelectorAll('[data-certificate-input]').forEach((input) => {
+        document.querySelectorAll('[data-certificate-input]').forEach(input => {
             input.addEventListener('change', () => {
                 const fileName = input.files && input.files.length ? `Selected: ${input.files[0].name} (not uploaded)` : '';
                 input.closest('.graduation-ready-actions').querySelector('[data-certificate-name]').textContent = fileName;
