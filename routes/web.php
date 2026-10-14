@@ -96,6 +96,10 @@ use App\Http\Controllers\StudentAttendanceController;
  
 Route::get('/student/attendance/data', [StudentAttendanceController::class, 'data'])->middleware('auth');
 
+use App\Http\Controllers\PaymentHistoryController;
+
+Route::get('/payments/data', [PaymentHistoryController::class, 'data'])->middleware('auth');
+
 use App\Http\Controllers\SalesInvoiceController;
 
 Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');

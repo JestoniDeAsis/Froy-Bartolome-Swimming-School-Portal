@@ -1,145 +1,626 @@
-@if ((int) Auth::user()->role_id === 3)
-    <style>
-        .student-page{width:100%;max-width:1320px;margin:0 auto;padding:28px 32px 40px;color:#202b36}.student-page-header{margin:0 0 24px}.student-page-header h1{font-size:28px;font-weight:700;margin:0 0 5px;color:#173b63}.student-page-header p{margin:0;color:#657382;font-size:14px}.student-card{background:#fff;border:1px solid #dce3ea;border-radius:8px;padding:20px 22px;box-shadow:0 2px 8px rgba(26,51,77,.06)}.student-card-title{font-size:18px;font-weight:700;margin:0;color:#263d55}.student-divider{height:1px;background:#e8edf2;margin:14px 0 16px}.student-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}.student-overview-label{display:block;color:#74818e;font-size:12px;margin-bottom:7px}.student-overview-value{display:block;color:#263d55;font-size:15px}.student-overview-value.is-success{color:#21834b}.student-status-badge{display:inline-block;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700}.student-status-badge.is-paid{background:#e7f6ed;color:#217344}.student-status-badge.is-partial{background:#fff3df;color:#9a6411}.student-table-wrap{width:100%;overflow:auto}.student-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}.student-table th{font-weight:700;color:#526273;background:#f5f8fa;text-align:left;padding:11px 12px}.student-table td{padding:12px;border-bottom:1px solid #e9eef2;color:#344353}.student-icon-button{border:1px solid #ced8e1;border-radius:5px;background:#fff;color:#176da8;width:34px;height:32px}.student-dialog{width:min(560px,calc(100% - 28px));max-height:90vh;padding:0;border:0;border-radius:8px;box-shadow:0 18px 60px rgba(13,35,55,.3)}.student-dialog::backdrop{background:rgba(10,25,40,.55)}.student-receipt-head{background:#176da8;color:white;padding:22px 26px}.student-receipt-head-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.student-receipt-head h2{font-size:18px;margin:0 0 5px}.student-receipt-head p{font-size:12px;margin:3px 0;color:#e6f1f8}.student-receipt-body{padding:22px 26px}.student-receipt-line,.student-receipt-total{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #e9eef2;font-size:13px}.student-receipt-total{font-size:16px;font-weight:700;color:#176da8}.student-receipt-amounts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0;padding:12px 0;border-block:1px solid #e9eef2}.student-receipt-amounts div{display:grid;gap:4px}.student-receipt-amounts small{color:#74818e}.student-receipt-method{font-size:12px;padding:14px 0}.student-receipt-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 26px 20px}@media(max-width:800px){.student-page{padding:22px 18px}.student-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.student-page{padding:18px 12px}.student-card{padding:16px}.student-page-header h1{font-size:24px}.student-overview-grid{gap:14px}.student-receipt-body{padding:18px}.student-receipt-head{padding:18px}}
-        .student-mode-switch{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:-8px 0 20px;padding:12px 14px;background:#fff;border:1px solid #dee2e6;border-radius:var(--fbss-radius,.5rem)}
-        .student-mode-label{margin:0;color:#495057;font-size:.875rem;font-weight:600}
-        .student-mode-help{margin:0;color:#6c757d;font-size:.75rem}
-        .student-applicant-empty{min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-        .student-applicant-empty-icon{display:grid;place-items:center;width:96px;height:96px;margin-bottom:14px;background:var(--fbss-gray-tint,#f1f2f3);color:var(--fbss-blue,#0d6efd);font-size:46px}
-        .student-applicant-empty h2{font-size:1.05rem;font-weight:700;color:#212529;margin:0 0 8px}
-        .student-applicant-empty p{max-width:460px;margin:0;color:#657382;font-size:.875rem}
-        @media(max-width:560px){.student-mode-switch{align-items:flex-start;flex-direction:column;margin-top:0}.student-mode-switch .btn-tab-group{width:100%}.student-mode-switch .btn-tab{flex:1}}
-    </style>
-    <style>
-        #displayContainer:has(> .student-page){padding:50px}.student-page{width:100%;max-width:none;margin:0;padding:0}
-    </style>
-    <main class="student-page student-payments-page">
-        <header class="student-page-header">
-            <h1>Payments</h1>
-            <p id="studentPaymentsRole">Swimmer — Applicant</p>
-        </header>
+@extends('layouts.toast')
 
-        <div class="student-mode-switch" aria-label="Choose a portal preview">
-            <div>
-                <p class="student-mode-label">UI preview only</p>
-                <p class="student-mode-help">Switching modes previews each screen; it does not change account access.</p>
+@php
+    // Athletes (role 4) see the same page without the course filter.
+    $isAthlete = (int) auth()->user()->role_id === 4;
+@endphp
+
+<style>
+/* =========================================================
+   Payments (swimmer, view only)
+   Same look as the Attendance page. Dropdowns use the shared
+   .registerDropdown + assets/js/fbss-dropdown.js (data-fbss-dropdown).
+========================================================= */
+
+.paymentsContainer {
+    width: 100%;
+    height: 100vh;
+    min-height: 0;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.paymentsHeader { flex: 0 0 auto; margin-bottom: 1rem; }
+
+/* Summary cards */
+.paymentsSummary {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.paymentsCard {
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+    padding: .85rem 1rem;
+    min-width: 0;
+}
+
+.paymentsCardLabel {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #667085;
+    margin-bottom: .25rem;
+}
+
+.paymentsCardValue { font-size: 1.05rem; font-weight: 600; color: #101828; overflow-wrap: anywhere; }
+.paymentsCardValue.isOwing { color: var(--fbss-danger, #c22b3a); }
+.paymentsCardValue.isPaid  { color: var(--fbss-success, #1a7f3c); }
+
+/* Toolbar */
+.paymentsToolbar {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: .75rem;
+}
+
+.paymentsFilterGroup { display: flex; flex-direction: column; gap: .35rem; }
+
+.paymentsFilterLabel {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #667085;
+    text-transform: uppercase;
+}
+
+/* Sizes come from the shared dropdown variables (our_theme.css). */
+.paymentsCourseFilter { --dd-min-width: 300px; }
+
+.paymentsResultCount { margin-left: auto; font-size: .8125rem; color: #667085; white-space: nowrap; }
+
+/* Table */
+.paymentsTableContainer {
+    --payments-row-height: 49px;
+    --payments-header-height: 49px;
+    --payments-visible-rows: 8;
+
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: calc(var(--payments-header-height) + (var(--payments-row-height) * var(--payments-visible-rows)));
+    width: 100%;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.paymentsTable {
+    width: 100%;
+    margin: 0;
+    white-space: nowrap;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.paymentsTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f8fafb;
+    color: #667085;
+    font-weight: 600;
+    border-bottom: 1px solid #e7ebef;
+    box-shadow: 0 1px 0 #e7ebef;
+}
+
+.paymentsTable th,
+.paymentsTable td { padding: .75rem 1rem; vertical-align: middle; }
+
+.paymentsRow:hover { background: #f8fafb; }
+
+.paymentsEmptyState { padding: 2rem !important; color: #6c757d; text-align: center; }
+.paymentsEmptyValue { color: #adb5bd; }
+.paymentsAmount { color: var(--fbss-success, #1a7f3c); font-weight: 700; }
+
+/* Status pills */
+.paymentsPill {
+    display: inline-block;
+    padding: .2rem .65rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.paymentsPill.is-paid    { background: var(--fbss-success-tint, #e6f7ec); color: var(--fbss-success, #1a7f3c); }
+.paymentsPill.is-partial { background: #fff4e0; color: #b26a00; }
+.paymentsPill.is-unpaid  { background: var(--fbss-danger-tint, #fdebec); color: var(--fbss-danger, #c22b3a); }
+
+@media (max-width: 575.98px) {
+    .paymentsContainer { padding: 1rem; }
+    .paymentsResultCount { margin-left: 0; width: 100%; }
+}
+
+/* ---------- Receipt popup (backdrop = shared .modalOverlay) ---------- */
+
+.paymentsReceipt {
+    width: 100%;
+    max-width: 480px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(16, 24, 40, .18);
+    overflow: hidden;
+}
+
+.paymentsReceiptHead {
+    padding: 1.1rem 1.4rem;
+    background: var(--fbss-blue, #0d6efd);
+    color: #fff;
+}
+
+.paymentsReceiptHeadTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .9rem;
+}
+
+.paymentsReceiptBrand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; }
+.paymentsReceiptBrand img { border-radius: 50%; }
+.paymentsReceiptHead h5 { margin: 0 0 .25rem; font-size: 1rem; font-weight: 700; }
+.paymentsReceiptHead p { margin: .1rem 0 0; font-size: .75rem; color: #e6f1f8; }
+
+.paymentsReceiptBody { padding: 1.1rem 1.4rem; overflow-y: auto; }
+
+.paymentsReceiptLine {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid #eef1f4;
+    font-size: .85rem;
+}
+
+.paymentsReceiptLine span { color: #667085; }
+.paymentsReceiptLine strong { text-align: right; color: #1f2937; }
+
+.paymentsReceiptTotal {
+    display: flex;
+    justify-content: space-between;
+    padding: .7rem 0;
+    color: var(--fbss-blue, #0d6efd);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.paymentsReceiptAmounts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .6rem;
+    margin: .25rem 0 .75rem;
+    padding: .75rem 0;
+    border-block: 1px solid #eef1f4;
+}
+
+.paymentsReceiptAmounts small { display: block; color: #667085; font-size: .72rem; }
+.paymentsReceiptAmounts strong { font-size: .95rem; }
+
+.paymentsReceiptThanks { margin: .9rem 0 0; text-align: center; color: var(--fbss-blue, #0d6efd); font-weight: 700; }
+.paymentsReceiptSub { margin: 0; text-align: center; color: #667085; font-size: .78rem; }
+
+.paymentsReceiptActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+    padding: .75rem 1.4rem 1.1rem;
+}
+
+/* Print only the receipt */
+@media print {
+    body * { visibility: hidden !important; }
+    #receiptCard, #receiptCard * { visibility: visible !important; }
+    #receiptCard { position: fixed; top: 0; left: 0; width: 100%; max-width: none; box-shadow: none; }
+    #receiptActions { display: none !important; }
+}
+</style>
+
+
+<section class="paymentsContainer" id="paymentsContainer" aria-labelledby="paymentsTitle">
+
+    <header class="paymentsHeader">
+        <h2 class="mb-1" id="paymentsTitle">My Payments</h2>
+        <p class="text-muted mb-0" id="paymentsDescription"></p>
+        <p class="text-muted small mb-0">View only. Payments are recorded by the school when you pay.</p>
+    </header>
+
+    <!-- SUMMARY -->
+    <div class="paymentsSummary" id="paymentsSummary">
+        <div class="paymentsCard">
+            <div class="paymentsCardLabel">Course</div>
+            <div class="paymentsCardValue" id="summaryCourse">--</div>
+        </div>
+        <div class="paymentsCard">
+            <div class="paymentsCardLabel">Total Fee</div>
+            <div class="paymentsCardValue" id="summaryFee">--</div>
+        </div>
+        <div class="paymentsCard">
+            <div class="paymentsCardLabel">Total Paid</div>
+            <div class="paymentsCardValue" id="summaryPaid">--</div>
+        </div>
+        <div class="paymentsCard">
+            <div class="paymentsCardLabel">Outstanding Balance</div>
+            <div class="paymentsCardValue" id="summaryBalance">--</div>
+        </div>
+        <div class="paymentsCard">
+            <div class="paymentsCardLabel">Payment Status</div>
+            <div class="paymentsCardValue" id="summaryStatus">--</div>
+        </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="paymentsToolbar">
+
+        @unless ($isAthlete)
+            <div class="paymentsFilterGroup">
+                <label class="paymentsFilterLabel">Course</label>
+
+                <div class="registerDropdown paymentsCourseFilter" id="courseFilterDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" id="courseFilterToggle" type="button" aria-expanded="false" aria-controls="courseFilterOptions" aria-label="Filter by course">
+                        <span>Loading...</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="registerDropdownOptions" id="courseFilterOptions" hidden></div>
+
+                    <input id="courseFilterInput" name="courseFilter" type="hidden" value="">
+                </div>
             </div>
-            <div class="btn-tab-group" role="group" aria-label="Preview the applicant or student screen">
-                <button class="btn btn-outline-primary btn-tab active" type="button" data-student-mode-button="applicant" aria-pressed="true">Applicant</button>
-                <button class="btn btn-outline-primary btn-tab" type="button" data-student-mode-button="student" aria-pressed="false">Student</button>
+        @endunless
+
+        <span class="paymentsResultCount" id="paymentsResultCount"></span>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="paymentsTableContainer" id="paymentsTableContainer">
+        <table class="table paymentsTable" id="paymentsTable">
+            <thead id="paymentsTableHead"></thead>
+            <tbody id="paymentsTableBody"></tbody>
+        </table>
+    </div>
+
+</section>
+
+
+<!-- RECEIPT -->
+<div class="modalOverlay" id="receiptOverlay" hidden>
+    <div class="paymentsReceipt" id="receiptCard" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
+
+        <div class="paymentsReceiptHead">
+            <div class="paymentsReceiptHeadTop">
+                <span class="paymentsReceiptBrand">
+                    <img src="{{ asset('assets/images/icon_fbss.png') }}" alt="" width="28" height="28">
+                    FBSS SwimOS
+                </span>
+                <span class="paymentsPill" id="receiptStatus">Paid</span>
             </div>
+            <h5 id="receiptTitle">Froy Bartolome Swimming School</h5>
+            <p>R3MG+2X9, Del Monte - Norzagaray Rd, SJDM, Bulacan</p>
+            <p>(+63) 966 203 1918</p>
         </div>
 
-        <section class="student-card student-applicant-empty mb-4" data-student-mode-panel="applicant" aria-labelledby="applicantPaymentsTitle">
-            <div class="student-applicant-empty-icon" aria-hidden="true"><i class="bi bi-receipt-cutoff"></i></div>
-            <h2 id="applicantPaymentsTitle">No payment records yet.</h2>
-            <p>Once you enroll in our programs, your fees, outstanding balances, and invoices will appear here.</p>
-        </section>
+        <div class="paymentsReceiptBody">
+            <div class="paymentsReceiptLine"><span>Receipt #</span><strong id="receiptNumber">--</strong></div>
+            <div class="paymentsReceiptLine"><span>Date</span><strong id="receiptDate">--</strong></div>
+            <div class="paymentsReceiptLine"><span>Client</span><strong id="receiptClient">--</strong></div>
+            <div class="paymentsReceiptLine"><span>Course</span><strong id="receiptCourse">--</strong></div>
+            <div class="paymentsReceiptLine"><span>Received by</span><strong id="receiptReceivedBy">--</strong></div>
 
-        <div data-student-mode-panel="student" hidden>
-        <section class="student-card mb-4" aria-labelledby="studentPaymentOverviewTitle">
-            <h2 class="student-card-title" id="studentPaymentOverviewTitle">Payment Overview</h2>
-            <div class="student-divider"></div>
-            <div class="student-overview-grid">
-                <div><span class="student-overview-label">Course Enrolled</span><strong class="student-overview-value">Beginner Swim Program</strong></div>
-                <div><span class="student-overview-label">Total Package Fee</span><strong class="student-overview-value">₱4,000</strong></div>
-                <div><span class="student-overview-label">Outstanding Balance</span><strong class="student-overview-value is-success">₱0</strong></div>
-                <div><span class="student-overview-label">Payment Status</span><span class="student-status-badge is-paid">Paid</span></div>
-            </div>
-        </section>
+            <div class="paymentsReceiptTotal"><span>Course Fee</span><span id="receiptFee">--</span></div>
 
-        <section class="student-card" aria-labelledby="studentTransactionTitle">
-            <h2 class="student-card-title" id="studentTransactionTitle">Transaction History</h2>
-            <div class="student-divider"></div>
-            <div class="student-table-wrap">
-                <table class="student-table student-payment-table">
-                    <thead><tr><th>Reference No.</th><th>Date</th><th>Amount</th><th>Method</th><th>Status</th><th>Receipt</th></tr></thead>
-                    <tbody>
-                        <tr>
-                            <td class="fw-bold">TXN-88092</td><td>August 1, 2026</td><td class="text-success fw-bold">₱1,000</td><td>Cash</td>
-                            <td><span class="student-status-badge is-partial">Partial</span></td>
-                            <td><button class="btn btn-icon btn-icon-square btn-outline-primary btn-icon-sm" type="button" data-student-receipt aria-label="View receipt for TXN-88092"><i class="bi bi-eye" aria-hidden="true"></i></button></td>
-                        </tr>
-                        <tr>
-                            <td class="fw-bold">TXN-88092</td><td>August 1, 2026</td><td class="text-success fw-bold">₱3,000</td><td>GCash</td>
-                            <td><span class="student-status-badge is-paid">Paid</span></td>
-                            <td><button class="btn btn-icon btn-icon-square btn-outline-primary btn-icon-sm" type="button" data-student-receipt aria-label="View receipt for TXN-88092"><i class="bi bi-eye" aria-hidden="true"></i></button></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="paymentsReceiptAmounts">
+                <div><small>This Payment</small><strong id="receiptAmount">--</strong></div>
+                <div><small>Paid To Date</small><strong id="receiptPaidToDate">--</strong></div>
+                <div><small>Balance Due</small><strong id="receiptBalance">--</strong></div>
             </div>
-        </section>
 
-        <dialog class="student-dialog" id="studentReceiptDialog" aria-labelledby="studentReceiptTitle">
-            <div class="student-receipt-head">
-                <div class="student-receipt-head-top">
-                    <a class="navbar-brand d-flex align-items-center gap-2 mb-0 text-white" href="{{ route('home') }}">
-                        <img src="{{ asset('assets/images/icon_fbss.png') }}" alt="" width="28" height="28" class="rounded-circle">
-                        <strong>FBSS SwimOS</strong>
-                    </a>
-                    <span class="student-status-badge is-partial">Partial</span>
-                </div>
-                <h2 id="studentReceiptTitle">Froy Bartolome Swimming School</h2>
-                <p>R3MG+2X9, Del Monte - Norzagaray Rd, SJDM, Bulacan</p>
-                <p>(+63) 966 203 1918</p>
+            <div class="paymentsReceiptLine">
+                <span>Payment Method</span><strong id="receiptMethod">--</strong>
             </div>
-            <div class="student-receipt-body">
-                <div class="student-receipt-line"><span>Invoice #</span><strong>INV-2024-0847</strong></div>
-                <div class="student-receipt-line"><span>Date</span><strong>August 11, 2026</strong></div>
-                <div class="student-receipt-line"><span>Client</span><strong>Jestoni E. De Asis</strong></div>
-                <strong class="text-primary small text-uppercase">Items Purchased</strong>
-                <div class="student-receipt-line"><span>Group Swim Lessons (LTS 1)<small class="d-block text-muted">1 × ₱2,000</small></span><strong>₱4,000</strong></div>
-                <div class="student-receipt-line"><span>Subtotal</span><strong>₱4,000</strong></div>
-                <div class="student-receipt-total"><span>Total</span><span>₱4,000</span></div>
-                <div class="student-receipt-amounts">
-                    <div><small>To Pay</small><strong>₱3,000</strong></div>
-                    <div><small>Amount Paid</small><strong>₱3,000</strong></div>
-                    <div><small>Balance Due</small><strong>₱0</strong></div>
-                </div>
-                <div class="student-receipt-method"><i class="bi bi-circle-fill text-primary me-1" aria-hidden="true"></i>Payment Method: <strong>GCash</strong><span class="float-end">Ref#: GC-202413</span></div>
-                <p class="text-center text-primary fw-bold mb-0">Thank You for Your Payment!</p>
-                <p class="text-center text-muted small mb-0">We look forward to seeing you at the pool!</p>
+            <div class="paymentsReceiptLine">
+                <span>Reference #</span><strong id="receiptReference">--</strong>
             </div>
-            <div class="student-receipt-actions">
-                <button class="btn btn-primary btn-sm" type="button" data-student-print><i class="bi bi-printer me-1" aria-hidden="true"></i>Print</button>
-                <button class="btn btn-icon btn-icon-square btn-outline-secondary btn-icon-sm" type="button" data-student-close aria-label="Close receipt"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-            </div>
-        </dialog>
+
+            <p class="paymentsReceiptThanks">Thank You for Your Payment!</p>
+            <p class="paymentsReceiptSub">We look forward to seeing you at the pool!</p>
         </div>
-    </main>
 
-    <script>
-        (() => {
-            const buttons = document.querySelectorAll('[data-student-mode-button]');
-            const panels = document.querySelectorAll('[data-student-mode-panel]');
-            const roleLabel = document.getElementById('studentPaymentsRole');
+        <div class="paymentsReceiptActions" id="receiptActions">
+            <button class="btn btn-primary btn-sm" id="receiptPrintButton" type="button"><i class="bi bi-printer me-1" aria-hidden="true"></i>Print</button>
+            <button class="btn btn-outline-secondary btn-sm" id="receiptCloseButton" type="button">Close</button>
+        </div>
 
-            buttons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    const mode = button.dataset.studentModeButton;
+    </div>
+</div>
 
-                    buttons.forEach((option) => {
-                        const isActive = option === button;
-                        option.classList.toggle('active', isActive);
-                        option.setAttribute('aria-pressed', String(isActive));
-                    });
 
-                    panels.forEach((panel) => {
-                        panel.hidden = panel.dataset.studentModePanel !== mode;
-                    });
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
+<script>
+(function () {
+    'use strict';
 
-                    roleLabel.textContent = `Swimmer — ${mode === 'applicant' ? 'Applicant' : 'Student'}`;
-                });
+    const URL_DATA = '/payments/data';
+    const IS_ATHLETE = @json($isAthlete);
+
+    const STATUS = {
+        paid: { text: 'Paid', cls: 'is-paid' },
+        partial: { text: 'Partial', cls: 'is-partial' },
+        unpaid: { text: 'Unpaid', cls: 'is-unpaid' }
+    };
+
+    // Athletes have no Course column to filter by, so it is left out of the table too.
+    const HEADERS = IS_ATHLETE
+        ? ['Date', 'Receipt No.', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt']
+        : ['Date', 'Receipt No.', 'Course', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt'];
+
+    const $ = id => document.getElementById(id);
+
+    const el = {
+        description: $('paymentsDescription'),
+        courseFilter: $('courseFilterDropdown'),      // null for athletes
+        count: $('paymentsResultCount'),
+        tableHead: $('paymentsTableHead'),
+        tableBody: $('paymentsTableBody'),
+        sCourse: $('summaryCourse'),
+        sFee: $('summaryFee'),
+        sPaid: $('summaryPaid'),
+        sBalance: $('summaryBalance'),
+        sStatus: $('summaryStatus'),
+        overlay: $('receiptOverlay')
+    };
+
+    let enrollments = [];
+    let payments = [];
+    let client = '';
+    let loading = true;
+
+    /* ---------- helpers ---------- */
+
+    function make(tag, { className, text, attributes } = {}) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        if (attributes) Object.entries(attributes).forEach(([k, v]) => node.setAttribute(k, v));
+        return node;
+    }
+
+    function parseISODate(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    const formatLongDate = d => d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const formatShortDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    const dateLabel = iso => iso ? formatShortDate(parseISODate(iso)) : '';
+    const peso = n => '₱' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+    const dropdownValue = root => (root ? window.FBSSDropdown.get(root) : 'all');
+
+    function cell(value, dash = '--') {
+        return value
+            ? document.createTextNode(value)
+            : make('span', { className: 'paymentsEmptyValue', text: dash });
+    }
+
+    function pill(status) {
+        const info = STATUS[status] || STATUS.unpaid;
+        return make('span', { className: `paymentsPill ${info.cls}`, text: info.text });
+    }
+
+    function statusFor(price, paid) {
+        const balance = Math.max(price - paid, 0);
+        if (price > 0 && balance <= 0) return 'paid';
+        return paid > 0 ? 'partial' : 'unpaid';
+    }
+
+    /* ---------- selection ---------- */
+
+    function selectedEnrollment() {
+        const value = dropdownValue(el.courseFilter);
+        return enrollments.find(e => String(e.id) === value) || null;
+    }
+
+    // Payments for the chosen course ('all' = everything).
+    function visiblePayments() {
+        const value = dropdownValue(el.courseFilter);
+        return value === 'all' || value === ''
+            ? payments
+            : payments.filter(p => String(p.enrollment_id) === value);
+    }
+
+    function buildCourseOptions(defaultId) {
+        if (!el.courseFilter) return;
+
+        const items = [{ value: 'all', label: 'All Courses' }]
+            .concat(enrollments.map(e => ({ value: String(e.id), label: e.label })));
+
+        window.FBSSDropdown.setOptions(el.courseFilter, items, defaultId ? String(defaultId) : 'all');
+    }
+
+    /* ---------- render ---------- */
+
+    function renderSummary() {
+        const one = selectedEnrollment();
+        const list = one ? [one] : enrollments;
+
+        if (!list.length) {
+            [el.sCourse, el.sFee, el.sPaid, el.sBalance, el.sStatus].forEach(node => {
+                node.textContent = '--';
+                node.className = 'paymentsCardValue';
+            });
+            return;
+        }
+
+        const fee = list.reduce((sum, e) => sum + e.price, 0);
+        const paid = list.reduce((sum, e) => sum + e.paid, 0);
+        const balance = Math.max(fee - paid, 0);
+
+        el.sCourse.textContent = one ? one.course : (list.length === 1 ? list[0].course : 'All courses');
+        el.sFee.textContent = peso(fee);
+        el.sPaid.textContent = peso(paid);
+
+        el.sBalance.textContent = peso(balance);
+        el.sBalance.className = `paymentsCardValue ${balance > 0 ? 'isOwing' : 'isPaid'}`;
+
+        el.sStatus.replaceChildren(pill(statusFor(fee, paid)));
+    }
+
+    function renderTable() {
+        const list = visiblePayments();
+
+        el.tableHead.replaceChildren();
+        el.tableBody.replaceChildren();
+
+        const headerRow = make('tr');
+        headerRow.append(make('th', { text: 'No.', attributes: { scope: 'col' } }));
+        HEADERS.forEach(h => headerRow.append(make('th', { text: h, attributes: { scope: 'col' } })));
+        el.tableHead.append(headerRow);
+
+        if (loading || !list.length) {
+            const emptyRow = make('tr');
+            emptyRow.append(make('td', {
+                className: 'paymentsEmptyState',
+                text: loading
+                    ? 'Loading...'
+                    : (enrollments.length ? 'No payments have been recorded for this selection.' : 'You are not enrolled in a course yet.'),
+                attributes: { colSpan: HEADERS.length + 1 }
+            }));
+            el.tableBody.append(emptyRow);
+            el.count.textContent = '';
+            return;
+        }
+
+        list.forEach((payment, index) => {
+            const row = make('tr', { className: 'paymentsRow' });
+            row.append(make('td', { text: String(index + 1) }));
+
+            const amount = make('span', { className: 'paymentsAmount', text: peso(payment.amount) });
+
+            const view = make('button', {
+                className: 'btn btn-icon btn-icon-square btn-outline-primary btn-icon-sm',
+                attributes: { type: 'button', 'aria-label': `View receipt ${payment.receipt}` }
+            });
+            view.append(make('i', { className: 'bi bi-eye', attributes: { 'aria-hidden': 'true' } }));
+            view.addEventListener('click', () => openReceipt(payment));
+
+            const cells = [
+                cell(dateLabel(payment.date)),
+                cell(payment.receipt),
+                ...(IS_ATHLETE ? [] : [cell(payment.course)]),
+                amount,
+                cell(payment.method),
+                cell(payment.reference, '-'),
+                cell(peso(payment.balance)),
+                pill(payment.status),
+                view
+            ];
+
+            cells.forEach(content => {
+                const td = make('td');
+                td.append(content);
+                row.append(td);
             });
 
-            const receiptDialog = document.getElementById('studentReceiptDialog');
-            document.querySelectorAll('[data-student-receipt]').forEach((button) => {
-                button.addEventListener('click', () => receiptDialog.showModal());
-            });
-            document.querySelector('[data-student-close]').addEventListener('click', () => receiptDialog.close());
-            document.querySelector('[data-student-print]').addEventListener('click', () => window.print());
-        })();
-    </script>
-@else
-    PAYMENT NI STUDENT AND ATHLETE
-@endif
+            el.tableBody.append(row);
+        });
+
+        const total = list.reduce((sum, p) => sum + p.amount, 0);
+        el.count.textContent = `${list.length} payment${list.length === 1 ? '' : 's'} · ${peso(total)} paid`;
+    }
+
+    function render() {
+        renderSummary();
+        renderTable();
+    }
+
+    /* ---------- receipt ---------- */
+
+    function openReceipt(payment) {
+        const info = STATUS[payment.status] || STATUS.unpaid;
+
+        $('receiptStatus').className = `paymentsPill ${info.cls}`;
+        $('receiptStatus').textContent = info.text;
+
+        $('receiptNumber').textContent = payment.receipt;
+        $('receiptDate').textContent = dateLabel(payment.date) || '--';
+        $('receiptClient').textContent = client || '--';
+        $('receiptCourse').textContent = payment.course || '--';
+        $('receiptReceivedBy').textContent = payment.received_by || '--';
+
+        $('receiptFee').textContent = peso(payment.price);
+        $('receiptAmount').textContent = peso(payment.amount);
+        $('receiptPaidToDate').textContent = peso(payment.paid_to_date);
+        $('receiptBalance').textContent = peso(payment.balance);
+
+        $('receiptMethod').textContent = payment.method || '--';
+        $('receiptReference').textContent = payment.reference || '--';
+
+        el.overlay.hidden = false;
+    }
+
+    function closeReceipt() {
+        el.overlay.hidden = true;
+    }
+
+    $('receiptCloseButton').addEventListener('click', closeReceipt);
+    $('receiptPrintButton').addEventListener('click', () => window.print());
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !el.overlay.hidden) closeReceipt();
+    });
+
+    /* ---------- load ---------- */
+
+    async function load() {
+        renderTable();
+
+        try {
+            const response = await fetch(URL_DATA, { headers: { 'Accept': 'application/json' } });
+            let data = {};
+            try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+
+            loading = false;
+
+            if (!response.ok) {
+                showToast(data.message || 'Unable to load your payments.', 'danger');
+                render();
+                return;
+            }
+
+            enrollments = data.enrollments || [];
+            payments = data.payments || [];
+            client = data.client || '';
+
+            buildCourseOptions(data.default_enrollment_id);
+        } catch (error) {
+            console.error(error);
+            loading = false;
+            showToast('Something went wrong while loading your payments.', 'danger');
+        }
+
+        render();
+    }
+
+    // Fired by the shared dropdown (assets/js/fbss-dropdown.js) when an option is picked.
+    if (el.courseFilter) el.courseFilter.addEventListener('dropdown:change', render);
+
+    el.description.textContent = `Current date: ${formatLongDate(new Date())}`;
+    load();
+
+})();
+</script>
