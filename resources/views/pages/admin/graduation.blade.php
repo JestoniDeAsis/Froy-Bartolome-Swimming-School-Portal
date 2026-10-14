@@ -1,18 +1,15 @@
 @extends('layouts.toast')
 
 @php
-    // Data comes from GraduationController::pageData(). The page is still rendered
-    // by name from role_menus.php (no route), so the controller is called here.
-    $graduation = app(\App\Http\Controllers\GraduationController::class)->pageData();
+    // $graduation is passed by HomeController (AdminGraduationController::pageData()).
+    // The fallback keeps the page working if it is ever rendered another way.
+    $graduation = $graduation ?? app(\App\Http\Controllers\AdminGraduationController::class)->pageData();
 
-    $graduationStudents = collect($graduation['active']);
+    $graduationStudents = collect($graduation['active']);       // Active Students tab
+    $readyStudents      = collect($graduation['ready']);        // coach approved; the admin reviews (e.g. balance)
+    $graduatingStudents = collect($graduation['graduating']);   // moved by the admin; certificate upload + final confirm
     $graduatedStudents  = collect($graduation['graduated']);
-    $assessments        = $graduation['assessments'];   // keyed by enrollment id
-
-    // Everyone who attended every session is "Ready for Assessment".
-    $readyStudents = $graduationStudents
-        ->filter(fn ($s) => $s['total'] > 0 && $s['done'] >= $s['total'])
-        ->values();
+    $assessments        = $graduation['assessments'];           // keyed by enrollment id
 
     $graduationCourses = $graduationStudents
         ->filter(fn ($s) => $s['courseId'] !== null)
@@ -27,6 +24,10 @@
         'assessed'     => ['is-almost',     'Assessed'],
         'not_assessed' => ['is-notstarted', 'Not yet assessed'],
     ];
+
+    $peso = fn ($amount) => '₱' . number_format((float) $amount, 2);
+
+    $dayLabel = fn ($iso) => $iso ? \Illuminate\Support\Carbon::parse($iso)->format('M d, Y') : null;
 @endphp
 
 <style>
@@ -321,6 +322,11 @@
     .assessment-result { padding: .08rem .38rem; border-radius: 3px; font-size: .57rem; font-weight: 700; }
     .assessment-result--passed { color: #087443; background: #d8f6e6; }
     .assessment-result--failed { color: #b42318; background: #fde4e2; }
+    .graduation-card-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .45rem; max-width: 560px; }
+    .graduation-card-actions .graduation-ready-file { flex-basis: 100%; }
+    .graduation-upload-label { position: relative; margin: 0; }
+    .graduation-panel-hint { margin: -.35rem 0 .75rem; padding-left: 1.2rem; color: #667085; font-size: .8rem; }
+    .graduation-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     .assessment-result--none { color: #667085; background: #f1f3f5; }
     .assessment-note { margin: 0 0 .6rem; font-size: .72rem; color: #667085; }
     .assessment-balance { color: var(--fbss-danger); font-size: .85rem; font-style: italic; }
@@ -333,6 +339,7 @@
         .graduation-ready-actions { grid-template-columns: minmax(0, 1fr) 76px; gap: .25rem .5rem; width: 100%; }
         .graduation-ready-session, .graduation-ready-upload, .graduation-ready-file { white-space: normal; }
         .graduation-ready-session, .graduation-ready-upload { text-align: left; }
+        .graduation-card-actions { justify-content: flex-start; max-width: none; width: 100%; }
         .graduation-graduate-actions { gap: .5rem; }
         .graduation-ready-actions, .graduation-graduate-actions { width: 100%; }
         .graduation-graduate-actions { justify-content: space-between; }
@@ -344,12 +351,13 @@
 
     <header class="graduationHeader">
         <h2 class="mb-1" id="graduationTitle">Graduation</h2>
-        <p class="text-muted mb-0">Active students and how far along they are, based on the sessions logged in attendance.</p>
+        <p class="text-muted mb-0">Follow students from active learning to graduation. Sessions come from attendance; the coach decides who is ready to graduate.</p>
     </header>
 
     <nav class="btn-tab-group graduationTabs" id="graduationTabs" role="tablist" aria-label="Graduation student groups">
         <button class="btn btn-outline-primary btn-tab active" type="button" role="tab" data-graduation-tab="active" aria-selected="true">Active Students <span data-tab-count="active"></span></button>
-        <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="ready" aria-selected="false">Ready for Assessment <span data-tab-count="ready"></span></button>
+        <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="ready" aria-selected="false">Ready for Graduation <span data-tab-count="ready"></span></button>
+        <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="graduating" aria-selected="false">Graduating <span data-tab-count="graduating"></span></button>
         <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="graduated" aria-selected="false">Graduates <span data-tab-count="graduated"></span></button>
     </nav>
 
@@ -444,48 +452,88 @@
 
     </div>
 
-    {{-- ===== READY FOR ASSESSMENT (every session attended) ===== --}}
-    <div class="graduationSample" id="graduationSampleReady" hidden>
+    {{-- ===== READY FOR GRADUATION (the coach approved; the admin reviews, e.g. the balance) ===== --}}
+    <div class="graduationSample" id="graduationPanelReady" hidden>
         <section class="graduation-panel">
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-patch-check" aria-hidden="true"></i>
-                Ready for Assessment <span class="group-count">({{ $readyStudents->count() }})</span>
+                Ready for Graduation <span class="group-count">({{ $readyStudents->count() }})</span>
             </h2>
+            <p class="graduation-panel-hint">The coach approved these students. Check their skills and balance first. A student with a balance cannot be moved to Graduating.</p>
             <div class="graduation-student-list">
                 @forelse ($readyStudents as $student)
                     @php
-                        $status = $assessments[$student['id']]['status'] ?? 'not_assessed';
-                        [$badgeClass, $badgeText] = $assessmentBadges[$status];
+                        $detail  = $assessments[$student['id']] ?? null;
+                        $balance = (float) ($detail['balance'] ?? 0);
                     @endphp
                     <article class="graduation-student graduation-student--ready">
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
                             <div class="graduation-student-meta">
-                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }} / {{ $student['total'] }} sessions</strong><span class="mx-2">&middot;</span><span class="graduationBadge {{ $badgeClass }}">{{ $badgeText }}</span>
+                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }}{{ $student['total'] > 0 ? ' / ' . $student['total'] : '' }} sessions</strong><span class="mx-2">&middot;</span><span class="graduationBadge is-ready">Eligible to graduate</span>
+                                <span class="graduationBadge {{ $balance > 0 ? 'is-almost' : 'is-ready' }}">{{ $balance > 0 ? 'Balance ' . $peso($balance) : 'Fully paid' }}</span>
                             </div>
                         </div>
-                        <div class="graduation-ready-actions">
-                            <span class="graduation-ready-session">LAST SESSION: {{ $student['lastSession'] ? \Illuminate\Support\Carbon::parse($student['lastSession'])->format('M d, Y') : 'None' }}</span>
-                            <button type="button" class="btn btn-primary btn-sm graduation-ready-graduate" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-type="ready" data-assessment-mode="graduate" @disabled($status !== 'eligible') @if ($status !== 'eligible') title="The coach has not marked this student as eligible yet." @endif>
-                                <i class="bi bi-award" aria-hidden="true"></i> Graduate
+                        <div class="graduation-card-actions">
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-mode="view">View</button>
+                            <button type="button" class="btn btn-primary btn-sm" data-mark-graduating data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" @disabled($balance > 0) @if ($balance > 0) title="This student still has a balance of {{ $peso($balance) }}." @endif>
+                                <i class="bi bi-arrow-right-circle" aria-hidden="true"></i> Move to Graduating
                             </button>
-                            <label class="graduation-ready-upload" for="certificate-{{ $loop->index }}">
-                                <i class="bi bi-upload" aria-hidden="true"></i> Upload Certificate
-                                <input type="file" id="certificate-{{ $loop->index }}" accept=".pdf,image/*" data-certificate-input>
-                            </label>
-                            <button type="button" class="btn btn-primary btn-sm graduation-ready-view" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-type="ready" data-assessment-mode="view">View</button>
-                            <span class="graduation-ready-file" data-certificate-name></span>
                         </div>
                     </article>
                 @empty
-                    <p class="graduation-empty">No students have completed all their sessions yet.</p>
+                    <p class="graduation-empty">No students are marked ready by their coach yet.</p>
+                @endforelse
+            </div>
+        </section>
+    </div>
+
+    {{-- ===== GRADUATING (the admin uploads the certificate and finalizes the graduation) ===== --}}
+    <div class="graduationSample" id="graduationPanelGraduating" hidden>
+        <section class="graduation-panel">
+            <h2 class="graduation-panel-heading">
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                Graduating <span class="group-count">({{ $graduatingStudents->count() }})</span>
+            </h2>
+            <p class="graduation-panel-hint">Upload the certificate PDF for each student, then mark them as graduated.</p>
+            <div class="graduation-student-list">
+                @forelse ($graduatingStudents as $student)
+                    @php $hasCertificate = $student['hasCertificate']; @endphp
+                    <article class="graduation-student graduation-student--ready">
+                        <div class="graduation-student-info">
+                            <div class="graduation-student-name">{{ $student['name'] }}</div>
+                            <div class="graduation-student-meta">
+                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }}{{ $student['total'] > 0 ? ' / ' . $student['total'] : '' }} sessions</strong><span class="mx-2">&middot;</span>
+                                <span class="graduationBadge {{ $hasCertificate ? 'is-ready' : 'is-almost' }}">{{ $hasCertificate ? 'Certificate uploaded' : 'Certificate needed' }}</span>
+                            </div>
+                        </div>
+                        <div class="graduation-card-actions">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-move-back data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}">
+                                <i class="bi bi-arrow-left-circle" aria-hidden="true"></i> Back to Ready
+                            </button>
+                            @if ($hasCertificate)
+                                <a class="btn btn-outline-primary btn-sm" href="{{ url('/certificates/' . $student['id']) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> View Certificate</a>
+                            @endif
+                            <label class="btn btn-outline-primary btn-sm graduation-upload-label">
+                                <i class="bi bi-upload" aria-hidden="true"></i> {{ $hasCertificate ? 'Replace Certificate' : 'Upload Certificate' }}
+                                <input class="graduation-file-input" type="file" accept="application/pdf,.pdf" data-certificate-input data-enrollment-id="{{ $student['id'] }}" data-next-tab="graduating">
+                            </label>
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-mode="view">View</button>
+                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-mode="graduate" @disabled(! $hasCertificate) @if (! $hasCertificate) title="Upload the certificate first." @endif>
+                                <i class="bi bi-award" aria-hidden="true"></i> Graduate
+                            </button>
+                            <span class="graduation-ready-file" data-certificate-name>{{ $hasCertificate ? ($student['certificateName'] ?? 'Certificate file') : 'Upload the certificate PDF (up to 5 MB) to enable Graduate.' }}</span>
+                        </div>
+                    </article>
+                @empty
+                    <p class="graduation-empty">No students are in Graduating right now.</p>
                 @endforelse
             </div>
         </section>
     </div>
 
     {{-- ===== GRADUATES (enrollments with a graduation date) ===== --}}
-    <div class="graduationSample" id="graduationSampleGraduated" hidden>
+    <div class="graduationSample" id="graduationPanelGraduated" hidden>
         <section class="graduation-panel">
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-mortarboard" aria-hidden="true"></i>
@@ -497,12 +545,16 @@
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
                             <div class="graduation-student-meta">
-                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }}{{ $student['total'] > 0 ? ' / ' . $student['total'] : '' }} sessions</strong><span class="mx-2">&middot;</span>Graduated {{ \Illuminate\Support\Carbon::parse($student['graduatedAt'])->format('M d, Y') }}
+                                <strong>{{ $student['course'] }}</strong><span class="mx-2">&middot;</span><strong>{{ $student['done'] }}{{ $student['total'] > 0 ? ' / ' . $student['total'] : '' }} sessions</strong><span class="mx-2">&middot;</span>Graduated {{ $dayLabel($student['graduatedAt']) }}
                             </div>
                         </div>
                         <div class="graduation-graduate-actions">
-                            <span class="graduation-certificate-number">Certificate not recorded</span>
-                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-type="graduated" data-assessment-mode="view">View Details</button>
+                            @if ($student['hasCertificate'])
+                                <a class="graduation-certificate-number" href="{{ url('/certificates/' . $student['id']) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> View Certificate</a>
+                            @else
+                                <span class="graduation-certificate-number">Certificate not recorded</span>
+                            @endif
+                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assessmentModal" data-enrollment-id="{{ $student['id'] }}" data-student="{{ $student['name'] }}" data-course="{{ $student['course'] }}" data-assessment-mode="view">View Details</button>
                         </div>
                     </article>
                 @empty
@@ -513,8 +565,6 @@
     </div>
 
 </section>
-
-<div class="alert alert-info graduation-feedback d-none" id="graduationFeedback" role="status" style="position:fixed;top:1rem;left:50%;transform:translateX(-50%);z-index:2000;"></div>
 
 <div class="modal fade assessment-modal" id="assessmentModal" tabindex="-1" aria-labelledby="assessmentStudent" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -540,12 +590,13 @@
                 </div>
 
                 <div class="assessment-categories" id="assessmentCategories"></div>
+                <p class="assessment-note mt-3 mb-0" id="assessmentGraduateNote" hidden>Confirming sets today as the graduation date and moves this student to Graduates. The certificate has been uploaded and the balance is paid.</p>
             </div>
             <div class="modal-footer justify-content-between">
                 <strong class="assessment-balance">Balance: ₱0</strong>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-primary btn-sm assessment-back" data-bs-dismiss="modal">Back</button>
-                    <button type="button" class="btn btn-primary btn-sm d-none" id="confirmGraduationButton" data-bs-dismiss="modal">Confirm</button>
+                    <button type="button" class="btn btn-primary btn-sm d-none" id="confirmGraduationButton" data-bs-dismiss="modal">Mark as Graduated</button>
                 </div>
             </div>
         </div>
@@ -561,9 +612,13 @@
     const ALMOST_LEFT = 2;
 
     const students = @json($graduationStudents);
-    const COUNTS = { ready: {{ $readyStudents->count() }}, graduated: {{ $graduatedStudents->count() }} };
+    const COUNTS = { ready: {{ $readyStudents->count() }}, graduating: {{ $graduatingStudents->count() }}, graduated: {{ $graduatedStudents->count() }} };
+    const TABS = ['active', 'ready', 'graduating', 'graduated'];
     const ASSESSMENTS = @json($assessments);   // keyed by enrollment id
-    let activeTab = 'active';
+    // After an upload / graduation the page reloads; this brings the admin back to the right tab.
+    let activeTab = sessionStorage.getItem('graduationTab');
+    sessionStorage.removeItem('graduationTab');
+    if (!TABS.includes(activeTab)) activeTab = 'active';
 
     const $ = id => document.getElementById(id);
 
@@ -658,7 +713,7 @@
        FILTER + SORT
     ========================================================= */
 
-    // Active tab: every active student (the Ready / Graduates tabs are rendered by the server).
+    // Active tab: students who are not approved by the coach yet (the other tabs are rendered by the server).
     function tabStudents() {
         return students;
     }
@@ -783,14 +838,15 @@
             button.setAttribute('aria-selected', String(on));
         });
 
-        const counts = { ready: COUNTS.ready, active: students.length, graduated: COUNTS.graduated };
+        const counts = { active: students.length, ready: COUNTS.ready, graduating: COUNTS.graduating, graduated: COUNTS.graduated };
         el.tabs.querySelectorAll('[data-tab-count]').forEach(span => {
             span.textContent = `(${counts[span.dataset.tabCount]})`;
         });
 
         $('graduationRealView').hidden = activeTab !== 'active';
-        $('graduationSampleReady').hidden = activeTab !== 'ready';
-        $('graduationSampleGraduated').hidden = activeTab !== 'graduated';
+        $('graduationPanelReady').hidden = activeTab !== 'ready';
+        $('graduationPanelGraduating').hidden = activeTab !== 'graduating';
+        $('graduationPanelGraduated').hidden = activeTab !== 'graduated';
     }
 
     el.tabs.addEventListener('click', event => {
@@ -806,7 +862,7 @@
     render();
 
     /* =========================================================
-       ASSESSMENT POPUP (real skills results + payment, Ready / Graduates tabs)
+       ASSESSMENT POPUP (real skills results + payment) and saving
     ========================================================= */
     (function () {
         const modalEl = $('assessmentModal');
@@ -818,7 +874,8 @@
         const eligibility = $('assessmentEligibility');
         const note = $('assessmentNote');
         const confirmGraduationButton = $('confirmGraduationButton');
-        const graduationFeedback = $('graduationFeedback');
+        const graduateNote = $('assessmentGraduateNote');
+        let pendingEnrollmentId = null;
 
         const STATUS = {
             eligible: { cls: 'is-ready', text: 'Eligible to graduate' },
@@ -881,12 +938,13 @@
             const displayName = trigger.dataset.student || 'Student';
             const nameParts = displayName.split(', ');
             const modalName = nameParts.length === 2 ? `${nameParts[1]} ${nameParts[0]}` : displayName;
-            const type = trigger.dataset.assessmentType || 'ready';
             const mode = trigger.dataset.assessmentMode || 'view';
+            pendingEnrollmentId = mode === 'graduate' ? trigger.dataset.enrollmentId : null;
 
             $('assessmentStudent').textContent = modalName;
             $('assessmentLevel').textContent = `${trigger.dataset.course || 'Course'} · Core Skills Assessment List`;
-            confirmGraduationButton.classList.toggle('d-none', !(type === 'ready' && mode === 'graduate'));
+            confirmGraduationButton.classList.toggle('d-none', mode !== 'graduate');
+            graduateNote.hidden = mode !== 'graduate';
 
             if (!detail) {
                 $('assessmentMeta').textContent = '';
@@ -938,16 +996,167 @@
             renderCategories(detail.categories || []);
         });
 
-        document.querySelectorAll('[data-certificate-input]').forEach(input => {
-            input.addEventListener('change', () => {
-                const fileName = input.files && input.files.length ? `Selected: ${input.files[0].name} (not uploaded)` : '';
-                input.closest('.graduation-ready-actions').querySelector('[data-certificate-name]').textContent = fileName;
+        /* ---------- saving (upload certificate / mark as graduated) ---------- */
+
+        async function send(url, body) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body
+            });
+
+            // Keep the raw reply too, so an unexpected error can still be read.
+            const raw = await response.text();
+            let data = {};
+            try { data = JSON.parse(raw); } catch (e) { /* non-JSON error page */ }
+
+            return { ok: response.ok, status: response.status, data, raw };
+        }
+
+        // Shows the real reason. Some replies (like "file too large") have no text of their own.
+        function errorText(result, fallback) {
+            const data = result.data || {};
+            const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+
+            if (first) return first;
+            if (data.message) return data.message;
+
+            const byStatus = {
+                401: 'Your session has expired. Please log in again.',
+                403: 'You are not allowed to do this.',
+                413: 'The file is too large for the server. Try a smaller PDF, or raise the server upload limit.',
+                419: 'Your session expired. Reload the page and try again.',
+                500: 'Server error. Check storage/logs/laravel.log for the reason.'
+            };
+
+            if (byStatus[result.status]) return byStatus[result.status];
+
+            // Unknown error: show what the server actually said (also logged in the browser console).
+            console.error('Unexpected server reply', result);
+            const raw = String(result.raw || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+
+            return `${fallback} (error ${result.status}${raw ? ': ' + raw : ''})`;
+        }
+
+        // The tab to open after the page reloads with the new data.
+        function reloadOnTab(tab) {
+            sessionStorage.setItem('graduationTab', tab);
+            window.location.reload();
+        }
+
+        document.querySelectorAll('[data-move-back]').forEach(button => {
+            button.addEventListener('click', async () => {
+                if (!window.confirm(`Move ${button.dataset.student} back to Ready for Graduation? Their uploaded certificate is kept.`)) return;
+
+                button.disabled = true;
+
+                try {
+                    const result = await send(`/graduation/${button.dataset.enrollmentId}/ready`);
+
+                    if (result.ok) {
+                        showToast(result.data.message || 'Student moved back to Ready for Graduation.', 'success');
+                        reloadOnTab('ready');
+                        return;
+                    }
+
+                    showToast(errorText(result, 'Unable to move the student back.'), 'danger');
+                } catch (error) {
+                    console.error(error);
+                    showToast('Something went wrong while moving the student back.', 'danger');
+                }
+
+                button.disabled = false;
             });
         });
 
-        confirmGraduationButton.addEventListener('click', () => {
-            graduationFeedback.textContent = 'Graduation confirmed in this preview only. No student record was changed.';
-            graduationFeedback.classList.remove('d-none');
+        document.querySelectorAll('[data-mark-graduating]').forEach(button => {
+            button.addEventListener('click', async () => {
+                if (!window.confirm(`Move ${button.dataset.student} to Graduating?`)) return;
+
+                button.disabled = true;
+
+                try {
+                    const result = await send(`/graduation/${button.dataset.enrollmentId}/graduating`);
+
+                    if (result.ok) {
+                        showToast(result.data.message || 'Student moved to Graduating.', 'success');
+                        reloadOnTab('graduating');
+                        return;
+                    }
+
+                    showToast(errorText(result, 'Unable to move the student to Graduating.'), 'danger');
+                } catch (error) {
+                    console.error(error);
+                    showToast('Something went wrong while moving the student.', 'danger');
+                }
+
+                button.disabled = false;
+            });
+        });
+
+        document.querySelectorAll('[data-certificate-input]').forEach(input => {
+            input.addEventListener('change', async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+
+                const status = input.closest('.graduation-card-actions').querySelector('[data-certificate-name]');
+
+                if (!/\.pdf$/i.test(file.name)) {
+                    showToast('Please choose a PDF file.', 'danger');
+                    input.value = '';
+                    return;
+                }
+
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('The PDF must be 5 MB or smaller.', 'danger');
+                    input.value = '';
+                    return;
+                }
+
+                input.disabled = true;
+                status.textContent = `Uploading ${file.name}...`;
+
+                try {
+                    const form = new FormData();
+                    form.append('certificate', file);
+
+                    const result = await send(`/graduation/${input.dataset.enrollmentId}/certificate`, form);
+
+                    if (result.ok) {
+                        showToast(result.data.message || 'Certificate uploaded.', 'success');
+                        reloadOnTab(input.dataset.nextTab || 'graduating');
+                        return;
+                    }
+
+                    showToast(errorText(result, 'Unable to upload the certificate.'), 'danger');
+                } catch (error) {
+                    console.error(error);
+                    showToast('Something went wrong while uploading the certificate.', 'danger');
+                }
+
+                status.textContent = '';
+                input.value = '';
+                input.disabled = false;
+            });
+        });
+
+        confirmGraduationButton.addEventListener('click', async () => {
+            if (!pendingEnrollmentId) return;
+
+            try {
+                const result = await send(`/graduation/${pendingEnrollmentId}/graduate`);
+
+                if (result.ok) {
+                    showToast(result.data.message || 'Student marked as graduated.', 'success');
+                    reloadOnTab('graduated');
+                    return;
+                }
+
+                showToast(errorText(result, 'Unable to mark the student as graduated.'), 'danger');
+            } catch (error) {
+                console.error(error);
+                showToast('Something went wrong while saving the graduation.', 'danger');
+            }
         });
     })();
 })();

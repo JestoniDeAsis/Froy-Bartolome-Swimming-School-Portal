@@ -48,7 +48,7 @@ class HomeController extends Controller
 
         $extraData = match ($page) {
             'registers'  => (new RegistersController())->data(),
-            'graduation' => ['graduationTabs' => (new GraduationController())->graduationTabs()],
+            'graduation' => ['graduation' => app(AdminGraduationController::class)->pageData()],
             'sales_and_invoice' => app(\App\Http\Controllers\SalesInvoiceController::class)->data(),
             'profile'    => (new ProfileController())->data($roleId, $profile),
             default      => [],

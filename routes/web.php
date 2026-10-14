@@ -105,6 +105,15 @@ use App\Http\Controllers\SalesInvoiceController;
 Route::get('/sales/data', [SalesInvoiceController::class, 'data'])->name('sales.data');
 Route::put('/sales/payments/{payment}', [SalesInvoiceController::class, 'updatePayment'])->name('sales.payments.update');
 
+use App\Http\Controllers\AdminGraduationController;
+use App\Http\Controllers\CertificateController;
+
+Route::post('/graduation/{enrollment}/graduating', [AdminGraduationController::class, 'markGraduating'])->middleware('auth')->whereNumber('enrollment');
+Route::post('/graduation/{enrollment}/certificate', [AdminGraduationController::class, 'uploadCertificate'])->middleware('auth')->whereNumber('enrollment');
+Route::post('/graduation/{enrollment}/graduate', [AdminGraduationController::class, 'graduate'])->middleware('auth')->whereNumber('enrollment');
+Route::post('/graduation/{enrollment}/ready', [AdminGraduationController::class, 'moveBackToReady'])->middleware('auth')->whereNumber('enrollment');
+Route::get('/certificates/{enrollment}', [CertificateController::class, 'show'])->middleware('auth')->whereNumber('enrollment');
+
 use App\Http\Controllers\AnnouncementController;
  
 Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('auth');
@@ -118,3 +127,14 @@ use App\Http\Controllers\RegistersController;
 Route::post('/registers/enroll', [RegistersController::class, 'enroll'])->middleware('auth');
 Route::put('/registers/students/{enrollment}', [RegistersController::class, 'updateCourse'])->middleware('auth');
 Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');
+
+
+
+
+Route::get('/tmpcheck', fn () => [
+    'upload_tmp_dir' => ini_get('upload_tmp_dir'),
+    'sys_temp_dir'   => sys_get_temp_dir(),
+    'writable'       => is_writable(ini_get('upload_tmp_dir') ?: sys_get_temp_dir()),
+    'file_uploads'   => ini_get('file_uploads'),
+    'php_ini'        => php_ini_loaded_file(),
+]);
