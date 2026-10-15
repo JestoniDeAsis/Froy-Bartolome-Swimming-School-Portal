@@ -127,6 +127,8 @@ use App\Http\Controllers\RegistersController;
 Route::post('/registers/enroll', [RegistersController::class, 'enroll'])->middleware('auth');
 Route::put('/registers/students/{enrollment}', [RegistersController::class, 'updateCourse'])->middleware('auth');
 Route::post('/registers/students/{enrollment}/payments', [RegistersController::class, 'addPayment'])->middleware('auth');
+Route::post('/registers/athletes', [RegistersController::class, 'addAthletes'])->middleware('auth');
+Route::post('/registers/athletes/{user}/revoke', [RegistersController::class, 'revokeAthlete'])->middleware('auth')->whereNumber('user');
 
 
 

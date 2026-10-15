@@ -608,9 +608,6 @@
 
             <div class="registerDropdownOptions" id="courseFilterOptions" hidden>
                 <button class="registerDropdownOption active" type="button" data-value="">All Courses</button>
-                <button class="registerDropdownOption" type="button" data-value="Beginner 2025">Beginner 2025</button>
-                <button class="registerDropdownOption" type="button" data-value="Intermediate 2025">Intermediate 2025</button>
-                <button class="registerDropdownOption" type="button" data-value="Advanced 2025">Advanced 2025</button>
             </div>
 
             <input id="courseFilterInput" name="courseFilter" type="hidden" value="">
@@ -862,42 +859,22 @@
     'use strict';
 
     /* =========================================================
-       IN-MEMORY DATA (no database — everything lives in these
-       arrays for the lifetime of the page). Every person record
-       gets a stable numeric `id` so it can be found again after
-       it moves between arrays (e.g. registrations -> students).
-
-       Trimmed to ONE sample record per array for mockup/testing
-       purposes — the read-only, in-memory behavior (no server or
-       database calls) is unchanged.
+       DATA — every list comes from RegistersController::data():
+       applicants, current students, athletes, and graduates who are
+       not enrolled right now. People move between lists as the admin
+       acts, and the server is always asked first.
     ========================================================= */
-
-    const BASE_TUITION = 9000;
-    const COURSE_OPTIONS = ['Beginner 2025', 'Intermediate 2025', 'Advanced 2025'];
-
-    let nextPersonId = 1000;
-    function personId() {
-        return nextPersonId++;
-    }
 
     let registrations = @json($registrations);
 
-    // Real courses from tbl_courses. Dropdowns still use the course NAME as
-    // their value (kept as-is so stripYear/course-matching logic below
-    // doesn't need to change) — this map converts name -> id only at the
-    // moment we send the enroll request to the server.
+    // Real courses from tbl_courses. Dropdowns use the course NAME as their
+    // value; this map converts name -> id when a request is sent.
     const COURSES = @json($courses);
     const COURSE_NAME_TO_ID = Object.fromEntries(COURSES.map(c => [c.name, c.id]));
 
     let students = @json($students);
-
-    let athletes = [
-        { id: 201, lastName: 'Dela Cruz', firstName: 'Juan', middleName: 'Martin', email: 'juandela@gmail.com', birthdate: 'JAN-06-2004', age: '22' }
-    ];
-
-    let graduates = [
-        { id: 301, lastName: 'Dela Cruz', firstName: 'Juan', middleName: 'Martin', email: 'juan.delacruz@gmail.com', lastCourse: 'Beginner 2025', birthdate: 'JAN-08-2004', age: '22' }
-    ];
+    let athletes = @json($athletes);
+    let graduates = @json($graduates);
 
     const selectedAthleteCandidateIds = new Set();
 
@@ -953,6 +930,7 @@
                 { label: 'Middle Name', key: 'middleName' },
                 { label: 'Email Address', key: 'email' },
                 { label: 'Last Course', key: 'lastCourse' },
+                { label: 'Graduated On', key: 'graduatedAt' },
                 { label: 'Birthdate', key: 'birthdate' },
                 { label: 'Age', key: 'age' }
             ],
@@ -1278,13 +1256,9 @@
 
             openConfirmModal({
                 title: 'Revoke athlete status?',
-                message: `Revoke ${getPersonName(person)}'s athlete status? They'll return to New Registers.`,
+                message: `Revoke ${getPersonName(person)}'s athlete status? They go back to Applicants, or to Graduates if they graduated before.`,
                 confirmLabel: 'Revoke',
-                onConfirm: () => {
-                    athletes = athletes.filter(p => p.id !== personId);
-                    registrations.push(person);
-                    renderTable(activeTab);
-                }
+                onConfirm: () => revokeAthlete(person)
             });
             return;
         }
@@ -1354,8 +1328,11 @@
             const haystack = config.columns.map(col => person[col.key] ?? '').join(' ').toLowerCase();
             const matchesSearch = haystack.includes(searchTerm);
 
-            const courseValue = tabName === 'graduates' ? String(person.lastCourse || '').toLowerCase() : '';
-            const matchesCourse = !courseFilter || courseValue === courseFilter;
+            // On Graduates the filter matches any course the person graduated from.
+            const graduatedCourses = tabName === 'graduates'
+                ? (person.graduatedCourses || []).map(name => String(name).toLowerCase())
+                : [];
+            const matchesCourse = !courseFilter || graduatedCourses.includes(courseFilter);
 
             return matchesSearch && matchesCourse;
         });
@@ -1528,10 +1505,29 @@
         setActiveDays([]);
     }
 
+    // Courses a person can still take: every course except the ones they already graduated from.
+    function availableCoursesFor(person) {
+        const done = new Set(person.graduatedCourseIds || []);
+        return COURSES.filter(course => !done.has(course.id));
+    }
+
+    // Rebuild the modal's course dropdown with only the given courses.
+    function setCourseOptions(courses, selectedName) {
+        const root = document.getElementById('courseDropdown');
+        window.FBSSDropdown.setOptions(root, courses.map(c => ({ value: c.name, label: c.name })), selectedName);
+    }
+
     function openEnrollModal(sourceTab, targetPersonId) {
         const source = sourceTab === 'registrations' ? registrations : graduates;
         const person = source.find(p => p.id === targetPersonId);
         if (!person) return;
+
+        const available = availableCoursesFor(person);
+
+        if (!available.length) {
+            showToast(`${getPersonName(person)} has already graduated from every available course.`, 'danger');
+            return;
+        }
 
         modalContext = { mode: 'enroll', sourceTab, personId: targetPersonId };
 
@@ -1540,11 +1536,7 @@
         elements.modalSubmitButton.textContent = 'Enroll';
         elements.modalStudentName.textContent = getPersonName(person);
 
-        const defaultCourse = (sourceTab === 'graduates' && COURSE_OPTIONS.includes(person.lastCourse))
-            ? person.lastCourse
-            : (COURSES[0]?.name || '');
-
-        setDropdownValue('course', defaultCourse);
+        setCourseOptions(available, available[0].name);
         setDropdownValue('schedule', 'Morning');
 
         openModal(elements.studentModal);
@@ -1581,8 +1573,9 @@
         elements.modalSubmitButton.textContent = 'Update';
         elements.modalStudentName.textContent = getPersonName(student);
 
-        const courseOption = COURSES.find(c => c.name === student.course)?.name || (COURSES[0]?.name || '');
-        setDropdownValue('course', courseOption);
+        const available = availableCoursesFor(student);
+        const courseOption = available.find(c => c.name === student.course)?.name || (available[0]?.name || '');
+        setCourseOptions(available, courseOption);
 
         elements.modalPriceChangeGroup.hidden = false;
         updatePriceChange();
@@ -1661,7 +1654,7 @@
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
     }
 
-    async function submitRegistrationEnroll(person) {
+    async function submitRegistrationEnroll(person, sourceTab) {
         const courseId = COURSE_NAME_TO_ID[elements.courseInput.value];
 
         if (!courseId) {
@@ -1691,7 +1684,11 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                registrations = registrations.filter(p => p.id !== person.id);
+                if (sourceTab === 'graduates') {
+                    graduates = graduates.filter(p => p.id !== person.id);
+                } else {
+                    registrations = registrations.filter(p => p.id !== person.id);
+                }
 
                 students.push({
                     id: data.student.id,
@@ -1703,7 +1700,8 @@
                     paymentStatus: data.student.paymentStatus,
                     notes: data.student.notes,
                     balance: data.student.balance,
-                    price: data.student.price
+                    price: data.student.price,
+                    graduatedCourseIds: person.graduatedCourseIds || []
                 });
 
                 modalContext = null;
@@ -1848,13 +1846,13 @@
             return;
         }
 
-        // Enrolling from New Registers, course-update, and payment-update now
-        // all save real rows via RegistersController. Only re-enrolling a
-        // graduate is still mock — not part of this task.
-        if (modalContext.mode === 'enroll' && modalContext.sourceTab === 'registrations') {
-            const person = registrations.find(p => p.id === modalContext.personId);
+        // Enrolling (applicants and graduates), course-update and payment-update
+        // all save real rows via RegistersController.
+        if (modalContext.mode === 'enroll') {
+            const source = modalContext.sourceTab === 'graduates' ? graduates : registrations;
+            const person = source.find(p => p.id === modalContext.personId);
             if (person) {
-                await submitRegistrationEnroll(person);
+                await submitRegistrationEnroll(person, modalContext.sourceTab);
             } else {
                 modalContext = null;
                 closeModal(elements.studentModal);
@@ -1884,44 +1882,8 @@
             return;
         }
 
-        let successMessage = null;
-
-        if (modalContext.mode === 'enroll') {
-            const source = modalContext.sourceTab === 'registrations' ? registrations : graduates;
-            const person = source.find(p => p.id === modalContext.personId);
-
-            if (person) {
-                const newStudent = {
-                    id: personId(),
-                    lastName: person.lastName,
-                    firstName: person.firstName,
-                    middleName: person.middleName,
-                    course: stripYear(elements.courseInput.value),
-                    schedule: buildScheduleString(elements.scheduleInput.value, getActiveDays()),
-                    paymentStatus: 'Unpaid',
-                    notes: elements.studentNotes.value.trim(),
-                    balance: BASE_TUITION
-                };
-
-                students.push(newStudent);
-
-                if (modalContext.sourceTab === 'registrations') {
-                    registrations = registrations.filter(p => p.id !== person.id);
-                } else {
-                    graduates = graduates.filter(p => p.id !== person.id);
-                }
-
-                successMessage = `Successfully enrolled ${getPersonName(person)}.`;
-            }
-        }
-
         modalContext = null;
         closeModal(elements.studentModal);
-        renderTable(activeTab);
-
-        if (successMessage) {
-            showToast(successMessage, 'success');
-        }
     });
 
     /* =========================================================
@@ -1935,9 +1897,66 @@
     });
 
     /* =========================================================
-       ADD ATHLETE — candidates are pulled straight from the
-       New Registers pool (`registrations`), not a separate list.
+       SERVER CALLS FOR ATHLETES
     ========================================================= */
+
+    async function sendJson(url, method, body) {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken(),
+                'Accept': 'application/json'
+            },
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+
+        let data = {};
+        try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
+
+        return { ok: response.ok && data.success !== false, data };
+    }
+
+    function firstError(data, fallback) {
+        const error = data.errors ? Object.values(data.errors)[0][0] : null;
+        return error || data.message || fallback;
+    }
+
+    // The server sends back fresh Applicants / Graduates / Athletes lists.
+    function applyLists(data) {
+        registrations = data.registrations || [];
+        graduates = data.graduates || [];
+        athletes = data.athletes || [];
+    }
+
+    async function revokeAthlete(person) {
+        try {
+            const result = await sendJson(`{{ url('/registers/athletes') }}/${person.id}/revoke`, 'POST');
+
+            if (result.ok) {
+                applyLists(result.data);
+                renderTable(activeTab);
+                showToast(`Revoked ${getPersonName(person)}'s athlete status.`, 'success');
+            } else {
+                showToast(firstError(result.data, 'Something went wrong while revoking athlete status.'), 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while revoking athlete status.', 'danger');
+        }
+    }
+
+    /* =========================================================
+       ADD ATHLETE — candidates are applicants plus graduates who
+       are not enrolled right now (the server checks this again).
+    ========================================================= */
+
+    function athleteCandidates() {
+        return [
+            ...registrations.map(person => ({ ...person, source: 'Applicant' })),
+            ...graduates.map(person => ({ ...person, source: 'Graduate' }))
+        ];
+    }
 
     function getCandidateAvatarInitials(candidate) {
         return `${candidate.firstName.charAt(0)}${candidate.lastName.charAt(0)}`.toUpperCase();
@@ -1945,9 +1964,10 @@
 
     function renderAthleteCandidates() {
         const searchTerm = elements.athleteModalSearch.value.trim().toLowerCase();
+        const candidates = athleteCandidates();
 
-        const visible = registrations.filter(person => {
-            const haystack = `${person.lastName} ${person.firstName} ${person.middleName} ${person.email}`.toLowerCase();
+        const visible = candidates.filter(person => {
+            const haystack = `${person.lastName} ${person.firstName} ${person.middleName} ${person.email} ${person.source}`.toLowerCase();
             return haystack.includes(searchTerm);
         });
 
@@ -1956,9 +1976,9 @@
         if (!visible.length) {
             elements.athleteModalCandidateList.append(createElement('p', {
                 className: 'athleteCandidateEmpty',
-                text: registrations.length
-                    ? 'No matching pending registrants.'
-                    : 'No pending registrants to add.'
+                text: candidates.length
+                    ? 'No matching applicants or graduates.'
+                    : 'No applicants or graduates to add.'
             }));
         } else {
             visible.forEach((candidate, index) => {
@@ -1994,12 +2014,15 @@
                     document.createTextNode(`${candidate.lastName}, ${candidate.firstName} `),
                     createElement('span', {
                         className: 'athleteCandidateMiddle',
-                        text: candidate.middleName !== '--' ? candidate.middleName : ''
+                        text: candidate.middleName && candidate.middleName !== '--' ? candidate.middleName : ''
                     })
                 );
 
                 const email = createElement('span', { className: 'athleteCandidateEmail', text: candidate.email });
-                const date = createElement('span', { className: 'athleteCandidateDate', text: candidate.birthdate });
+                const date = createElement('span', {
+                    className: 'athleteCandidateDate',
+                    text: candidate.birthdate ? `${candidate.source} · ${candidate.birthdate}` : candidate.source
+                });
 
                 info.append(name, email, date);
 
@@ -2014,10 +2037,10 @@
     }
 
     function updateAthleteSelectionSummary() {
-        const total = registrations.length;
+        const total = athleteCandidates().length;
         const selected = selectedAthleteCandidateIds.size;
 
-        elements.athleteModalSelectionCount.textContent = `${selected} selected · ${total} pending`;
+        elements.athleteModalSelectionCount.textContent = `${selected} selected · ${total} eligible`;
 
         elements.athleteModalSelectAllCheckbox.checked = total > 0 && selected === total;
         elements.athleteModalSelectAllCheckbox.indeterminate = selected > 0 && selected < total;
@@ -2040,29 +2063,43 @@
 
     elements.athleteModalSelectAllCheckbox.addEventListener('change', () => {
         if (elements.athleteModalSelectAllCheckbox.checked) {
-            registrations.forEach(person => selectedAthleteCandidateIds.add(person.id));
+            athleteCandidates().forEach(person => selectedAthleteCandidateIds.add(person.id));
         } else {
             selectedAthleteCandidateIds.clear();
         }
         renderAthleteCandidates();
     });
 
-    /* Confirming moves every selected registrant out of `registrations`
-       and into `athletes` — no separate pool, no database. */
-    elements.athleteModalConfirmButton.addEventListener('click', () => {
+    /* Confirming asks the server to make every selected person an athlete.
+       If anyone is not allowed (e.g. enrolled right now), nobody changes. */
+    elements.athleteModalConfirmButton.addEventListener('click', async () => {
         if (!selectedAthleteCandidateIds.size) {
             closeAthleteModal();
             return;
         }
 
-        const moving = registrations.filter(person => selectedAthleteCandidateIds.has(person.id));
-        registrations = registrations.filter(person => !selectedAthleteCandidateIds.has(person.id));
-        athletes.push(...moving);
+        const ids = Array.from(selectedAthleteCandidateIds);
 
-        selectedAthleteCandidateIds.clear();
-        closeAthleteModal();
+        elements.athleteModalConfirmButton.disabled = true;
 
-        renderTable(activeTab);
+        try {
+            const result = await sendJson('{{ url('/registers/athletes') }}', 'POST', { user_ids: ids });
+
+            if (result.ok) {
+                applyLists(result.data);
+                selectedAthleteCandidateIds.clear();
+                closeAthleteModal();
+                renderTable(activeTab);
+                showToast(`Successfully added ${ids.length} athlete${ids.length === 1 ? '' : 's'}.`, 'success');
+            } else {
+                showToast(firstError(result.data, 'Something went wrong while adding athletes.'), 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while adding athletes.', 'danger');
+        } finally {
+            elements.athleteModalConfirmButton.disabled = false;
+        }
     });
 
     /* =========================================================
@@ -2110,8 +2147,25 @@
     window.addEventListener('load', fitRegistersContainer);
 
     /* =========================================================
+       GRADUATES COURSE FILTER — options come from the real courses
+    ========================================================= */
+
+    function buildCourseFilterOptions() {
+        window.FBSSDropdown.setOptions(
+            elements.courseFilterDropdown,
+            [{ value: '', label: 'All Courses' }].concat(COURSES.map(c => ({ value: c.name, label: c.name }))),
+            ''
+        );
+
+        const label = elements.courseFilterDropdown.querySelector('.registerDropdownToggle span');
+        if (label) label.textContent = 'Filter by Course';
+    }
+
+    /* =========================================================
        INITIALIZE
     ========================================================= */
+
+    buildCourseFilterOptions();
 
     updateTabButtons(activeTab);
     updateToolbar(activeTab);
