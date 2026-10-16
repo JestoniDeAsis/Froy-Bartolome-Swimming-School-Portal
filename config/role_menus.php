@@ -3,10 +3,11 @@
 return [
     1 => [ // admin
         'dashboard'      => ['icon' => 'bi-speedometer2',     'label' => 'Dashboard',        'view' => 'pages.admin.dashboard'],
-        'registers'      => ['icon' => 'bi-pencil-square',    'label' => 'Registers',         'view' => 'pages.admin.registers'],
         'attendance'     => ['icon' => 'bi-calendar-check',   'label' => 'Attendance',        'view' => 'pages.admin.attendance'],
-        'courses'        => ['icon' => 'bi-journal-bookmark', 'label' => 'Courses',           'view' => 'pages.admin.courses'],
+        'registers'      => ['icon' => 'bi-pencil-square',    'label' => 'Students',         'view' => 'pages.admin.registers'],
+        'athletes'     => ['icon' => 'bi-calendar-check',   'label' => 'Athletes',        'view' => 'pages.admin.athletes'],
         'coaches'        => ['icon' => 'bi-person-badge',     'label' => 'Coaches',           'view' => 'pages.admin.coaches'],
+        'courses'        => ['icon' => 'bi-journal-bookmark', 'label' => 'Courses',           'view' => 'pages.admin.courses'],
         'sales_invoice'  => ['icon' => 'bi-receipt',          'label' => 'Billing & Receipts',   'view' => 'pages.admin.sales_and_invoice'],
         'graduation'     => ['icon' => 'bi-mortarboard',      'label' => 'Graduation',        'view' => 'pages.admin.graduation'],
         'announcements'  => ['icon' => 'bi-megaphone',        'label' => 'Announcements',     'view' => 'pages.admin.announcements'],

@@ -16,10 +16,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Admin Registers page.
  *
- * Four lists, all built from real data:
+ * Three lists, all built from real data (Athletes has its own page now):
  *   Applicants  role 5 with no enrollment at all
  *   Students    enrollments without a graduation date
- *   Athletes    role 4
  *   Graduates   graduated at least once, NOT enrolled now, not an athlete
  *
  * Rules enforced here (not only in the page):
@@ -190,101 +189,16 @@ class RegistersController extends Controller
         ]);
     }
 
-    /**
-     * POST /registers/athletes     body: { user_ids: [1, 2, ...] }
-     * Turns applicants and graduates into athletes (role 4). Everyone in the
-     * request must be eligible, otherwise nobody is changed:
-     *   - not already an athlete
-     *   - NOT enrolled in a course right now
-     *   - an applicant, or someone who graduated before
-     * Replies with the refreshed Applicants / Graduates / Athletes lists.
-     */
-    public function addAthletes(Request $request): JsonResponse
-    {
-        if ($denied = $this->denyUnlessAdmin()) {
-            return $denied;
-        }
-
-        $validated = $request->validate([
-            'user_ids' => ['required', 'array', 'min:1'],
-            'user_ids.*' => ['integer', 'distinct', 'exists:tbl_users,user_id'],
-        ]);
-
-        $ids = array_map('intval', $validated['user_ids']);
-
-        $users = User::with('profile')->whereIn('user_id', $ids)->get();
-
-        $enrolledNow = Enrollment::whereIn('user_id', $ids)
-            ->whereNull('graduation_at')
-            ->pluck('user_id')->map(fn ($id) => (int) $id)->all();
-
-        $enrolledBefore = Enrollment::whereIn('user_id', $ids)
-            ->pluck('user_id')->map(fn ($id) => (int) $id)->unique()->all();
-
-        foreach ($users as $user) {
-            $id = (int) $user->user_id;
-            $name = $this->personName($user);
-
-            if ((int) $user->role_id === self::ATHLETE_ROLE_ID) {
-                return $this->fail("{$name} is already an athlete.");
-            }
-
-            if (in_array($id, $enrolledNow, true)) {
-                return $this->fail("{$name} is enrolled in a course right now. Only people who are not enrolled can become athletes.");
-            }
-
-            if (! in_array($id, $enrolledBefore, true) && (int) $user->role_id !== self::APPLICANT_ROLE_ID) {
-                return $this->fail("{$name} is not an applicant or a graduate.");
-            }
-        }
-
-        DB::table('tbl_users')->whereIn('user_id', $ids)->update(['role_id' => self::ATHLETE_ROLE_ID]);
-
-        return response()->json(array_merge(['success' => true], $this->lists()));
-    }
-
-    /**
-     * POST /registers/athletes/{user}/revoke
-     * Takes athlete status away. The person goes back to Graduates if they
-     * were ever enrolled (role 3), otherwise back to Applicants (role 5).
-     * Replies with the refreshed lists.
-     */
-    public function revokeAthlete(Request $request, int $user): JsonResponse
-    {
-        if ($denied = $this->denyUnlessAdmin()) {
-            return $denied;
-        }
-
-        $roleId = DB::table('tbl_users')->where('user_id', $user)->value('role_id');
-
-        if ($roleId === null) {
-            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
-        }
-
-        if ((int) $roleId !== self::ATHLETE_ROLE_ID) {
-            return $this->fail('This person is not an athlete.');
-        }
-
-        $enrolledBefore = Enrollment::where('user_id', $user)->exists();
-
-        DB::table('tbl_users')->where('user_id', $user)->update([
-            'role_id' => $enrolledBefore ? self::STUDENT_ROLE_ID : self::APPLICANT_ROLE_ID,
-        ]);
-
-        return response()->json(array_merge(['success' => true], $this->lists()));
-    }
-
     /* ---------------------------------------------------------
      * Lists
      * --------------------------------------------------------- */
 
-    /** The three lists that change when someone becomes / stops being an athlete. */
+    /** The Applicants and Graduates lists. (Athletes live on the Athletes page.) */
     private function lists(): array
     {
         return [
             'registrations' => $this->applicantRows(),
             'graduates' => $this->graduateRows(),
-            'athletes' => $this->athleteRows(),
         ];
     }
 
@@ -341,22 +255,6 @@ class RegistersController extends Controller
                 'graduatedCourses' => $mine->map(fn ($e) => $e->course->course_name ?? '')->filter()->unique()->values()->all(),
             ], $this->birthFields($profile));
         })->sortBy('lastName', SORT_NATURAL | SORT_FLAG_CASE)->values();
-    }
-
-    private function athleteRows(): Collection
-    {
-        return User::with('profile')
-            ->where('role_id', self::ATHLETE_ROLE_ID)
-            ->get()
-            ->map(fn ($user) => array_merge([
-                'id' => $user->user_id,
-                'lastName' => $user->profile->last_name ?? '',
-                'firstName' => $user->profile->first_name ?? '',
-                'middleName' => $user->profile->middle_name ?? '',
-                'email' => $user->email_address ?? '',
-            ], $this->birthFields($user->profile)))
-            ->sortBy('lastName', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
     }
 
     /** user id => ids of the courses that person already graduated from. */
@@ -417,20 +315,5 @@ class RegistersController extends Controller
         }
 
         return null;
-    }
-
-    private function fail(string $message): JsonResponse
-    {
-        return response()->json(['success' => false, 'message' => $message], 422);
-    }
-
-    /** "Last, First" from the profile; falls back to the username. */
-    private function personName(User $user): string
-    {
-        $profile = $user->profile;
-        $last = trim((string) ($profile->last_name ?? ''));
-        $first = trim((string) ($profile->first_name ?? ''));
-
-        return $last !== '' ? "{$last}, {$first}" : (string) ($user->username ?? 'This person');
     }
 }

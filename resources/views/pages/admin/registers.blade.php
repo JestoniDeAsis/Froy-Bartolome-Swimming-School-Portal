@@ -26,13 +26,6 @@
     margin-bottom: 1rem;
 }
 
-#addAthleteButton {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
 
 #registersTabs {
     display: flex;
@@ -340,151 +333,6 @@
 }
 
 /* =========================================================
-   Add Athlete Modal
-========================================================= */
-
-.athleteModalContent {
-    width: min(480px, 95%);
-}
-
-.athleteModalSearchContainer {
-    width: 100%;
-    margin-bottom: 1rem;
-}
-
-.athleteModalSelectAllRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    padding-bottom: .75rem;
-    margin-bottom: .5rem;
-    border-bottom: 1px solid #e7ebef;
-}
-
-.athleteModalSelectAllLabel {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    margin: 0;
-    color: #212529;
-    font-size: .875rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.athleteModalSelectAllLabel input {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
-
-.athleteModalSelectionCount {
-    color: #6c757d;
-    font-size: .8125rem;
-}
-
-.athleteModalCandidateList {
-    display: grid;
-    gap: .25rem;
-    max-height: 320px;
-    overflow-y: auto;
-}
-
-.athleteCandidateRow {
-    display: grid;
-    grid-template-columns: auto auto 1fr auto;
-    align-items: center;
-    gap: .75rem;
-    padding: .6rem .5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color .15s ease;
-}
-
-.athleteCandidateRow:hover {
-    background: #f8fafb;
-}
-
-.athleteCandidateRow input {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
-
-.athleteCandidateAvatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    font-size: .75rem;
-    font-weight: 700;
-    color: #045199;
-    background: #d6e6ff;
-}
-
-.athleteCandidateAvatar.avatarColor1 {
-    color: #0f6d5c;
-    background: #d3f2ea;
-}
-
-.athleteCandidateAvatar.avatarColor2 {
-    color: #7a3fb0;
-    background: #ecdcfb;
-}
-
-.athleteCandidateAvatar.avatarColor3 {
-    color: #b26a00;
-    background: #ffe8c9;
-}
-
-.athleteCandidateAvatar.avatarColor4 {
-    color: #c2255c;
-    background: #ffd9e6;
-}
-
-.athleteCandidateInfo {
-    display: grid;
-    gap: .1rem;
-    min-width: 0;
-}
-
-.athleteCandidateName {
-    color: #212529;
-    font-size: .875rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.athleteCandidateMiddle {
-    color: #6c757d;
-    font-weight: 400;
-}
-
-.athleteCandidateEmail,
-.athleteCandidateDate {
-    color: #6c757d;
-    font-size: .75rem;
-}
-
-.athleteCandidateAge {
-    color: #495057;
-    font-size: .875rem;
-    font-weight: 600;
-}
-
-.athleteCandidateEmpty {
-    padding: 1.5rem;
-    color: #6c757d;
-    font-size: .875rem;
-    text-align: center;
-}
-
-/* =========================================================
    Reusable Dropdown Component — lives in our_theme.css
    (.registerDropdown / .registerDropdownToggle /
    .registerDropdownOptions / .registerDropdownOption).
@@ -564,14 +412,10 @@
         <div id="registersHeaderText">
             <h2 class="mb-1" id="registersTitle">Registers</h2>
             <p class="text-muted mb-0" id="registersDescription">
-                Manage new registrations, students, athletes, and graduates.
+                Manage new registrations, students, and graduates.
             </p>
         </div>
 
-        <button class="btn btn-primary registersTab" id="addAthleteButton" type="button" hidden>
-            <i class="bi bi-plus-lg" id="addAthleteIcon"></i>
-            Add New Athlete
-        </button>
     </header>
 
 
@@ -585,9 +429,6 @@
         </button>
         <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="students" aria-selected="false">
             Students
-        </button>
-        <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="athletes" aria-selected="false">
-            Athletes
         </button>
         <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="graduates" aria-selected="false">
             Graduates
@@ -777,39 +618,6 @@
 </div>
 
 
-<!-- =========================================================
-     ADD ATHLETE MODAL
-========================================================= -->
-
-<div class="modalOverlay" id="athleteModal" hidden>
-    <div class="modalContentBox athleteModalContent" role="dialog" aria-modal="true" aria-labelledby="athleteModalTitle">
-
-        <h3 id="athleteModalTitle">Adding New Athlete</h3>
-
-        <div class="registersSearchContainer athleteModalSearchContainer">
-            <i class="bi bi-search registersSearchIcon" aria-hidden="true"></i>
-            <input class="form-control registersSearchInput" id="athleteModalSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search pending registrants">
-        </div>
-
-        <div class="athleteModalSelectAllRow">
-            <label class="athleteModalSelectAllLabel" for="athleteModalSelectAllCheckbox">
-                <input type="checkbox" id="athleteModalSelectAllCheckbox">
-                Select all
-            </label>
-            <span class="athleteModalSelectionCount" id="athleteModalSelectionCount">0 selected · 0 pending</span>
-        </div>
-
-        <div class="athleteModalCandidateList" id="athleteModalCandidateList"></div>
-
-        <div class="modalActions">
-            <button class="btn btn-outline-danger" id="athleteModalBackButton" type="button">Back</button>
-            <button class="btn btn-success" id="athleteModalConfirmButton" type="button">Confirm</button>
-        </div>
-
-    </div>
-</div>
-
-
 <script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
@@ -817,7 +625,7 @@
 
     /* =========================================================
        DATA — every list comes from RegistersController::data():
-       applicants, current students, athletes, and graduates who are
+       applicants, current students, and graduates who are
        not enrolled right now. People move between lists as the admin
        acts, and the server is always asked first.
     ========================================================= */
@@ -830,10 +638,8 @@
     const COURSE_NAME_TO_ID = Object.fromEntries(COURSES.map(c => [c.name, c.id]));
 
     let students = @json($students);
-    let athletes = @json($athletes);
     let graduates = @json($graduates);
 
-    const selectedAthleteCandidateIds = new Set();
 
     /* =========================================================
        TAB CONFIG — maps each tab to its live data, its columns
@@ -866,18 +672,6 @@
                 { label: 'Notes', key: 'notes' }
             ],
             actions: []
-        },
-        athletes: {
-            getRows: () => athletes,
-            columns: [
-                { label: 'Last Name', key: 'lastName' },
-                { label: 'First Name', key: 'firstName' },
-                { label: 'Middle Name', key: 'middleName' },
-                { label: 'Email Address', key: 'email' },
-                { label: 'Birthdate', key: 'birthdate' },
-                { label: 'Age', key: 'age' }
-            ],
-            actions: ['Revoke']
         },
         graduates: {
             getRows: () => graduates,
@@ -937,14 +731,6 @@
         confirmModalCancelButton: document.getElementById('confirmModalCancelButton'),
         confirmModalConfirmButton: document.getElementById('confirmModalConfirmButton'),
 
-        addAthleteButton: document.getElementById('addAthleteButton'),
-        athleteModal: document.getElementById('athleteModal'),
-        athleteModalSearch: document.getElementById('athleteModalSearch'),
-        athleteModalSelectAllCheckbox: document.getElementById('athleteModalSelectAllCheckbox'),
-        athleteModalSelectionCount: document.getElementById('athleteModalSelectionCount'),
-        athleteModalCandidateList: document.getElementById('athleteModalCandidateList'),
-        athleteModalBackButton: document.getElementById('athleteModalBackButton'),
-        athleteModalConfirmButton: document.getElementById('athleteModalConfirmButton')
     };
 
     /* =========================================================
@@ -1184,19 +970,6 @@
             return;
         }
 
-        if (tabName === 'athletes' && action === 'Revoke') {
-            const person = athletes.find(p => p.id === personId);
-            if (!person) return;
-
-            openConfirmModal({
-                title: 'Revoke athlete status?',
-                message: `Revoke ${getPersonName(person)}'s athlete status? They go back to Applicants, or to Graduates if they graduated before.`,
-                confirmLabel: 'Revoke',
-                onConfirm: () => revokeAthlete(person)
-            });
-            return;
-        }
-
         if (tabName === 'graduates' && action === 'Enroll') {
             openEnrollModal('graduates', personId);
             return;
@@ -1366,10 +1139,6 @@
         elements.courseFilterDropdown.hidden = tabName !== 'graduates';
     }
 
-    function updateHeaderButton(tabName) {
-        elements.addAthleteButton.hidden = tabName !== 'athletes';
-    }
-
     /* =========================================================
        SWITCH TAB
     ========================================================= */
@@ -1391,7 +1160,6 @@
 
             updateTabButtons(activeTab);
             updateToolbar(activeTab);
-            updateHeaderButton(activeTab);
             renderTable(activeTab);
 
             elements.tableContainer.classList.remove('isCollapsing');
@@ -1693,212 +1461,6 @@
     });
 
     /* =========================================================
-       SERVER CALLS FOR ATHLETES
-    ========================================================= */
-
-    async function sendJson(url, method, body) {
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': getCsrfToken(),
-                'Accept': 'application/json'
-            },
-            body: body === undefined ? undefined : JSON.stringify(body)
-        });
-
-        let data = {};
-        try { data = await response.json(); } catch (e) { /* non-JSON error page */ }
-
-        return { ok: response.ok && data.success !== false, data };
-    }
-
-    function firstError(data, fallback) {
-        const error = data.errors ? Object.values(data.errors)[0][0] : null;
-        return error || data.message || fallback;
-    }
-
-    // The server sends back fresh Applicants / Graduates / Athletes lists.
-    function applyLists(data) {
-        registrations = data.registrations || [];
-        graduates = data.graduates || [];
-        athletes = data.athletes || [];
-    }
-
-    async function revokeAthlete(person) {
-        try {
-            const result = await sendJson(`{{ url('/registers/athletes') }}/${person.id}/revoke`, 'POST');
-
-            if (result.ok) {
-                applyLists(result.data);
-                renderTable(activeTab);
-                showToast(`Revoked ${getPersonName(person)}'s athlete status.`, 'success');
-            } else {
-                showToast(firstError(result.data, 'Something went wrong while revoking athlete status.'), 'danger');
-            }
-        } catch (error) {
-            console.error(error);
-            showToast('Something went wrong while revoking athlete status.', 'danger');
-        }
-    }
-
-    /* =========================================================
-       ADD ATHLETE — candidates are applicants plus graduates who
-       are not enrolled right now (the server checks this again).
-    ========================================================= */
-
-    function athleteCandidates() {
-        return [
-            ...registrations.map(person => ({ ...person, source: 'Applicant' })),
-            ...graduates.map(person => ({ ...person, source: 'Graduate' }))
-        ];
-    }
-
-    function getCandidateAvatarInitials(candidate) {
-        return `${candidate.firstName.charAt(0)}${candidate.lastName.charAt(0)}`.toUpperCase();
-    }
-
-    function renderAthleteCandidates() {
-        const searchTerm = elements.athleteModalSearch.value.trim().toLowerCase();
-        const candidates = athleteCandidates();
-
-        const visible = candidates.filter(person => {
-            const haystack = `${person.lastName} ${person.firstName} ${person.middleName} ${person.email} ${person.source}`.toLowerCase();
-            return haystack.includes(searchTerm);
-        });
-
-        elements.athleteModalCandidateList.replaceChildren();
-
-        if (!visible.length) {
-            elements.athleteModalCandidateList.append(createElement('p', {
-                className: 'athleteCandidateEmpty',
-                text: candidates.length
-                    ? 'No matching applicants or graduates.'
-                    : 'No applicants or graduates to add.'
-            }));
-        } else {
-            visible.forEach((candidate, index) => {
-                const row = createElement('label', {
-                    id: `athleteCandidateRow${candidate.id}`,
-                    className: 'athleteCandidateRow'
-                });
-
-                const checkbox = createElement('input', {
-                    id: `athleteCandidateCheckbox${candidate.id}`,
-                    attributes: { type: 'checkbox' }
-                });
-                checkbox.checked = selectedAthleteCandidateIds.has(candidate.id);
-                checkbox.addEventListener('change', () => {
-                    if (checkbox.checked) {
-                        selectedAthleteCandidateIds.add(candidate.id);
-                    } else {
-                        selectedAthleteCandidateIds.delete(candidate.id);
-                    }
-                    updateAthleteSelectionSummary();
-                });
-
-                const avatar = createElement('span', {
-                    id: `athleteCandidateAvatar${candidate.id}`,
-                    className: `athleteCandidateAvatar avatarColor${(index % 4) + 1}`,
-                    text: getCandidateAvatarInitials(candidate)
-                });
-
-                const info = createElement('span', { className: 'athleteCandidateInfo' });
-
-                const name = createElement('span', { className: 'athleteCandidateName' });
-                name.append(
-                    document.createTextNode(`${candidate.lastName}, ${candidate.firstName} `),
-                    createElement('span', {
-                        className: 'athleteCandidateMiddle',
-                        text: candidate.middleName && candidate.middleName !== '--' ? candidate.middleName : ''
-                    })
-                );
-
-                const email = createElement('span', { className: 'athleteCandidateEmail', text: candidate.email });
-                const date = createElement('span', {
-                    className: 'athleteCandidateDate',
-                    text: candidate.birthdate ? `${candidate.source} · ${candidate.birthdate}` : candidate.source
-                });
-
-                info.append(name, email, date);
-
-                const age = createElement('span', { className: 'athleteCandidateAge', text: candidate.age });
-
-                row.append(checkbox, avatar, info, age);
-                elements.athleteModalCandidateList.append(row);
-            });
-        }
-
-        updateAthleteSelectionSummary();
-    }
-
-    function updateAthleteSelectionSummary() {
-        const total = athleteCandidates().length;
-        const selected = selectedAthleteCandidateIds.size;
-
-        elements.athleteModalSelectionCount.textContent = `${selected} selected · ${total} eligible`;
-
-        elements.athleteModalSelectAllCheckbox.checked = total > 0 && selected === total;
-        elements.athleteModalSelectAllCheckbox.indeterminate = selected > 0 && selected < total;
-    }
-
-    function openAthleteModal() {
-        elements.athleteModalSearch.value = '';
-        selectedAthleteCandidateIds.clear();
-        renderAthleteCandidates();
-        openModal(elements.athleteModal);
-    }
-
-    function closeAthleteModal() {
-        closeModal(elements.athleteModal);
-    }
-
-    elements.addAthleteButton.addEventListener('click', openAthleteModal);
-    elements.athleteModalBackButton.addEventListener('click', closeAthleteModal);
-    elements.athleteModalSearch.addEventListener('input', renderAthleteCandidates);
-
-    elements.athleteModalSelectAllCheckbox.addEventListener('change', () => {
-        if (elements.athleteModalSelectAllCheckbox.checked) {
-            athleteCandidates().forEach(person => selectedAthleteCandidateIds.add(person.id));
-        } else {
-            selectedAthleteCandidateIds.clear();
-        }
-        renderAthleteCandidates();
-    });
-
-    /* Confirming asks the server to make every selected person an athlete.
-       If anyone is not allowed (e.g. enrolled right now), nobody changes. */
-    elements.athleteModalConfirmButton.addEventListener('click', async () => {
-        if (!selectedAthleteCandidateIds.size) {
-            closeAthleteModal();
-            return;
-        }
-
-        const ids = Array.from(selectedAthleteCandidateIds);
-
-        elements.athleteModalConfirmButton.disabled = true;
-
-        try {
-            const result = await sendJson('{{ url('/registers/athletes') }}', 'POST', { user_ids: ids });
-
-            if (result.ok) {
-                applyLists(result.data);
-                selectedAthleteCandidateIds.clear();
-                closeAthleteModal();
-                renderTable(activeTab);
-                showToast(`Successfully added ${ids.length} athlete${ids.length === 1 ? '' : 's'}.`, 'success');
-            } else {
-                showToast(firstError(result.data, 'Something went wrong while adding athletes.'), 'danger');
-            }
-        } catch (error) {
-            console.error(error);
-            showToast('Something went wrong while adding athletes.', 'danger');
-        } finally {
-            elements.athleteModalConfirmButton.disabled = false;
-        }
-    });
-
-    /* =========================================================
        DROPDOWNS — behaviour lives in assets/js/fbss-dropdown.js
        (open/close, selection, positioning). This page only reacts
        to the `dropdown:change` event the shared script fires.
@@ -1965,7 +1527,6 @@
 
     updateTabButtons(activeTab);
     updateToolbar(activeTab);
-    updateHeaderButton(activeTab);
     updateStudentToolbarState();
     renderTable(activeTab);
     fitRegistersContainer();
