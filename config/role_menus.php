@@ -17,6 +17,7 @@ return [
         'dashboard'          => ['icon' => 'bi-speedometer2',    'label' => 'Dashboard',         'view' => 'pages.coach.dashboard'],
         'attendance'         => ['icon' => 'bi-calendar-check',  'label' => 'Attendance',        'view' => 'pages.coach.attendance'],
         'skills_assessment'  => ['icon' => 'bi-clipboard-check', 'label' => 'Skills Assessment', 'view' => 'pages.coach.skills_assessment'],
+        'athlete_records'    => ['icon' => 'bi-stopwatch',       'label' => 'Athlete Records',   'view' => 'pages.coach.athlete_records'],
         'announcements'      => ['icon' => 'bi-megaphone',       'label' => 'Announcements',     'view' => 'pages.shared.announcements'],
         'profile'            => ['icon' => 'bi-person-circle',   'label' => 'Profile',           'view' => 'pages.shared.profile'],
     ],

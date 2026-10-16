@@ -71,6 +71,16 @@ use App\Http\Controllers\CoachSkillsAssessmentController;
 Route::get('/coach/skills-assessment/data', [CoachSkillsAssessmentController::class, 'data'])->middleware('auth');
 Route::put('/coach/skills-assessment/{enrollment}', [CoachSkillsAssessmentController::class, 'save'])->middleware('auth')->whereNumber('enrollment');
 
+use App\Http\Controllers\AthleteRecordController;
+
+Route::get('/coach/athlete-records/data', [AthleteRecordController::class, 'data'])->middleware('auth');
+Route::get('/coach/athlete-records/leaderboard', [AthleteRecordController::class, 'leaderboard'])->middleware('auth');
+Route::get('/coach/athlete-records/athletes/{user}', [AthleteRecordController::class, 'athlete'])->middleware('auth')->whereNumber('user');
+Route::post('/coach/athlete-records', [AthleteRecordController::class, 'store'])->middleware('auth');
+Route::delete('/coach/athlete-records/{record}', [AthleteRecordController::class, 'destroy'])->middleware('auth')->whereNumber('record');
+Route::get('/athlete/records/data', [AthleteRecordController::class, 'mine'])->middleware('auth');
+Route::get('/athlete/records/leaderboard', [AthleteRecordController::class, 'leaderboard'])->middleware('auth');
+
 use App\Http\Controllers\CoachController;
  
 Route::get('/coaches/data', [CoachController::class, 'data'])->middleware('auth');
@@ -97,9 +107,9 @@ Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::c
    Route::post('/athletes', [AdminAthleteController::class, 'store'])->middleware('auth');
    Route::post('/athletes/{user}/revoke', [AdminAthleteController::class, 'revoke'])->middleware('auth')->whereNumber('user');
 
-use App\Http\Controllers\SharedAttendanceController;
+use App\Http\Controllers\StudentAttendanceController;
  
-Route::get('/student/attendance/data', [SharedAttendanceController::class, 'data'])->middleware('auth');
+Route::get('/student/attendance/data', [StudentAttendanceController::class, 'data'])->middleware('auth');
 
 use App\Http\Controllers\PaymentHistoryController;
 
