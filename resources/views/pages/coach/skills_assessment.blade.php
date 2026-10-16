@@ -272,6 +272,40 @@
 
 .skillsChecklistEmpty { margin: 0; padding: 1.5rem 0; color: #6c757d; text-align: center; }
 
+/* Small Time Out modal (same card as the checklist modal, narrower) */
+.skillsModal.isSmall { max-width: 360px; }
+.skillsModal.isSmall .skillsModalFooter { justify-content: flex-end; }
+.skillsModal.isSmall .skillsModalBody { display: flex; flex-direction: column; gap: .5rem; }
+
+.skillsTimeName { margin: 0 0 .25rem; font-size: .875rem; color: #344054; }
+.skillsTimeName strong { color: #101828; }
+
+.skillsTimeLabel {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #101828;
+    transition: color .15s ease;
+}
+.skillsTimeLabel.isDimmed { color: #adb5bd; }
+
+.skillsTimeInput {
+    height: 44px;
+    padding: 0 .9rem;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #212529;
+    background: #fff;
+}
+
+.skillsTimeInput:focus {
+    outline: none;
+    border-color: #4dabf7;
+    box-shadow: 0 0 0 3px rgba(77, 171, 247, .15);
+}
+
 @media (max-width: 575.98px) {
     .skillsModalFooter { flex-direction: column-reverse; align-items: stretch; }
 }
@@ -284,7 +318,7 @@
         <h2 class="mb-1" id="skillsTitle">Skills Assessment</h2>
         <p class="text-muted mb-0" id="skillsDescription"></p>
         <p class="text-muted small mb-0" id="skillsHint">
-            Shows the students you logged attendance for on the selected date. Select a student to assess their course skills.
+            Shows every student you have logged attendance for, with their latest Time In and Time Out. Select a student to assess their course skills.
         </p>
     </header>
 
@@ -309,19 +343,6 @@
             </div>
         </div>
 
-        <!-- Attendance Date -->
-        <div class="skillsFilterGroup">
-            <label class="skillsFilterLabel" for="skillsDateInput">Attendance Date</label>
-
-            <div class="skillsDatePicker">
-                <button class="skillsDateButton" id="skillsDateButton" type="button">
-                    <span id="skillsDateSelected">Today</span>
-                    <i class="bi bi-calendar3" aria-hidden="true"></i>
-                </button>
-                <input class="skillsDateInput" id="skillsDateInput" type="date" aria-label="Attendance date" tabindex="-1">
-            </div>
-        </div>
-
         <!-- Search -->
         <div class="skillsFilterGroup">
             <label class="skillsFilterLabel" for="skillsSearch">Search</label>
@@ -335,6 +356,7 @@
 
         <!-- Actions -->
         <div class="skillsToolbarActions">
+            <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled title="Time Out is available for today's log once the student has a Time In">Time Out</button>
             <button class="btn btn-primary" id="viewChecklistButton" type="button" disabled>View Checklist</button>
             <button class="btn btn-outline-primary" id="refreshButton" type="button">
                 <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
@@ -374,12 +396,38 @@
                     <input class="form-check-input" id="readyToGraduateInput" type="checkbox">
                     <label class="form-check-label" for="readyToGraduateInput">Mark as eligible to graduate</label>
                 </div>
-                <p class="skillsModalNote">Every skill needs a Pass or Failed before you can save.</p>
+                <p class="skillsModalNote">You can save skills one at a time. Every skill needs a Pass or Failed only when marking as eligible to graduate.</p>
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-primary" id="checklistModalDoneButton" type="button">Cancel</button>
                 <button class="btn btn-primary" id="checklistModalSaveButton" type="button">Save</button>
             </div>
+        </div>
+
+    </div>
+</div>
+
+
+<!-- TIME OUT MODAL -->
+<div class="modalOverlay" id="timeModalOverlay" hidden>
+    <div class="skillsModal isSmall" id="timeModal" role="dialog" aria-modal="true" aria-labelledby="timeModalTitle">
+
+        <div class="skillsModalHeader">
+            <h5 id="timeModalTitle">Record Time Out</h5>
+            <button class="skillsModalClose" id="timeModalCloseButton" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="skillsModalBody">
+            <p class="skillsTimeName" id="timeModalRecordName"></p>
+            <p class="skillsModalSub" id="timeModalMeta" hidden></p>
+
+            <label class="skillsTimeLabel" id="timeModalLabel" for="timeModalInput">Current Time</label>
+            <input class="skillsTimeInput" id="timeModalInput" type="time">
+        </div>
+
+        <div class="skillsModalFooter">
+            <button class="btn btn-outline-primary" id="timeModalCancelButton" type="button">Cancel</button>
+            <button class="btn btn-primary" id="timeModalSaveButton" type="button">Save</button>
         </div>
 
     </div>
@@ -396,6 +444,7 @@
     ========================================================= */
 
     const URLS = {
+        timeOut: '/coach/attendance/students/time-out',   // same endpoint the Attendance page uses
         data: '/coach/skills-assessment/data',
         save: '/coach/skills-assessment'   // + /{enrollment_id}
     };
@@ -404,6 +453,7 @@
     const COLUMNS = [
         { label: 'Student Name', key: 'name', isNameColumn: true },
         { label: 'Course Level', key: 'course' },
+        { label: 'Date', key: 'date', isDate: true },
         { label: 'Time In', key: 'time_in', isTime: true },
         { label: 'Time Out', key: 'time_out', isTime: true },
         { label: 'Status', key: 'state' },
@@ -426,13 +476,19 @@
 
         classFilter: $('classFilterDropdown'),
 
-        dateButton: $('skillsDateButton'),
-        dateSelected: $('skillsDateSelected'),
-        dateInput: $('skillsDateInput'),
-
         search: $('skillsSearch'),
 
+        timeOutButton: $('recordTimeOutButton'),
         viewButton: $('viewChecklistButton'),
+
+        timeOverlay: $('timeModalOverlay'),
+        timeName: $('timeModalRecordName'),
+        timeMeta: $('timeModalMeta'),
+        timeLabel: $('timeModalLabel'),
+        timeInput: $('timeModalInput'),
+        timeClose: $('timeModalCloseButton'),
+        timeCancel: $('timeModalCancelButton'),
+        timeSave: $('timeModalSaveButton'),
         refreshButton: $('refreshButton'),
 
         overlay: $('checklistModalOverlay'),
@@ -494,8 +550,6 @@
         return ref.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     }
 
-    const isToday = () => el.dateInput.value === toLocalISODate(new Date());
-
     // Value of a shared dropdown (assets/js/fbss-dropdown.js).
     const dropdownValue = root => window.FBSSDropdown.get(root);
 
@@ -530,50 +584,11 @@
     }
 
     /* =========================================================
-       HEADER + DATE PICKER
+       HEADER
     ========================================================= */
 
     function renderCurrentDateLine() {
         el.description.textContent = `Current date: ${formatLongDate(new Date())}`;
-    }
-
-    function updateDateLabel() {
-        if (!el.dateInput.value) {
-            el.dateSelected.textContent = 'Select date';
-            return;
-        }
-
-        const picked = parseISODate(el.dateInput.value);
-
-        el.dateSelected.textContent = isToday()
-            ? `Today - ${formatShortDate(picked)}`
-            : formatShortDate(picked);
-    }
-
-    function initDatePicker() {
-        const today = toLocalISODate(new Date());
-        el.dateInput.max = today;          // no future dates
-        el.dateInput.value = today;
-        updateDateLabel();
-
-        el.dateButton.addEventListener('click', () => {
-            if (typeof el.dateInput.showPicker === 'function') {
-                el.dateInput.showPicker();
-            } else {
-                el.dateInput.focus();
-                el.dateInput.click();
-            }
-        });
-
-        el.dateInput.addEventListener('change', () => {
-            // Cleared or future date -> fall back to today.
-            if (!el.dateInput.value || el.dateInput.value > el.dateInput.max) {
-                el.dateInput.value = el.dateInput.max;
-            }
-
-            updateDateLabel();
-            loadRows();
-        });
     }
 
     /* =========================================================
@@ -608,7 +623,14 @@
     function renderCell(column, record) {
         if (column.isNameColumn) return renderNameCell(record);
 
-        const value = column.isTime ? formatTimeLabel(record[column.key]) : (record[column.key] ?? '');
+        let value;
+        if (column.isTime) {
+            value = formatTimeLabel(record[column.key]);
+        } else if (column.isDate) {
+            value = record[column.key] ? formatShortDate(parseISODate(record[column.key])) : '';
+        } else {
+            value = record[column.key] ?? '';
+        }
 
         return value
             ? document.createTextNode(value)
@@ -650,7 +672,7 @@
                 className: 'skillsEmptyState',
                 text: loading
                     ? 'Loading...'
-                    : (rows.length ? 'No matching students found.' : 'You have not logged any students for this date.'),
+                    : (rows.length ? 'No matching students found.' : 'You have not logged any students yet.'),
                 attributes: { colSpan: COLUMNS.length + 1 }
             }));
             el.tableBody.append(emptyRow);
@@ -685,20 +707,19 @@
     }
 
     /* =========================================================
-       LOAD DATA (date + class are sent to the server)
+       LOAD DATA (the class filter is sent to the server)
     ========================================================= */
 
     async function loadRows({ keepSelection = false } = {}) {
         const seq = ++loadSeq;
 
-        if (!el.dateInput.value) el.dateInput.value = el.dateInput.max;
         if (!keepSelection) selectedId = null;
 
         loading = true;
         updateToolbarState();
         renderTable();
 
-        const params = new URLSearchParams({ date: el.dateInput.value });
+        const params = new URLSearchParams();
         const courseId = dropdownValue(el.classFilter);
         if (courseId) params.set('course_id', courseId);
 
@@ -829,10 +850,11 @@
         // Read the picks straight from the radios.
         const results = {};
         let missing = 0;
+        const needsAll = el.readyInput.checked;   // only "eligible to graduate" requires every skill
 
         el.modalBody.querySelectorAll('.skillsSkillRow').forEach(row => {
             const picked = row.querySelector('input.btn-check:checked');
-            row.classList.toggle('isMissing', !picked);
+            row.classList.toggle('isMissing', needsAll && !picked);
 
             if (picked) {
                 results[row.dataset.skillId] = picked.id.endsWith('_pass') ? 'pass' : 'failed';
@@ -841,8 +863,13 @@
             }
         });
 
-        if (missing > 0) {
-            showToast(`Every skill needs a Pass or Failed. ${missing} still ${missing === 1 ? 'has' : 'have'} no remark.`, 'danger');
+        if (needsAll && missing > 0) {
+            showToast(`To mark as eligible to graduate, every skill needs a Pass or Failed. ${missing} still ${missing === 1 ? 'has' : 'have'} no remark.`, 'danger');
+            return;
+        }
+
+        if (!needsAll && !Object.keys(results).length) {
+            showToast('Mark at least one skill as Pass or Failed before saving.', 'danger');
             return;
         }
 
@@ -888,7 +915,6 @@
     ========================================================= */
 
     renderCurrentDateLine();
-    initDatePicker();
     updateToolbarState();
     loadRows();
 

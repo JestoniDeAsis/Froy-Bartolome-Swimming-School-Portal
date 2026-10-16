@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Coach Skills Assessment page.
  *
- * The page lists the students THIS coach logged attendance for on a given
- * date (default: today), each student's attendance status, and the
+ * The page lists every student THIS coach has logged attendance for (latest
+ * log per student, with Time In / Time Out), each student's status, and the
  * categories/skills of the course they are enrolled in with any saved
  * Pass/Failed marks.
  */
@@ -26,8 +26,11 @@ class CoachSkillsAssessmentController extends Controller
 {
     private const COACH_ROLE_ID = 2;
 
+    // Column on the attendance table that holds the log's date.
+    private const LOG_DATE_COLUMN = 'attendance_at';
+
     /**
-     * GET /coach/skills-assessment/data?date=YYYY-MM-DD&course_id=#
+     * GET /coach/skills-assessment/data?course_id=#
      */
     public function data(Request $request): JsonResponse
     {
@@ -38,16 +41,13 @@ class CoachSkillsAssessmentController extends Controller
         }
 
         $input = $request->validate([
-            'date'      => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
             'course_id' => ['nullable', 'integer'],
         ]);
 
         $coachId  = $coach->getKey();
-        $date     = $input['date'] ?? Carbon::today()->toDateString();
         $courseId = $input['course_id'] ?? null;
 
-        // Class dropdown: every course this coach has ever logged a student in
-        // (not just on the selected date, so the list doesn't change with the date).
+        // Class dropdown: every course this coach has ever logged a student in.
         $loggedEnrollmentIds = Attendance::query()
             ->where('logged_by', $coachId)
             ->whereNotNull('enrollment_id')
@@ -63,13 +63,12 @@ class CoachSkillsAssessmentController extends Controller
             ->map(fn ($course) => ['id' => $course->course_id, 'name' => $course->course_name])
             ->values();
 
-        // Attendance rows this coach logged on the selected date, one per enrollment
-        // (earliest Time In wins if there are ever two).
+        // Every student this coach has logged, one row per enrollment showing
+        // their most recent attendance log (newest first, then de-duplicated).
         $logs = Attendance::query()
-            ->onDate($date)
             ->where('logged_by', $coachId)
             ->whereNotNull('enrollment_id')
-            ->earliestFirst()
+            ->orderByDesc((new Attendance)->getKeyName())
             ->get()
             ->unique('enrollment_id')
             ->keyBy('enrollment_id');
@@ -116,14 +115,18 @@ class CoachSkillsAssessmentController extends Controller
 
                 $totalSkills = 0;
                 $passedSkills = 0;
+                $markedSkills = 0;
 
                 $checklist = collect($checklists->get($enrollment->course_id, []))
-                    ->map(function ($category) use ($saved, &$totalSkills, &$passedSkills) {
+                    ->map(function ($category) use ($saved, &$totalSkills, &$passedSkills, &$markedSkills) {
                         $category['skills'] = collect($category['skills'])
-                            ->map(function ($skill) use ($saved, &$totalSkills, &$passedSkills) {
+                            ->map(function ($skill) use ($saved, &$totalSkills, &$passedSkills, &$markedSkills) {
                                 $skill['result'] = $saved->get($skill['id']);   // null = not marked yet
 
                                 $totalSkills++;
+                                if ($skill['result'] !== null) {
+                                    $markedSkills++;
+                                }
                                 if ($skill['result'] === SkillAssessmentResult::PASS) {
                                     $passedSkills++;
                                 }
@@ -146,10 +149,11 @@ class CoachSkillsAssessmentController extends Controller
                     'name'              => $this->displayName($enrollment),
                     'course_id'         => $enrollment->course_id,
                     'course'            => $enrollment->course?->course_name,
+                    'date'              => $this->logDate($log),
                     'time_in'           => $timeIn,
                     'time_out'          => Attendance::hhmm($log->time_out),
                     'state'             => $log->attendance_state ?: ($timeIn ? Attendance::STATE_PRESENT : null),
-                    'assessment'        => ! $assessment ? 'Not yet assessed' : ($eligible ? 'Eligible to graduate' : 'Assessed'),
+                    'assessment'        => ! $assessment ? 'Not yet assessed' : ($eligible ? 'Eligible to graduate' : ($markedSkills < $totalSkills ? 'In progress' : 'Assessed')),
                     'ready_to_graduate' => $ready,
                     'checklist'         => $checklist,
                 ];
@@ -159,7 +163,6 @@ class CoachSkillsAssessmentController extends Controller
 
         return response()->json([
             'success' => true,
-            'date'    => $date,
             'courses' => $courses,
             'rows'    => $rows,
         ]);
@@ -169,8 +172,8 @@ class CoachSkillsAssessmentController extends Controller
      * PUT /coach/skills-assessment/{enrollment}
      * Body: { results: { "<course_skill_id>": "pass" | "failed", ... }, ready_to_graduate: bool }
      *
-     * Every active skill of the student's course must get a remark. Saving
-     * again replaces the earlier marks.
+     * Skills can be saved one at a time; saving again replaces the marks sent.
+     * Every active skill must have a remark only when ready_to_graduate is true.
      */
     public function save(Request $request, int $enrollment): JsonResponse
     {
@@ -197,7 +200,7 @@ class CoachSkillsAssessmentController extends Controller
         }
 
         $input = $request->validate([
-            'results'           => ['required', 'array'],
+            'results'           => ['nullable', 'array'],
             'results.*'         => ['required', 'in:' . SkillAssessmentResult::PASS . ',' . SkillAssessmentResult::FAILED],
             'ready_to_graduate' => ['nullable', 'boolean'],
         ]);
@@ -216,24 +219,39 @@ class CoachSkillsAssessmentController extends Controller
             return response()->json(['success' => false, 'message' => 'This course has no skills set up yet.'], 422);
         }
 
-        $submitted   = collect($input['results'])->mapWithKeys(fn ($value, $skillId) => [(int) $skillId => $value]);
+        $submitted   = collect($input['results'] ?? [])->mapWithKeys(fn ($value, $skillId) => [(int) $skillId => $value]);
         $requiredIds = $requiredSkills->pluck('course_skill_id')->map(fn ($id) => (int) $id);
 
         if ($submitted->keys()->diff($requiredIds)->isNotEmpty()) {
             return response()->json(['success' => false, 'message' => 'Some skills do not belong to this student\'s course.'], 422);
         }
 
-        // All skills must get a remark.
-        $missing = $requiredSkills->filter(fn ($skill) => ! $submitted->has((int) $skill->course_skill_id));
+        $ready = (bool) ($input['ready_to_graduate'] ?? false);
 
-        if ($missing->isNotEmpty()) {
-            $names = $missing->take(3)->pluck('course_skill_name')->implode(', ');
-            $more  = $missing->count() > 3 ? ' and ' . ($missing->count() - 3) . ' more' : '';
+        // Skills can be logged one by one. Only marking the student as eligible
+        // to graduate requires every skill to have a remark (already saved or
+        // submitted now).
+        if ($ready) {
+            $alreadySaved = SkillAssessmentResult::query()
+                ->whereIn(
+                    'skill_assessment_id',
+                    SkillAssessment::query()->where('enrollment_id', $enrollmentRow->enrollment_id)->select('skill_assessment_id')
+                )
+                ->pluck('course_skill_id')
+                ->map(fn ($id) => (int) $id);
 
-            return response()->json([
-                'success' => false,
-                'message' => "Every skill needs a Pass or Failed. Missing: {$names}{$more}.",
-            ], 422);
+            $marked  = $submitted->keys()->merge($alreadySaved)->unique();
+            $missing = $requiredSkills->filter(fn ($skill) => ! $marked->contains((int) $skill->course_skill_id));
+
+            if ($missing->isNotEmpty()) {
+                $names = $missing->take(3)->pluck('course_skill_name')->implode(', ');
+                $more  = $missing->count() > 3 ? ' and ' . ($missing->count() - 3) . ' more' : '';
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "To mark as eligible to graduate, every skill needs a Pass or Failed. Missing: {$names}{$more}.",
+                ], 422);
+            }
         }
 
         DB::transaction(function () use ($enrollmentRow, $coach, $input, $submitted) {
@@ -246,18 +264,34 @@ class CoachSkillsAssessmentController extends Controller
                 ]
             );
 
-            SkillAssessmentResult::upsert(
-                $submitted->map(fn ($result, $skillId) => [
-                    'skill_assessment_id' => $assessment->skill_assessment_id,
-                    'course_skill_id'     => $skillId,
-                    'result'              => $result,
-                ])->values()->all(),
-                ['skill_assessment_id', 'course_skill_id'],
-                ['result']
-            );
+            if ($submitted->isNotEmpty()) {
+                SkillAssessmentResult::upsert(
+                    $submitted->map(fn ($result, $skillId) => [
+                        'skill_assessment_id' => $assessment->skill_assessment_id,
+                        'course_skill_id'     => $skillId,
+                        'result'              => $result,
+                    ])->values()->all(),
+                    ['skill_assessment_id', 'course_skill_id'],
+                    ['result']
+                );
+            }
         });
 
         return response()->json(['success' => true, 'message' => 'Skills assessment saved.']);
+    }
+
+    /**
+     * The attendance log's date as YYYY-MM-DD, or null when unavailable.
+     */
+    private function logDate(Attendance $log): ?string
+    {
+        $value = $log->{self::LOG_DATE_COLUMN} ?? null;
+
+        if (! $value) {
+            return null;
+        }
+
+        return Carbon::parse($value)->toDateString();
     }
 
     /**
