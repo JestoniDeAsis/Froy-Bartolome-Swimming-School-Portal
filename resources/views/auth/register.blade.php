@@ -288,15 +288,85 @@
                         <h2 class="signup-title text-center mb-1">Waiver and Agreement</h2>
                         <p class="text-center text-muted mb-4">Please review and accept the waiver</p>
 
-                        <div class="border rounded p-3 mb-3">
-                            <p class="mb-0">Waiver content will be placed here.</p>
+                        <div class="border rounded p-3 mb-3" style="max-height: 250px; overflow-y: auto; font-size: 0.875rem;">
+                            <h6 class="fw-bold mb-2">Agreement Terms:</h6>
+                            <ol class="ps-3 mb-3">
+                                <li class="mb-2">
+                                    <strong>Program Commitment:</strong><br>
+                                    By registering for this program, the participant commits to attend the scheduled classes during the program session.
+                                </li>
+                                <li class="mb-2">
+                                    <strong>Progress Disclaimer:</strong><br>
+                                    Each student develops at their own pace. Some may learn skills quickly, while others may need more time and practice.
+                                    <ul class="mt-1 mb-0 ps-3">
+                                        <li>Our program is designed to support both fast and slow learners with individualized attention and instruction.</li>
+                                        <li>There is no guarantee that a participant will achieve a specific level of swimming skill within eight sessions.</li>
+                                    </ul>
+                                </li>
+                                <li class="mb-2">
+                                    <strong>Makeup Class Policy:</strong><br>
+                                    Only ONE makeup class will be offered per student per batch class in the event of an absence.
+                                    <ul class="mt-1 mb-0 ps-3">
+                                        <li>The makeup class will be scheduled after the last day of the student’s regular program session.</li>
+                                        <li>Makeup classes are subject to availability.</li>
+                                        <li>Absences must be communicated in advance whenever possible.</li>
+                                        <li>No refunds or credits will be provided for missed classes beyond the one makeup session.</li>
+                                    </ul>
+                                </li>
+                                <li class="mb-2">
+                                    <strong>Fees, Transfers, and Schedule Change Policy:</strong><br>
+                                    <ul class="mt-1 mb-0 ps-3">
+                                        <li>Program fees are non-refundable under any circumstances.</li>
+                                        <li>If a student attends some classes and chooses not to continue, the remaining unused classes may be transferred to another individual.</li>
+                                        <li>Transfers must be approved by program staff and are subject to availability and scheduling.</li>
+                                        <li>If a participant reserves a slot for a specific schedule and later requests to change that schedule, the original reservation fee is non-refundable.</li>
+                                        <li>A new reservation fee must be paid for any schedule change.</li>
+                                        <li>Schedule changes must be requested at least 2 weeks before the program start date and are subject to availability.</li>
+                                    </ul>
+                                </li>
+                                <li class="mb-2">
+                                    <strong>Safety and Conduct:</strong><br>
+                                    <ul class="mt-1 mb-0 ps-3">
+                                        <li>All participants must follow the safety guidelines and instructions provided by instructors.</li>
+                                        <li>Disruptive or unsafe behavior may result in removal from the program without refund.</li>
+                                        <li>Parents/guardians are responsible for supervising their children at all times before the class begins and immediately after it ends.</li>
+                                    </ul>
+                                </li>
+                                <li class="mb-2">
+                                    <strong>Health Disclosure:</strong><br>
+                                    Parents/guardians must disclose any medical conditions, allergies, or special needs that may affect the participant’s ability to safely join swimming activities.
+                                    <ul class="mt-1 mb-0 ps-3">
+                                        <li>If the participant has any existing health concerns, a doctor’s clearance must be submitted before joining the program.</li>
+                                    </ul>
+                                </li>
+                                <li class="mb-3">
+                                    <strong>Code of Conduct for Parents/Guardians (Especially for Young Swimmers):</strong><br>
+                                    Parents/guardians must refrain from interrupting classes unless in case of emergency. Instructions and corrections are the responsibility of the coaching staff. Parents are encouraged to watch quietly from the designated area.
+                                </li>
+                            </ol>
+
+                            <h6 class="fw-bold mb-2">PHOTO AND VIDEO RELEASE</h6>
+                            <p class="mb-3">
+                                I hereby grant FBSS Swimming School, its owners, coaches, staff, and partners the right to take photographs and video recordings of the swimmer during training sessions, classes, events, and related activities[cite: 1].
+                            </p>
+
+                            <h6 class="fw-bold mb-2">Waiver and Release of Liability</h6>
+                            <p class="mb-2">
+                                I acknowledge that participation in swimming activities involves inherent risks, including the possibility of injury. I voluntarily assume all risks associated with participation in the Learn to Swim Program[cite: 1].
+                            </p>
+                            <p class="mb-2">
+                                I, the undersigned, hereby release and hold harmless FBSS Swim School, including its coaches, instructors, staff, affiliated personnel, and partner facilities, from any and all liability, claims, demands, actions, or causes of action arising out of or related to any injury, accident, loss, or damage that may occur during participation in the program[cite: 1].
+                            </p>
+                            <p class="mb-0 fw-semibold">
+                                I confirm that I have read, understood, and agree to all the terms stated above[cite: 1].
+                            </p>
                         </div>
 
                         <div class="form-check mb-4">
                             <input class="form-check-input" type="checkbox" id="waiverAgreement"
                                    name="waiver_agreement" value="1" required>
                             <label class="form-check-label" for="waiverAgreement">
-                                I have read and agree to the waiver.
+                                I have read and agree to the waiver and agreement terms[cite: 1].
                             </label>
                         </div>
 
