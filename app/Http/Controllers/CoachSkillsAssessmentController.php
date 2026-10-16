@@ -17,10 +17,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * Coach Skills Assessment page.
  *
- * The page lists every student THIS coach has logged attendance for (latest
- * log per student, with Time In / Time Out), each student's status, and the
- * categories/skills of the course they are enrolled in with any saved
- * Pass/Failed marks.
+ * The page lists the students THIS coach has an attendance record for TODAY
+ * (a Time In, or marked "Expecting" on the Attendance page), with their Time In /
+ * Time Out, each student's status, and the categories/skills of the course they
+ * are enrolled in with any saved Pass/Failed marks.
  */
 class CoachSkillsAssessmentController extends Controller
 {
@@ -42,15 +42,18 @@ class CoachSkillsAssessmentController extends Controller
 
         $input = $request->validate([
             'course_id' => ['nullable', 'integer'],
+            'date'      => ['nullable', 'date_format:Y-m-d'],   // the browser's local "today"
         ]);
 
         $coachId  = $coach->getKey();
         $courseId = $input['course_id'] ?? null;
+        $date     = $this->today($input['date'] ?? null);
 
-        // Class dropdown: every course this coach has ever logged a student in.
+        // Class dropdown: the courses of the students this coach has a record for today.
         $loggedEnrollmentIds = Attendance::query()
             ->where('logged_by', $coachId)
             ->whereNotNull('enrollment_id')
+            ->onDate($date)
             ->select('enrollment_id');
 
         $courses = Course::query()
@@ -63,11 +66,12 @@ class CoachSkillsAssessmentController extends Controller
             ->map(fn ($course) => ['id' => $course->course_id, 'name' => $course->course_name])
             ->values();
 
-        // Every student this coach has logged, one row per enrollment showing
-        // their most recent attendance log (newest first, then de-duplicated).
+        // Every student this coach has an attendance record for TODAY (timed in
+        // or marked Expecting), one row per enrollment.
         $logs = Attendance::query()
             ->where('logged_by', $coachId)
             ->whereNotNull('enrollment_id')
+            ->onDate($date)
             ->orderByDesc((new Attendance)->getKeyName())
             ->get()
             ->unique('enrollment_id')
@@ -153,6 +157,8 @@ class CoachSkillsAssessmentController extends Controller
                     'time_in'           => $timeIn,
                     'time_out'          => Attendance::hhmm($log->time_out),
                     'state'             => $log->attendance_state ?: ($timeIn ? Attendance::STATE_PRESENT : null),
+                    // Expecting + no Time In yet = can be timed in late.
+                    'is_expecting'      => $log->attendance_state === CoachAttendanceController::STATE_EXPECTING && ! $timeIn,
                     'assessment'        => ! $assessment ? 'Not yet assessed' : ($eligible ? 'Eligible to graduate' : ($markedSkills < $totalSkills ? 'In progress' : 'Assessed')),
                     'ready_to_graduate' => $ready,
                     'checklist'         => $checklist,
@@ -166,6 +172,74 @@ class CoachSkillsAssessmentController extends Controller
             'courses' => $courses,
             'rows'    => $rows,
         ]);
+    }
+
+    /**
+     * POST /coach/skills-assessment/absent
+     * Body: { enrollment_id, date }
+     * Marks a student who has not timed in as absent from the Skill Assessment page.
+     */
+    public function markAbsent(Request $request): JsonResponse
+    {
+        $coach = $request->user();
+
+        if (! $coach || (int) $coach->role_id !== self::COACH_ROLE_ID) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only coaches can mark students absent.',
+            ], 403);
+        }
+
+        $input = $request->validate([
+            'enrollment_id' => ['required', 'integer'],
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $date = $this->today($input['date']);
+        $coachId = (int) $coach->getKey();
+
+        return DB::transaction(function () use ($input, $date, $coachId) {
+            // Only update an attendance record this coach logged for this date.
+            // Skill Assessment only lists students with an existing attendance record.
+            $log = Attendance::query()
+                ->where('enrollment_id', (int) $input['enrollment_id'])
+                ->where('logged_by', $coachId)
+                ->onDate($date)
+                ->orderByDesc((new Attendance)->getKeyName())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $log) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No attendance record was found for this student today.',
+                ], 404);
+            }
+
+            if ($log->time_in) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A student who has timed in cannot be marked absent.',
+                ], 422);
+            }
+
+            if ($log->attendance_state === 'Absent') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This student is already marked absent.',
+                ], 422);
+            }
+
+            $log->update([
+                'attendance_state' => 'Absent',
+                'time_out' => null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Student marked as absent.',
+            ]);
+        });
     }
 
     /**
@@ -278,6 +352,23 @@ class CoachSkillsAssessmentController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Skills assessment saved.']);
+    }
+
+    /**
+     * "Today" as YYYY-MM-DD. The browser sends its own local date; it is only
+     * trusted within a day of the server clock (e.g. UTC server, Manila user).
+     */
+    private function today(?string $clientDate): string
+    {
+        $now = Carbon::now();
+
+        if ($clientDate
+            && $clientDate >= $now->copy()->subDay()->toDateString()
+            && $clientDate <= $now->copy()->addDay()->toDateString()) {
+            return $clientDate;
+        }
+
+        return $now->toDateString();
     }
 
     /**

@@ -37,6 +37,11 @@ class CoachAttendanceController extends Controller
 
     private const ATHLETE_ROLE_ID = 4;
 
+    // attendance_state values for the "Expecting" flow (also read by the
+    // skills assessment controller).
+    public const STATE_EXPECTING = 'Expecting';
+    public const STATE_PRESENT_LATE = 'Present-Late';
+
     private function denyUnlessCoach(Request $request): ?JsonResponse
     {
         $user = $request->user();
@@ -147,9 +152,10 @@ class CoachAttendanceController extends Controller
                 'sessions' => (string) ($sessions->get($a->id) ?? 0),
                 'time_in' => $this->hhmm($log->time_in ?? null),
                 'time_out' => $this->hhmm($log->time_out ?? null),
+                // No attendance row yet = no status (it used to say "Absent").
                 'state' => $log
                     ? ($log->attendance_state ?: ($log->time_in ? Attendance::STATE_PRESENT : 'Absent'))
-                    : 'Absent',
+                    : '',
             ];
         })->values();
     }
@@ -348,6 +354,31 @@ class CoachAttendanceController extends Controller
         return $this->recordStudentTime($request, 'out');
     }
 
+    /** POST /coach/attendance/students/absent { enrollment_id, date } */
+    public function studentAbsent(Request $request): JsonResponse
+    {
+        return $this->recordStudentTime($request, 'absent');
+    }
+
+    /**
+     * POST /coach/attendance/students/expecting   { enrollment_id, date }
+     * Marks a student as "Expecting": attendance_state only, no Time In / Out.
+     * The student then shows up on the coach's Skills Assessment page.
+     */
+    public function studentExpecting(Request $request): JsonResponse
+    {
+        return $this->recordStudentTime($request, 'expecting');
+    }
+
+    /**
+     * POST /coach/attendance/students/time-in-late   { enrollment_id, date, time }
+     * Only for a student this coach marked "Expecting"; becomes "Present-Late".
+     */
+    public function studentTimeInLate(Request $request): JsonResponse
+    {
+        return $this->recordStudentTime($request, 'late');
+    }
+
     private function recordStudentTime(Request $request, string $kind): JsonResponse
     {
         if ($denied = $this->denyUnlessCoach($request)) {
@@ -358,7 +389,7 @@ class CoachAttendanceController extends Controller
             'enrollment_id' => ['required_without:athlete_id', 'nullable', 'integer'],
             'athlete_id' => ['required_without:enrollment_id', 'nullable', 'integer'],
             'date' => ['required', 'date_format:Y-m-d', 'before_or_equal:' . Carbon::now()->addDay()->toDateString()],
-            'time' => ['required', 'date_format:H:i'],
+            'time' => [in_array($kind, ['expecting', 'absent'], true) ? 'nullable' : 'required', 'date_format:H:i'],
         ], [
             'time.date_format' => 'Please enter a valid time.',
             'date.before_or_equal' => 'You cannot record attendance for a future date.',
@@ -367,6 +398,10 @@ class CoachAttendanceController extends Controller
         $coachId = (int) Auth::id();
 
         if (!empty($v['athlete_id'])) {
+            if (in_array($kind, ['expecting', 'late', 'absent'], true)) {
+                return $this->fail('This attendance action is only available for enrolled students.');
+            }
+
             return $this->recordAthleteTime($v, $kind, $coachId);
         }
 
@@ -397,7 +432,9 @@ class CoachAttendanceController extends Controller
                 return $this->fail($reason, 403);
             }
 
-            if ($v['time'] < $this->hhmm($coachRow->time_in)) {
+            $time = $v['time'] ?? null;   // null only for "expecting"
+
+            if ($time !== null && $time < $this->hhmm($coachRow->time_in)) {
                 return $this->fail('The time cannot be earlier than your own Time In (' . $this->hhmm($coachRow->time_in) . ').');
             }
 
@@ -406,6 +443,82 @@ class CoachAttendanceController extends Controller
                 ->earliestFirst()
                 ->lockForUpdate()
                 ->first();
+
+            // Absent: only mark students who have not timed in.
+            if ($kind === 'absent') {
+                if ($row && $row->time_in) {
+                    return $this->fail('A student who has timed in cannot be marked absent.');
+                }
+
+                if ($row) {
+                    $row->update([
+                        'attendance_state' => 'Absent',
+                        'logged_by' => $coachId,
+                    ]);
+                } else {
+                    Attendance::create([
+                        'user_id' => $enrollment->user_id,
+                        'role_id' => $enrollment->role_id,
+                        'attendance_at' => $v['date'],
+                        'attendance_state' => 'Absent',
+                        'logged_by' => $coachId,
+                        'enrollment_id' => $enrollment->enrollment_id,
+                    ]);
+                }
+
+                return response()->json(['success' => true, 'message' => 'Student marked as absent.']);
+            }
+
+            // Expecting: only the state is saved (no time in / time out).
+            if ($kind === 'expecting') {
+                if ($row && $row->time_in) {
+                    return $this->fail('This student already has a Time In for that date.');
+                }
+
+                if ($row && $row->attendance_state === self::STATE_EXPECTING) {
+                    return $this->fail('This student is already marked as Expecting.');
+                }
+
+                if ($row) {
+                    $row->update([
+                        'attendance_state' => self::STATE_EXPECTING,
+                        'logged_by' => $coachId,
+                    ]);
+                } else {
+                    Attendance::create([
+                        'user_id' => $enrollment->user_id,
+                        'role_id' => $enrollment->role_id,
+                        'attendance_at' => $v['date'],
+                        'attendance_state' => self::STATE_EXPECTING,
+                        'logged_by' => $coachId,
+                        'enrollment_id' => $enrollment->enrollment_id,
+                    ]);
+                }
+
+                return response()->json(['success' => true, 'message' => 'Marked as Expecting.']);
+            }
+
+            // Time In (Late): only for a student this coach marked Expecting.
+            if ($kind === 'late') {
+                if (!$row || $row->attendance_state !== self::STATE_EXPECTING) {
+                    return $this->fail('Only students marked as Expecting can be timed in late.');
+                }
+
+                if ($row->time_in) {
+                    return $this->fail('This student already has a Time In for that date.');
+                }
+
+                if ((int) $row->logged_by !== $coachId) {
+                    return $this->fail('This student was marked as Expecting by another coach.', 403);
+                }
+
+                $row->update([
+                    'time_in' => $time,
+                    'attendance_state' => self::STATE_PRESENT_LATE,
+                ]);
+
+                return response()->json(['success' => true, 'message' => 'Late Time In recorded.']);
+            }
 
             if ($kind === 'in') {
                 if ($row && $row->time_in) {

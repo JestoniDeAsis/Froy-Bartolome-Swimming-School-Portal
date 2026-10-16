@@ -70,6 +70,8 @@ use App\Http\Controllers\CoachSkillsAssessmentController;
 
 Route::get('/coach/skills-assessment/data', [CoachSkillsAssessmentController::class, 'data'])->middleware('auth');
 Route::put('/coach/skills-assessment/{enrollment}', [CoachSkillsAssessmentController::class, 'save'])->middleware('auth')->whereNumber('enrollment');
+Route::post('/coach/skills-assessment/absent',[CoachSkillsAssessmentController::class, 'markAbsent'])->middleware('auth');
+
 
 use App\Http\Controllers\AthleteRecordController;
 
@@ -104,6 +106,9 @@ Route::get('/coach/attendance/data', [CoachAttendanceController::class, 'data'])
 Route::get('/coach/attendance/student-logs', [CoachAttendanceController::class, 'studentLogs'])->middleware('auth');
 Route::post('/coach/attendance/students/time-in', [CoachAttendanceController::class, 'studentTimeIn'])->middleware('auth');
 Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::class, 'studentTimeOut'])->middleware('auth');
+Route::post('/coach/attendance/students/expecting', [CoachAttendanceController::class, 'studentExpecting']);
+Route::post('/coach/attendance/students/time-in-late', [CoachAttendanceController::class, 'studentTimeInLate']);
+Route::post('/coach/attendance/students/absent',[CoachAttendanceController::class, 'studentAbsent'])->middleware('auth');
 
 use App\Http\Controllers\AdminAthleteController;
 

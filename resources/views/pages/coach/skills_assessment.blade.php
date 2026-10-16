@@ -163,6 +163,7 @@
 .skillsStatusDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
 .skillsStatusDot.present { background: #2f9e44; }
 .skillsStatusDot.absent  { background: #e03131; }
+.skillsStatusDot.expecting { background: #f59f00; }
 
 .skillsEmptyValue { color: #adb5bd; }
 
@@ -318,7 +319,7 @@
         <h2 class="mb-1" id="skillsTitle">Skills Assessment</h2>
         <p class="text-muted mb-0" id="skillsDescription"></p>
         <p class="text-muted small mb-0" id="skillsHint">
-            Shows every student you have logged attendance for, with their latest Time In and Time Out. Select a student to assess their course skills.
+            Shows today's students you have an attendance record for (timed in, or marked Expecting). Select a student to assess their course skills; use Time In (Late) for a student marked Expecting.
         </p>
     </header>
 
@@ -356,7 +357,9 @@
 
         <!-- Actions -->
         <div class="skillsToolbarActions">
-            <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled title="Time Out is available for today's log once the student has a Time In">Time Out</button>
+            <button class="btn btn-primary" id="timeInLateButton" type="button" disabled title="Only for students marked Expecting">Time In (Late)</button>
+            <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled title="Time Out is available once the student has a Time In">Time Out</button>
+            <button class="btn btn-outline-danger" id="markAbsentButton" type="button" disabled title="Mark a student absent if they have not timed in">Mark Absent</button>
             <button class="btn btn-primary" id="viewChecklistButton" type="button" disabled>View Checklist</button>
             <button class="btn btn-outline-primary" id="refreshButton" type="button">
                 <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
@@ -444,9 +447,11 @@
     ========================================================= */
 
     const URLS = {
-        timeOut: '/coach/attendance/students/time-out',   // same endpoint the Attendance page uses
+        timeOut: '/coach/attendance/students/time-out',
+        timeInLate: '/coach/attendance/students/time-in-late',
+        absent: '/coach/skills-assessment/absent',
         data: '/coach/skills-assessment/data',
-        save: '/coach/skills-assessment'   // + /{enrollment_id}
+        save: '/coach/skills-assessment'
     };
 
     // "key" matches the field names the server returns.
@@ -479,6 +484,9 @@
         search: $('skillsSearch'),
 
         timeOutButton: $('recordTimeOutButton'),
+        absentButton: $('markAbsentButton'),
+        timeInLateButton: $('timeInLateButton'),
+        timeTitle: $('timeModalTitle'),
         viewButton: $('viewChecklistButton'),
 
         timeOverlay: $('timeModalOverlay'),
@@ -506,7 +514,9 @@
     let loadSeq = 0;            // ignores out-of-order responses
     let selectedId = null;
     let classOptionsBuilt = false;
+    let classOptionsKey = '';
     let busy = false;
+    let timeModalMode = 'late';
 
     /* =========================================================
        HELPERS
@@ -614,7 +624,7 @@
     function renderNameCell(record) {
         const wrapper = make('span', { className: 'skillsNameCell' });
         wrapper.append(
-            make('span', { className: `skillsStatusDot ${record.time_in ? 'present' : 'absent'}` }),
+            make('span', { className: `skillsStatusDot ${record.time_in ? 'present' : (record.is_expecting ? 'expecting' : 'absent')}` }),
             document.createTextNode(record.name)
         );
         return wrapper;
@@ -672,7 +682,7 @@
                 className: 'skillsEmptyState',
                 text: loading
                     ? 'Loading...'
-                    : (rows.length ? 'No matching students found.' : 'You have not logged any students yet.'),
+                    : (rows.length ? 'No matching students found.' : 'No students are logged or marked Expecting for you today.'),
                 attributes: { colSpan: COLUMNS.length + 1 }
             }));
             el.tableBody.append(emptyRow);
@@ -703,7 +713,12 @@
     }
 
     function updateToolbarState() {
-        el.viewButton.disabled = !getSelectedRecord();
+        const record = getSelectedRecord();
+
+        el.viewButton.disabled = busy || !record;
+        el.timeInLateButton.disabled = busy || !record || !record.is_expecting;
+        el.timeOutButton.disabled = busy || !record || !record.time_in || !!record.time_out;
+        el.absentButton.disabled = busy || !record || !!record.time_in || record.state === 'Absent';
     }
 
     /* =========================================================
@@ -719,7 +734,8 @@
         updateToolbarState();
         renderTable();
 
-        const params = new URLSearchParams();
+        // Only today's attendance records are listed (the browser's local date).
+        const params = new URLSearchParams({ date: toLocalISODate(new Date()) });
         const courseId = dropdownValue(el.classFilter);
         if (courseId) params.set('course_id', courseId);
 
@@ -735,7 +751,14 @@
             } else {
                 rows = result.data.rows || [];
 
-                if (!classOptionsBuilt) buildClassOptions(result.data.courses || []);
+                // Rebuilt only when the list of today's classes changes.
+                const courses = result.data.courses || [];
+                const coursesKey = courses.map(c => c.id).join(',');
+
+                if (!classOptionsBuilt || coursesKey !== classOptionsKey) {
+                    classOptionsKey = coursesKey;
+                    buildClassOptions(courses);
+                }
                 if (selectedId !== null && !rows.some(r => r.id === selectedId)) selectedId = null;
             }
         } catch (error) {
@@ -899,6 +922,148 @@
             el.modalSave.textContent = 'Save';
         }
     }
+
+    /* =========================================================
+       TIME IN (LATE) - only for students marked Expecting.
+       Reuses the small time modal; the server turns the status into Present-Late.
+    ========================================================= */
+
+    function currentTimeInputValue() {
+        const now = new Date();
+        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function openTimeInLateModal() {
+        timeModalMode = 'late';
+        const record = getSelectedRecord();
+        if (!record || !record.is_expecting) return;
+
+        el.timeTitle.textContent = 'Record Time In (Late)';
+        el.timeName.replaceChildren(document.createTextNode('Recording for '), make('strong', { text: record.name }));
+        el.timeMeta.textContent = 'The status will change to Present-Late.';
+        el.timeMeta.hidden = false;
+
+        el.timeInput.value = currentTimeInputValue();
+        el.timeLabel.textContent = 'Current Time';
+        el.timeLabel.classList.remove('isDimmed');
+
+        el.timeOverlay.hidden = false;
+        el.timeInput.focus();
+    }
+
+    function openTimeOutModal() {
+        const record = getSelectedRecord();
+        if (!record || !record.time_in || record.time_out) return;
+
+        timeModalMode = 'out';
+        el.timeTitle.textContent = 'Record Time Out';
+        el.timeName.replaceChildren(document.createTextNode('Recording for '), make('strong', { text: record.name }));
+        el.timeMeta.textContent = 'Time Out must be later than the recorded Time In.';
+        el.timeMeta.hidden = false;
+        el.timeInput.value = currentTimeInputValue();
+        el.timeLabel.textContent = 'Current Time';
+        el.timeLabel.classList.remove('isDimmed');
+        el.timeOverlay.hidden = false;
+        el.timeInput.focus();
+    }
+
+    async function markSelectedAbsent() {
+        const record = getSelectedRecord();
+        if (busy || !record || record.time_in || record.state === 'Absent') return;
+        if (!window.confirm(`Mark ${record.name} as absent for today?`)) return;
+
+        busy = true;
+        updateToolbarState();
+        try {
+            const result = await api(URLS.absent, {
+                method: 'POST',
+                body: { enrollment_id: record.id, date: toLocalISODate(new Date()) }
+            });
+            if (result.ok) {
+                showToast(`${record.name} marked as absent.`, 'success');
+                await loadRows({ keepSelection: true });
+            } else {
+                toastServerErrors(result, 'Unable to mark the student absent.');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while marking the student absent.', 'danger');
+        } finally {
+            busy = false;
+            updateToolbarState();
+        }
+    }
+
+    function closeTimeModal() {
+        el.timeOverlay.hidden = true;
+    }
+
+    async function saveTimeInLate() {
+        const record = getSelectedRecord();
+        if (busy) return;
+
+        if (!record || (timeModalMode === 'late' && !record.is_expecting) ||
+            (timeModalMode === 'out' && (!record.time_in || record.time_out))) {
+            closeTimeModal();
+            return;
+        }
+
+        const time = el.timeInput.value;   // "HH:MM"
+
+        if (!time) {
+            showToast('Please choose a time.', 'danger');
+            return;
+        }
+
+        busy = true;
+        el.timeSave.disabled = true;
+        el.timeSave.textContent = 'Saving...';
+        updateToolbarState();
+
+        try {
+            const isTimeOut = timeModalMode === 'out';
+            const result = await api(isTimeOut ? URLS.timeOut : URLS.timeInLate, {
+                method: 'POST',
+                body: { enrollment_id: record.id, date: toLocalISODate(new Date()), time }
+            });
+
+            if (result.ok) {
+                closeTimeModal();
+                showToast(`${isTimeOut ? 'Time Out' : 'Late Time In'} recorded for ${record.name}.`, 'success');
+                await loadRows({ keepSelection: true });
+            } else {
+                toastServerErrors(result, 'Unable to save the time.');
+
+                // e.g. the admin timed this coach out while the modal was open.
+                if (result.status === 403) {
+                    closeTimeModal();
+                    await loadRows({ keepSelection: true });
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while saving the time.', 'danger');
+        } finally {
+            busy = false;
+            el.timeSave.disabled = false;
+            el.timeSave.textContent = 'Save';
+            updateToolbarState();
+        }
+    }
+
+    el.timeInLateButton.addEventListener('click', openTimeInLateModal);
+    el.timeOutButton.addEventListener('click', openTimeOutModal);
+    el.absentButton.addEventListener('click', markSelectedAbsent);
+    el.timeClose.addEventListener('click', () => { if (!busy) closeTimeModal(); });
+    el.timeCancel.addEventListener('click', () => { if (!busy) closeTimeModal(); });
+    el.timeSave.addEventListener('click', saveTimeInLate);
+
+    // Greys out "Current Time" once the coach edits the field.
+    el.timeInput.addEventListener('input', () => el.timeLabel.classList.add('isDimmed'));
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !el.timeOverlay.hidden && !busy) closeTimeModal();
+    });
 
     el.viewButton.addEventListener('click', openChecklistModal);
     el.modalSave.addEventListener('click', saveChecklist);

@@ -190,6 +190,7 @@
 .attendanceStatusDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
 .attendanceStatusDot.present { background: #2f9e44; }
 .attendanceStatusDot.absent  { background: #e03131; }
+.attendanceStatusDot.expecting { background: #f59f00; }
 
 .attendanceEmptyValue { color: #adb5bd; }
 
@@ -406,6 +407,7 @@
         <div class="attendanceToolbarActions">
             <button class="btn btn-primary" id="recordTimeInButton" type="button" disabled>Time In</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled>Time Out</button>
+            <button class="btn btn-outline-primary" id="markExpectingButton" type="button" disabled title="Mark the selected student as Expecting (no Time In / Time Out is recorded)">Expecting</button>
             <button class="btn btn-outline-primary" id="viewLogsButton" type="button" disabled>View Logs</button>
             <button class="btn btn-outline-primary" id="refreshButton" type="button" title="Check again whether the admin has timed you in">
                 <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
@@ -511,6 +513,7 @@
         data: '/coach/attendance/data',
         timeIn: '/coach/attendance/students/time-in',
         timeOut: '/coach/attendance/students/time-out',
+        expecting: '/coach/attendance/students/expecting',
         studentLogs: '/coach/attendance/student-logs'
     };
 
@@ -558,6 +561,7 @@
 
         timeInButton: $('recordTimeInButton'),
         timeOutButton: $('recordTimeOutButton'),
+        expectingButton: $('markExpectingButton'),
         viewLogsButton: $('viewLogsButton'),
         refreshButton: $('refreshButton'),
 
@@ -781,10 +785,16 @@
         return selectedId === null ? null : rows.find(r => r.id === selectedId) || null;
     }
 
+    // green = timed in, amber = marked Expecting, red = nothing yet
+    function statusDotClass(record) {
+        if (record.time_in) return 'present';
+        return record.state === 'Expecting' ? 'expecting' : 'absent';
+    }
+
     function renderNameCell(record) {
         const wrapper = make('span', { className: 'attendanceNameCell' });
         wrapper.append(
-            make('span', { className: `attendanceStatusDot ${record.time_in ? 'present' : 'absent'}` }),
+            make('span', { className: `attendanceStatusDot ${statusDotClass(record)}` }),
             document.createTextNode(record.name)
         );
         return wrapper;
@@ -878,6 +888,9 @@
 
         el.timeInButton.disabled = busy || !open || !record || Boolean(record.time_in);
         el.timeOutButton.disabled = busy || !open || !record || !record.time_in || Boolean(record.time_out);
+        // Students only (athletes are not part of the skills assessment); not once timed in or already Expecting.
+        el.expectingButton.disabled = busy || !open || !record || record.kind === 'athlete'
+            || Boolean(record.time_in) || record.state === 'Expecting';
         el.viewLogsButton.disabled = busy || !record;
     }
 
@@ -1057,6 +1070,39 @@
         }
     }
 
+    // "Expecting": saves only the state (no time) so the student is listed in
+    // the Skills Assessment page. Time In later works as usual.
+    async function markExpecting() {
+        const record = getSelectedRecord();
+        if (!record || busy || !canLog() || record.kind === 'athlete') return;
+
+        busy = true;
+        updateToolbarState();
+
+        try {
+            const result = await api(URLS.expecting, {
+                method: 'POST',
+                body: { enrollment_id: record.id, date: el.dateInput.value }
+            });
+
+            if (result.ok) {
+                showToast(`${record.name} marked as Expecting.`, 'success');
+                await loadRows({ keepSelection: true, silent: true });
+            } else {
+                toastServerErrors(result, 'Unable to mark the student as Expecting.');
+
+                if (result.status === 403) await loadRows({ keepSelection: true, silent: true });
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while marking the student as Expecting.', 'danger');
+        } finally {
+            busy = false;
+            updateToolbarState();
+        }
+    }
+
+    el.expectingButton.addEventListener('click', markExpecting);
     el.timeInButton.addEventListener('click', () => openTimeModal('in'));
     el.timeOutButton.addEventListener('click', () => openTimeModal('out'));
     el.modalClose.addEventListener('click', () => { if (!busy) closeTimeModal(); });
