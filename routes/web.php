@@ -78,8 +78,11 @@ Route::get('/coach/athlete-records/leaderboard', [AthleteRecordController::class
 Route::get('/coach/athlete-records/athletes/{user}', [AthleteRecordController::class, 'athlete'])->middleware('auth')->whereNumber('user');
 Route::post('/coach/athlete-records', [AthleteRecordController::class, 'store'])->middleware('auth');
 Route::delete('/coach/athlete-records/{record}', [AthleteRecordController::class, 'destroy'])->middleware('auth')->whereNumber('record');
-Route::get('/athlete/records/data', [AthleteRecordController::class, 'mine'])->middleware('auth');
-Route::get('/athlete/records/leaderboard', [AthleteRecordController::class, 'leaderboard'])->middleware('auth');
+
+use App\Http\Controllers\AthleteDashboardController;
+
+Route::get('/athlete/records/data', [AthleteDashboardController::class, 'mine'])->middleware('auth');
+Route::get('/athlete/records/leaderboard', [AthleteDashboardController::class, 'leaderboard'])->middleware('auth');
 
 use App\Http\Controllers\CoachController;
  
@@ -102,10 +105,11 @@ Route::get('/coach/attendance/student-logs', [CoachAttendanceController::class, 
 Route::post('/coach/attendance/students/time-in', [CoachAttendanceController::class, 'studentTimeIn'])->middleware('auth');
 Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::class, 'studentTimeOut'])->middleware('auth');
 
-   use App\Http\Controllers\AdminAthleteController;
+use App\Http\Controllers\AdminAthleteController;
 
-   Route::post('/athletes', [AdminAthleteController::class, 'store'])->middleware('auth');
-   Route::post('/athletes/{user}/revoke', [AdminAthleteController::class, 'revoke'])->middleware('auth')->whereNumber('user');
+Route::post('/athletes', [AdminAthleteController::class, 'store'])->middleware('auth');
+Route::post('/athletes/{user}/revoke', [AdminAthleteController::class, 'revoke'])->middleware('auth')->whereNumber('user');
+Route::get('/athletes/leaderboard', [AdminAthleteController::class, 'leaderboard'])->middleware('auth');
 
 use App\Http\Controllers\StudentAttendanceController;
  

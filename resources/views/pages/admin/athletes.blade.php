@@ -376,6 +376,154 @@
     font-size: .875rem;
     text-align: center;
 }
+
+/* =========================================================
+   Leaderboard filters — button-based event selection
+========================================================= */
+
+.adFilters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.adFilterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.adFilterLabel {
+    color: #667085;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.adEventTitle {
+    margin: 0 0 0.75rem;
+    color: #1f2937;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+#adminLeaderboardStrokes,
+#adminLeaderboardDistances {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+#adminLeaderboardStrokes .btn-tab,
+#adminLeaderboardDistances .btn-tab {
+    min-width: 0;
+    white-space: nowrap;
+}
+
+#adminLeaderboardTableContainer {
+    max-height: calc(
+        var(--register-header-height, 49px) +
+        (var(--register-row-height, 49px) * var(--register-visible-rows, 8))
+    );
+}
+
+@media (max-width: 575.98px) {
+    .adFilters {
+        gap: 1rem;
+    }
+
+    .adFilterGroup {
+        width: 100%;
+    }
+}
+
+/* =========================================================
+   Leaderboard filters and table
+========================================================= */
+
+.adFilters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.adFilterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.adFilterLabel {
+    color: #667085;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.adEventTitle {
+    margin: 0 0 0.75rem;
+    color: #1f2937;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+#adminLeaderboardStrokes,
+#adminLeaderboardDistances {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+#adminLeaderboardStrokes .btn-tab,
+#adminLeaderboardDistances .btn-tab {
+    min-width: 0;
+    white-space: nowrap;
+}
+
+#adminLeaderboardTableContainer {
+    max-height: calc(
+        var(--register-header-height, 49px) +
+        (var(--register-row-height, 49px) * var(--register-visible-rows, 8))
+    );
+    overflow: auto;
+}
+
+#adminLeaderboardTable {
+    width: 100%;
+    margin: 0;
+}
+
+#adminLeaderboardStatus {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+}
+
+#leaderboardsPanel[hidden] {
+    display: none !important;
+}
+
+.adCard {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 12px;
+}
+
+@media (max-width: 575.98px) {
+    .adFilters {
+        gap: 1rem;
+    }
+
+    .adFilterGroup {
+        width: 100%;
+    }
+}
+
 /* =========================================================
    Responsive
 ========================================================= */
@@ -467,10 +615,65 @@
     </div>
 
 
-    <!-- LEADERBOARDS PANEL (nothing here yet) -->
-
+    <!-- ADMIN LEADERBOARDS — VIEW ONLY -->
     <div id="leaderboardsPanel" hidden>
-        <p class="athletesComingSoon">Leaderboards are coming soon.</p>
+        <div class="adFilters">
+            <div class="adFilterGroup">
+                <span class="adFilterLabel">Stroke</span>
+
+                <div
+                    class="btn-tab-group"
+                    id="adminLeaderboardStrokes"
+                    role="group"
+                    aria-label="Select swimming stroke"
+                ></div>
+            </div>
+
+            <div class="adFilterGroup">
+                <span class="adFilterLabel">Distance</span>
+
+                <div
+                    class="btn-tab-group"
+                    id="adminLeaderboardDistances"
+                    role="group"
+                    aria-label="Select swimming distance"
+                ></div>
+            </div>
+        </div>
+
+        <article class="adCard">
+            <h3 class="adEventTitle" id="adminLeaderboardEvent">
+                Select an event
+            </h3>
+
+            <div
+                class="athletesTableContainer"
+                id="adminLeaderboardTableContainer"
+            >
+                <table
+                    class="table athletesTable"
+                    id="adminLeaderboardTable"
+                >
+                    <thead id="adminLeaderboardTableHead"></thead>
+                    <tbody id="adminLeaderboardTableBody">
+                        <tr>
+                            <td colspan="100%" class="text-center">
+                                Select a stroke and distance to view the leaderboard.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <p
+            class="text-muted"
+            id="adminLeaderboardStatus"
+            role="status"
+            aria-live="polite"
+        >
+            Select an event to view its leaderboard.
+        </p>
     </div>
 
 </section>
@@ -577,7 +780,14 @@
         confirmModalTitle: document.getElementById('confirmModalTitle'),
         confirmModalMessage: document.getElementById('confirmModalMessage'),
         confirmModalCancelButton: document.getElementById('confirmModalCancelButton'),
-        confirmModalConfirmButton: document.getElementById('confirmModalConfirmButton')
+        confirmModalConfirmButton: document.getElementById('confirmModalConfirmButton'),
+
+        leaderboardStrokes: document.getElementById('adminLeaderboardStrokes'),
+        leaderboardDistances: document.getElementById('adminLeaderboardDistances'),
+        leaderboardEvent: document.getElementById('adminLeaderboardEvent'),
+        leaderboardTableHead: document.getElementById('adminLeaderboardTableHead'),
+        leaderboardTableBody: document.getElementById('adminLeaderboardTableBody'),
+        leaderboardStatus: document.getElementById('adminLeaderboardStatus')
     };
 
     /* =========================================================
@@ -746,6 +956,10 @@
         elements.athletesPanel.hidden = tabName !== 'athletes';
         elements.leaderboardsPanel.hidden = tabName !== 'leaderboards';
         elements.addAthleteButton.hidden = tabName !== 'athletes';
+
+        if (tabName === 'leaderboards') {
+            loadAdminLeaderboard();
+        }
     }
 
     elements.tabs.addEventListener('click', event => {
@@ -990,9 +1204,283 @@
     window.addEventListener('load', fitAthletesContainer);
 
     /* =========================================================
+        ADMIN LEADERBOARD — VIEW ONLY
+    ========================================================= */
+
+    const adminLeaderboardStrokes =
+        @json(\App\Models\AthleteRecord::STROKES);
+
+    const adminLeaderboardDistances =
+        @json(\App\Models\AthleteRecord::DISTANCES);
+
+    let adminLeaderboardSelection = {
+        stroke: Object.keys(adminLeaderboardStrokes)[0] ?? null,
+        distance: adminLeaderboardDistances[0] ?? null
+    };
+
+    let adminLeaderboardRequestSequence = 0;
+
+
+    /* =========================================================
+    FILTER BUTTONS
+    ========================================================= */
+
+    function buildLeaderboardChoiceGroup(
+        container,
+        choices,
+        selectedValue,
+        onSelect
+    ) {
+        if (!container) return;
+
+        container.replaceChildren();
+
+        choices.forEach(({ value, label }) => {
+            const button = document.createElement('button');
+
+            button.type = 'button';
+            button.className = 'btn btn-outline-primary btn-tab';
+            button.textContent = label;
+            button.dataset.value = String(value);
+
+            const selected =
+                String(value) === String(selectedValue);
+
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+
+            button.addEventListener('click', () => {
+                if (String(value) === String(selectedValue)) return;
+
+                onSelect(value);
+            });
+
+            container.appendChild(button);
+        });
+    }
+
+
+    function renderAdminLeaderboardFilters() {
+        const strokeChoices = Object.entries(
+            adminLeaderboardStrokes
+        ).map(([value, label]) => ({
+            value,
+            label
+        }));
+
+        const distanceChoices = adminLeaderboardDistances.map(
+            distance => ({
+                value: distance,
+                label: `${distance}m`
+            })
+        );
+
+        buildLeaderboardChoiceGroup(
+            elements.leaderboardStrokes,
+            strokeChoices,
+            adminLeaderboardSelection.stroke,
+            value => {
+                adminLeaderboardSelection.stroke = value;
+
+                renderAdminLeaderboardFilters();
+                loadAdminLeaderboard();
+            }
+        );
+
+        buildLeaderboardChoiceGroup(
+            elements.leaderboardDistances,
+            distanceChoices,
+            adminLeaderboardSelection.distance,
+            value => {
+                adminLeaderboardSelection.distance = value;
+
+                renderAdminLeaderboardFilters();
+                loadAdminLeaderboard();
+            }
+        );
+    }
+
+
+    /* =========================================================
+    LEADERBOARD TABLE
+    ========================================================= */
+
+    function setAdminLeaderboardMessage(message) {
+        elements.leaderboardTableHead.replaceChildren();
+        elements.leaderboardTableBody.replaceChildren();
+
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+
+        cell.colSpan = 4;
+        cell.className = 'athletesEmptyState';
+        cell.textContent = message;
+
+        row.appendChild(cell);
+        elements.leaderboardTableBody.appendChild(row);
+    }
+
+
+    function renderAdminLeaderboard(entries) {
+        const head = elements.leaderboardTableHead;
+        const body = elements.leaderboardTableBody;
+
+        head.replaceChildren();
+        body.replaceChildren();
+
+        const columns = [
+            'Rank',
+            'Athlete',
+            'Best Time',
+            'Record Date'
+        ];
+
+        const headerRow = document.createElement('tr');
+
+        columns.forEach(label => {
+            const th = document.createElement('th');
+
+            th.scope = 'col';
+            th.textContent = label;
+
+            headerRow.appendChild(th);
+        });
+
+        head.appendChild(headerRow);
+
+        if (!Array.isArray(entries) || entries.length === 0) {
+            setAdminLeaderboardMessage(
+                'No records found for this event yet.'
+            );
+            return;
+        }
+
+        entries.forEach(entry => {
+            const row = document.createElement('tr');
+
+            const values = [
+                entry.rank ?? '—',
+                entry.name ?? 'Unknown athlete',
+                entry.time ?? '—',
+                entry.date ?? '—'
+            ];
+
+            values.forEach(value => {
+                const cell = document.createElement('td');
+
+                cell.textContent = String(value);
+                row.appendChild(cell);
+            });
+
+            body.appendChild(row);
+        });
+    }
+
+
+    /* =========================================================
+    LOAD SELECTED LEADERBOARD
+    ========================================================= */
+
+    async function loadAdminLeaderboard() {
+        const requestSequence = ++adminLeaderboardRequestSequence;
+
+        const stroke = adminLeaderboardSelection.stroke;
+        const distance = adminLeaderboardSelection.distance;
+
+        if (
+            stroke === null ||
+            stroke === undefined ||
+            distance === null ||
+            distance === undefined
+        ) {
+            elements.leaderboardEvent.textContent = 'No event selected';
+
+            setAdminLeaderboardMessage(
+                'No stroke or distance is available.'
+            );
+
+            elements.leaderboardStatus.textContent =
+                'No event is available to display.';
+
+            return;
+        }
+
+        const strokeLabel =
+            adminLeaderboardStrokes[stroke] ?? String(stroke);
+
+        elements.leaderboardEvent.textContent =
+            `${strokeLabel} — ${distance}m`;
+
+        setAdminLeaderboardMessage('Loading leaderboard...');
+
+        elements.leaderboardStatus.textContent =
+            'Loading leaderboard...';
+
+        try {
+            const url =
+                `{{ url('/athletes/leaderboard') }}` +
+                `?stroke=${encodeURIComponent(stroke)}` +
+                `&distance=${encodeURIComponent(distance)}`;
+
+            const result = await sendJson(url, 'GET');
+
+            // Ignore responses from previous filter selections.
+            if (requestSequence !== adminLeaderboardRequestSequence) {
+                return;
+            }
+
+            if (!result.ok) {
+                throw new Error(
+                    firstError(
+                        result.data,
+                        'Unable to load the leaderboard.'
+                    )
+                );
+            }
+
+            const data = result.data;
+
+            // Update the title if the server supplies the event name.
+            if (data.event) {
+                elements.leaderboardEvent.textContent =
+                    typeof data.event === 'string'
+                        ? data.event
+                        : `${strokeLabel} — ${distance}m`;
+            }
+
+            // The endpoint returns { success: true, event, entries }.
+            const entries = Array.isArray(data.entries)
+                ? data.entries
+                : [];
+
+            renderAdminLeaderboard(entries);
+
+            elements.leaderboardStatus.textContent =
+                entries.length === 0
+                    ? 'No records found for this event yet.'
+                    : `${entries.length} leaderboard record(s).`;
+
+        } catch (error) {
+            if (requestSequence !== adminLeaderboardRequestSequence) {
+                return;
+            }
+
+            console.error('Failed to load leaderboard:', error);
+
+            setAdminLeaderboardMessage(
+                'Unable to load the leaderboard. Please try again.'
+            );
+
+            elements.leaderboardStatus.textContent =
+                'Unable to load the leaderboard. Please try again.';
+        }
+    }
+
+    /* =========================================================
        INITIALIZE
     ========================================================= */
 
+    renderAdminLeaderboardFilters();
     setTab(activeTab);
     renderAthletes();
     fitAthletesContainer();

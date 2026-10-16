@@ -12,18 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Athlete records (personal records, "PRs").
- *
- *   Leaderboards    every coach AND every athlete can view the fastest time of
- *                   each athlete per event
- *   Manage Records  only an Active coach who is set to handle athletes can record
- *                   new records, see an athlete's history and remove a mistake
- *   My records      an athlete can view (only) their own records, history and rank
- *
- * A new record must be FASTER than the athlete's current record for that event
- * (the first one for an event is always accepted). Rows are never edited; a
- * wrong entry is removed (kept in the table with removed_at set) and the
- * previous best becomes the record again.
+ * Coach-side athlete record management and coach leaderboard.
  */
 class AthleteRecordController extends Controller
 {
@@ -52,21 +41,6 @@ class AthleteRecordController extends Controller
             ->where('u.' . CoachController::HANDLES_ATHLETES_COL, 1)
             ->where('st.' . CoachController::STATUS_NAME_COL, 'Active')
             ->exists();
-    }
-
-    private function isAthlete($user): bool
-    {
-        return $user && (int) ($user->{CoachController::ROLE_COL} ?? 0) === self::ATHLETE_ROLE_ID;
-    }
-
-    /** Leaderboards can be viewed by coaches and athletes. */
-    private function denyUnlessViewer(Request $request): ?JsonResponse
-    {
-        $user = $request->user();
-
-        return ($this->isCoach($user) || $this->isAthlete($user))
-            ? null
-            : response()->json(['success' => false, 'message' => 'You are not allowed to do that.'], 403);
     }
 
     private function denyUnlessCoach(Request $request): ?JsonResponse
@@ -119,7 +93,7 @@ class AthleteRecordController extends Controller
      * --------------------------------------------------------- */
     public function leaderboard(Request $request): JsonResponse
     {
-        if ($denied = $this->denyUnlessViewer($request)) {
+        if ($denied = $this->denyUnlessCoach($request)) {
             return $denied;
         }
 
@@ -138,7 +112,15 @@ class AthleteRecordController extends Controller
             ->orderBy('r.time_cs')
             ->orderBy('r.recorded_on')
             ->orderBy('r.record_id')
-            ->get(['r.athlete_id', 'r.time_cs', 'r.recorded_on', 'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix']);
+            ->get([
+                'r.athlete_id',
+                'r.time_cs',
+                'r.recorded_on',
+                'p.first_name',
+                'p.middle_name',
+                'p.last_name',
+                'p.name_suffix'
+            ]);
 
         $position = 0;
         $rank = 0;
@@ -153,6 +135,7 @@ class AthleteRecordController extends Controller
             if ($previous === null || $cs !== $previous) {
                 $rank = $position;
             }
+
             $previous = $cs;
 
             return [
@@ -171,62 +154,6 @@ class AthleteRecordController extends Controller
             'event' => AthleteRecord::eventLabel($v['stroke'], (int) $v['distance']),
             'entries' => $entries,
         ]);
-    }
-
-    /* ---------------------------------------------------------
-     * GET /athlete/records/data
-     * The logged-in athlete's OWN records, history and rank per event.
-     * --------------------------------------------------------- */
-    public function mine(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        if (! $this->isAthlete($user)) {
-            return $this->fail('Only athletes can view this.', 403);
-        }
-
-        $payload = $this->athletePayload((int) $user->getKey());
-        $payload['bests'] = $this->withRanks($payload['bests']);
-
-        $first = DB::table('tbl_user_profile')->where('user_id', $user->getKey())->value('first_name');
-
-        return response()->json([
-            'success' => true,
-            'first_name' => trim((string) $first) !== '' ? trim((string) $first) : ($user->username ?? ''),
-            'strokes' => collect(AthleteRecord::STROKES)
-                ->map(fn ($label, $key) => ['key' => $key, 'label' => $label])
-                ->values(),
-            'distances' => AthleteRecord::DISTANCES,
-        ] + $payload);
-    }
-
-    /**
-     * Adds "rank" and "of" to each best: the athlete's place among all
-     * athletes who have a record in that event (equal times share a rank).
-     */
-    private function withRanks(array $bests): array
-    {
-        if (! $bests) {
-            return [];
-        }
-
-        $events = DB::table('tbl_athlete_records as r')
-            ->join(CoachController::USERS_TABLE . ' as u', 'u.' . CoachController::USER_PK, '=', 'r.athlete_id')
-            ->where('u.' . CoachController::ROLE_COL, self::ATHLETE_ROLE_ID)
-            ->whereNull('r.removed_at')
-            ->groupBy('r.stroke', 'r.distance_m', 'r.athlete_id')
-            ->selectRaw('r.stroke, r.distance_m, r.athlete_id, MIN(r.time_cs) as best')
-            ->get()
-            ->groupBy(fn ($row) => $row->stroke . '-' . $row->distance_m);
-
-        foreach ($bests as $key => $best) {
-            $event = $events->get($key, collect());
-
-            $bests[$key]['rank'] = 1 + $event->filter(fn ($row) => (int) $row->best < $best['time_cs'])->count();
-            $bests[$key]['of'] = $event->count();
-        }
-
-        return $bests;
     }
 
     /* ---------------------------------------------------------
@@ -312,7 +239,10 @@ class AthleteRecordController extends Controller
             return $result;
         }
 
-        return response()->json(['success' => true, 'message' => 'Record saved.'] + $this->athletePayload($athleteId), 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Record saved.'
+        ] + $this->athletePayload($athleteId), 201);
     }
 
     /* ---------------------------------------------------------
@@ -331,9 +261,15 @@ class AthleteRecordController extends Controller
             return $this->fail('Record not found.', 404);
         }
 
-        $row->update(['removed_at' => now(), 'removed_by' => Auth::id()]);
+        $row->update([
+            'removed_at' => now(),
+            'removed_by' => Auth::id()
+        ]);
 
-        return response()->json(['success' => true, 'message' => 'Record removed.'] + $this->athletePayload((int) $row->athlete_id));
+        return response()->json([
+            'success' => true,
+            'message' => 'Record removed.'
+        ] + $this->athletePayload((int) $row->athlete_id));
     }
 
     /* ---------------------------------------------------------
@@ -359,8 +295,17 @@ class AthleteRecordController extends Controller
             ->where('st.' . CoachController::STATUS_NAME_COL, 'Active')
             ->orderBy('p.last_name')
             ->orderBy('p.first_name')
-            ->get(['u.' . CoachController::USER_PK . ' as id', 'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix'])
-            ->map(fn ($a) => ['id' => (int) $a->id, 'name' => $this->personName($a)])
+            ->get([
+                'u.' . CoachController::USER_PK . ' as id',
+                'p.first_name',
+                'p.middle_name',
+                'p.last_name',
+                'p.name_suffix'
+            ])
+            ->map(fn ($a) => [
+                'id' => (int) $a->id,
+                'name' => $this->personName($a)
+            ])
             ->values();
     }
 
@@ -373,7 +318,12 @@ class AthleteRecordController extends Controller
     {
         $profile = DB::table('tbl_user_profile')
             ->where('user_id', $athleteId)
-            ->first(['first_name', 'middle_name', 'last_name', 'name_suffix']);
+            ->first([
+                'first_name',
+                'middle_name',
+                'last_name',
+                'name_suffix'
+            ]);
 
         $records = AthleteRecord::active()
             ->where('athlete_id', $athleteId)
@@ -384,7 +334,9 @@ class AthleteRecordController extends Controller
         $coaches = DB::table('tbl_user_profile')
             ->whereIn('user_id', $records->pluck('recorded_by')->unique()->all())
             ->get(['user_id', 'first_name', 'last_name'])
-            ->mapWithKeys(fn ($p) => [(int) $p->user_id => trim($p->first_name . ' ' . $p->last_name)]);
+            ->mapWithKeys(fn ($p) => [
+                (int) $p->user_id => trim($p->first_name . ' ' . $p->last_name)
+            ]);
 
         $bests = [];
         $previous = [];
@@ -394,10 +346,12 @@ class AthleteRecordController extends Controller
             $key = $r->stroke . '-' . $r->distance_m;
 
             $improvement = null;
+
             if (isset($previous[$key])) {
                 $diff = $previous[$key] - $r->time_cs;
                 $improvement = ($diff >= 0 ? '-' : '+') . AthleteRecord::formatTime(abs($diff)) . ' s';
             }
+
             $previous[$key] = $r->time_cs;
 
             if (! isset($bests[$key]) || $r->time_cs < $bests[$key]['time_cs']) {
@@ -422,7 +376,10 @@ class AthleteRecordController extends Controller
         }
 
         return [
-            'athlete' => ['id' => $athleteId, 'name' => $profile ? $this->personName($profile) : ''],
+            'athlete' => [
+                'id' => $athleteId,
+                'name' => $profile ? $this->personName($profile) : ''
+            ],
             'bests' => $bests,
             'history' => array_reverse($history),
         ];

@@ -11,6 +11,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Models\AthleteRecord;
+use Illuminate\Validation\Rule;
 
 /**
  * Admin Athletes page (split out of the Registers page).
@@ -202,6 +204,93 @@ class AdminAthleteController extends Controller
             'birthdate' => $birthdate ? Carbon::parse($birthdate)->format('M-d-Y') : '',
             'age' => $birthdate ? Carbon::parse($birthdate)->age : '',
         ];
+    }
+
+    /**
+     * GET /athletes/leaderboard?stroke=&distance=
+     *
+     * Admin read-only leaderboard.
+     * Shows each athlete's fastest active record for the selected event.
+     */
+    public function leaderboard(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $v = $request->validate([
+            'stroke' => ['required', Rule::in(array_keys(AthleteRecord::STROKES))],
+            'distance' => ['required', 'integer', Rule::in(AthleteRecord::DISTANCES)],
+        ]);
+
+        $rows = DB::table('tbl_athlete_records as r')
+            ->join('tbl_users as u', 'u.user_id', '=', 'r.athlete_id')
+            ->join('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
+            ->where('u.role_id', self::ATHLETE_ROLE_ID)
+            ->where('r.stroke', $v['stroke'])
+            ->where('r.distance_m', $v['distance'])
+            ->whereNull('r.removed_at')
+            ->orderBy('r.time_cs')
+            ->orderBy('r.recorded_on')
+            ->orderBy('r.record_id')
+            ->get([
+                'r.athlete_id',
+                'r.time_cs',
+                'r.recorded_on',
+                'p.first_name',
+                'p.middle_name',
+                'p.last_name',
+                'p.name_suffix',
+            ]);
+
+        // Keep each athlete's fastest record for this event.
+        $rows = $rows->unique('athlete_id')->values();
+
+        $position = 0;
+        $rank = 0;
+        $previousTime = null;
+
+        $entries = $rows->map(function ($row) use (&$position, &$rank, &$previousTime) {
+            $position++;
+            $time = (int) $row->time_cs;
+
+            // Equal times share a rank.
+            if ($previousTime === null || $time !== $previousTime) {
+                $rank = $position;
+            }
+
+            $previousTime = $time;
+
+            $middle = trim((string) ($row->middle_name ?? ''));
+            $first = trim((string) ($row->first_name ?? ''));
+            $last = trim((string) ($row->last_name ?? ''));
+            $suffix = trim((string) ($row->name_suffix ?? ''));
+
+            $name = trim(
+                $last . ', ' .
+                $first .
+                ($middle !== '' ? ' ' . mb_substr($middle, 0, 1) . '.' : '') .
+                ($suffix !== '' ? ' ' . $suffix : '')
+            );
+
+            return [
+                'rank' => $rank,
+                'athlete_id' => (int) $row->athlete_id,
+                'name' => $name,
+                'time' => AthleteRecord::formatTime($time),
+                'time_cs' => $time,
+                'date' => (string) $row->recorded_on,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'event' => AthleteRecord::eventLabel(
+                $v['stroke'],
+                (int) $v['distance']
+            ),
+            'entries' => $entries,
+        ]);
     }
 
     /* ---------------------------------------------------------
