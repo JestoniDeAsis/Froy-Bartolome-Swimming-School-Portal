@@ -590,6 +590,7 @@
     let sessionLoaded = false;
     let session = { state: 'not_in', time_in: null, time_out: null, can_log: false, block_reason: null };
     let logsAnchorId = null;    // enrollment the log modal was opened from
+    let logsAnchorRecord = null; // the row it was opened from (an athlete has no enrollment)
     let logsSeq = 0;            // ignores out-of-order log responses
     let logFilterBuilt = false;
 
@@ -1025,7 +1026,10 @@
         try {
             const result = await api(action === 'in' ? URLS.timeIn : URLS.timeOut, {
                 method: 'POST',
-                body: { enrollment_id: record.id, date: el.dateInput.value, time }
+                // An athlete is sent by user id; a student by enrollment id.
+                body: record.kind === 'athlete'
+                    ? { athlete_id: record.user_id, date: el.dateInput.value, time }
+                    : { enrollment_id: record.id, date: el.dateInput.value, time }
             });
 
             if (result.ok) {
@@ -1152,10 +1156,12 @@
 
         renderLogs([], true);
 
-        const params = new URLSearchParams({
-            enrollment_id: String(logsAnchorId),
-            filter: dropdownValue(el.logFilter) || String(logsAnchorId)
-        });
+        const params = logsAnchorRecord && logsAnchorRecord.kind === 'athlete'
+            ? new URLSearchParams({ athlete_id: String(logsAnchorRecord.user_id) })
+            : new URLSearchParams({
+                enrollment_id: String(logsAnchorId),
+                filter: dropdownValue(el.logFilter) || String(logsAnchorId)
+            });
 
         try {
             const result = await api(`${URLS.studentLogs}?${params}`);
@@ -1182,6 +1188,7 @@
         if (!record) return;
 
         logsAnchorId = record.id;
+        logsAnchorRecord = record;
         logFilterBuilt = false;
 
         // Start on the enrollment the coach clicked; "All courses" is one pick away.

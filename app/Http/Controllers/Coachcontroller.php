@@ -38,6 +38,10 @@ class CoachController extends Controller
 
     public const COACH_COURSES_TABLE = 'tbl_coach_courses'; // ASSUMED: pivot (coach_id, course_id)
 
+    // A coach can also handle athletes (role 4) on top of their courses.
+    // 0/1 flag on tbl_users, only meaningful for coaches. Default 0.
+    public const HANDLES_ATHLETES_COL = 'handles_athletes';
+
     public const STATUSES = ['Active', 'Held', 'Inactive'];
 
     public static function userIsAdmin($user): bool
@@ -69,6 +73,7 @@ class CoachController extends Controller
                 'u.' . self::USER_PK . ' as id',
                 'u.username',
                 'u.email_address',
+                'u.' . self::HANDLES_ATHLETES_COL . ' as handles_athletes',
                 'st.' . self::STATUS_NAME_COL . ' as status',
                 'p.first_name',
                 'p.middle_name',
@@ -95,6 +100,7 @@ class CoachController extends Controller
                 'username' => $c->username,
                 'email_address' => $c->email_address,
                 'status' => $c->status ?: 'Active',
+                'handles_athletes' => (bool) $c->handles_athletes,
                 'first_name' => $c->first_name,
                 'middle_name' => $c->middle_name,
                 'last_name' => $c->last_name,
@@ -145,6 +151,7 @@ class CoachController extends Controller
                 'password' => Hash::make($v['password']),
                 'email_address' => $v['email_address'],
                 self::ROLE_COL => self::ROLE_COACH,
+                self::HANDLES_ATHLETES_COL => $request->boolean('handles_athletes') ? 1 : 0,
                 // status_id is left to the column default (1 = Active)
             ]);
 
@@ -193,7 +200,7 @@ class CoachController extends Controller
         ], 201);
     }
 
-    /** PUT /coaches/{id} — status + course assignment only. */
+    /** PUT /coaches/{id} — status, course assignment and the "handles athletes" option. */
     public function update(Request $request, int $id): JsonResponse
     {
         if ($denied = $this->denyUnlessAdmin($request)) {
@@ -202,6 +209,7 @@ class CoachController extends Controller
 
         $data = $request->validate([
             'status' => ['required', Rule::in(self::STATUSES)],
+            'handles_athletes' => ['sometimes', 'boolean'],   // left unchanged when not sent
             'courses' => ['required', 'array', 'min:1'],
             'courses.*' => ['integer', 'distinct', 'exists:' . self::COURSES_TABLE . ',' . self::COURSE_ID_COL],
         ], [
@@ -227,9 +235,13 @@ class CoachController extends Controller
         }
 
         DB::transaction(function () use ($id, $data, $statusId) {
-            DB::table(self::USERS_TABLE)->where(self::USER_PK, $id)->update([
-                self::STATUS_COL => $statusId,
-            ]);
+            $changes = [self::STATUS_COL => $statusId];
+
+            if (array_key_exists('handles_athletes', $data)) {
+                $changes[self::HANDLES_ATHLETES_COL] = $data['handles_athletes'] ? 1 : 0;
+            }
+
+            DB::table(self::USERS_TABLE)->where(self::USER_PK, $id)->update($changes);
 
             DB::table(self::COACH_COURSES_TABLE)->where('coach_id', $id)->delete();
             DB::table(self::COACH_COURSES_TABLE)->insert(

@@ -312,6 +312,15 @@
                 <div class="formCheckRow" id="coachAddCourseRow"></div>
             </div>
 
+            <div class="formGroup">
+                <label>Athletes</label>
+                <div class="formCheckRow">
+                    <label class="formCheckItem">
+                        <input type="checkbox" id="coachAddHandlesAthletes"> This coach also handles athletes
+                    </label>
+                </div>
+            </div>
+
         </div>
 
         <div class="modalActions">
@@ -480,6 +489,15 @@
                 <div class="formCheckRow" id="coachEditCourseRow"></div>
             </div>
 
+            <div class="formGroup">
+                <label>Athletes</label>
+                <div class="formCheckRow">
+                    <label class="formCheckItem">
+                        <input type="checkbox" id="coachEditHandlesAthletes"> This coach also handles athletes
+                    </label>
+                </div>
+            </div>
+
         </div>
 
         <div class="modalActions">
@@ -514,7 +532,7 @@
     // admin back to the step that needs fixing.
     const FIELD_STEP = {
         first_name: 1, middle_name: 1, last_name: 1, name_suffix: 1,
-        birthdate: 1, sex: 1, courses: 1,
+        birthdate: 1, sex: 1, courses: 1, handles_athletes: 1,
         email_address: 2, phone_number: 2, parent_guardian_fullname: 2,
         parent_guardian_relationship: 2, parent_guardian_phone_number: 2,
         username: 3, password: 3
@@ -548,6 +566,7 @@
         suffix: $('coachAddSuffix'),
         birthdate: $('coachAddBirthdate'),
         addCourseRow: $('coachAddCourseRow'),
+        addHandlesAthletes: $('coachAddHandlesAthletes'),
 
         email: $('coachAddEmail'),
         phone: $('coachAddPhone'),
@@ -565,6 +584,7 @@
 
         editName: $('coachEditModalName'),
         editCourseRow: $('coachEditCourseRow'),
+        editHandlesAthletes: $('coachEditHandlesAthletes'),
         editStatusInput: $('coachEditStatusInput'),
         editUpdateButton: $('coachEditModalUpdateButton')
     };
@@ -576,6 +596,7 @@
         { label: 'Middle name', value: c => c.middle_name },
         { label: 'Contact',     value: c => c.phone_number },
         { label: 'Courses',     value: c => courseNames(c.course_ids).join(', ') },
+        { label: 'Athletes',    value: c => c.handles_athletes ? 'Yes' : 'No' },
         { label: 'Status',      value: c => c.status, badge: true }
     ];
 
@@ -686,7 +707,7 @@
 
         const rows = coaches.filter(c =>
             [c.username, c.email_address, c.last_name, c.first_name, c.middle_name,
-             c.phone_number, c.status, ...courseNames(c.course_ids)]
+             c.phone_number, c.status, c.handles_athletes ? 'athletes' : '', ...courseNames(c.course_ids)]
                 .join(' ').toLowerCase().includes(term)
         );
 
@@ -774,6 +795,7 @@
 
         document.querySelectorAll('input[name="coachAddSex"]').forEach(r => { r.checked = false; });
         renderCourseChecks(el.addCourseRow, 'coachAddCourseCheckbox');
+        el.addHandlesAthletes.checked = false;
 
         // Newest allowed birthdate = today minus the minimum age.
         const limit = new Date();
@@ -955,6 +977,7 @@
             birthdate: el.birthdate.value,
             sex: selectedSex(),
             courses: checkedCourseIds('coachAddCourseCheckbox'),
+            handles_athletes: el.addHandlesAthletes.checked,
             email_address: el.email.value.trim(),
             phone_number: el.phone.value,
             parent_guardian_fullname: el.emergencyName.value.trim(),
@@ -1020,6 +1043,7 @@
         el.editName.textContent = coachName(coach);
         setDropdownValue('coachEditStatus', coach.status || 'Active');
         renderCourseChecks(el.editCourseRow, 'coachEditCourseCheckbox', coach.course_ids);
+        el.editHandlesAthletes.checked = Boolean(coach.handles_athletes);
 
         openModal(el.editModal);
     }
@@ -1046,7 +1070,11 @@
         try {
             const result = await api(URLS.update(editId), {
                 method: 'PUT',
-                body: { status: el.editStatusInput.value || 'Active', courses: ids }
+                body: {
+                    status: el.editStatusInput.value || 'Active',
+                    courses: ids,
+                    handles_athletes: el.editHandlesAthletes.checked
+                }
             });
 
             if (result.ok) {
