@@ -57,6 +57,7 @@
 
 .adFilters { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; margin-bottom: 1rem; }
 .adFilterGroup { display: flex; flex-direction: column; gap: .35rem; }
+.adFilterGroup .registerDropdown { --dd-min-width: 180px; }
 
 .adFilterLabel {
     font-size: .7rem;
@@ -187,11 +188,25 @@
         <div class="adFilters">
             <div class="adFilterGroup">
                 <span class="adFilterLabel">Stroke</span>
-                <div class="btn-tab-group" id="adLbStrokes" role="group" aria-label="Stroke"></div>
+                <div class="registerDropdown" id="adLbStrokeDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" type="button" aria-expanded="false" aria-controls="adLbStrokeOptions" aria-label="Stroke">
+                        <span>Freestyle</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+                    <div class="registerDropdownOptions" id="adLbStrokeOptions" hidden></div>
+                    <input id="adLbStrokeInput" type="hidden" value="">
+                </div>
             </div>
             <div class="adFilterGroup">
                 <span class="adFilterLabel">Distance</span>
-                <div class="btn-tab-group" id="adLbDistances" role="group" aria-label="Distance"></div>
+                <div class="registerDropdown" id="adLbDistanceDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" type="button" aria-expanded="false" aria-controls="adLbDistanceOptions" aria-label="Distance">
+                        <span>50 m</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+                    <div class="registerDropdownOptions" id="adLbDistanceOptions" hidden></div>
+                    <input id="adLbDistanceInput" type="hidden" value="">
+                </div>
             </div>
         </div>
 
@@ -210,6 +225,7 @@
 
 </section>
 
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -238,8 +254,8 @@
         bestsBody: $('adBestsBody'),
         historyBody: $('adHistoryBody'),
 
-        lbStrokes: $('adLbStrokes'),
-        lbDistances: $('adLbDistances'),
+        lbStrokeDropdown: $('adLbStrokeDropdown'),
+        lbDistanceDropdown: $('adLbDistanceDropdown'),
         lbEvent: $('adLbEvent'),
         lbBody: $('adLbBody')
     };
@@ -423,35 +439,29 @@
 
     /* ---------- leaderboards ---------- */
 
-    function buildChoiceGroup(container, items, isActive, onPick) {
-        container.replaceChildren();
-
-        items.forEach(item => {
-            const button = make('button', {
-                className: `btn btn-outline-primary btn-tab${isActive(item) ? ' active' : ''}`,
-                text: item.label,
-                attributes: { type: 'button' }
-            });
-            button.addEventListener('click', () => onPick(item));
-            container.append(button);
-        });
-    }
-
-    function renderLbFilters() {
-        buildChoiceGroup(
-            el.lbStrokes,
+    function setupLbFilters() {
+        window.FBSSDropdown.setOptions(
+            el.lbStrokeDropdown,
             strokes.map(s => ({ value: s.key, label: s.label })),
-            item => item.value === lb.stroke,
-            item => { lb.stroke = item.value; renderLbFilters(); loadLeaderboard(); }
+            lb.stroke
         );
 
-        buildChoiceGroup(
-            el.lbDistances,
-            distances.map(d => ({ value: d, label: `${d} m` })),
-            item => item.value === lb.distance,
-            item => { lb.distance = item.value; renderLbFilters(); loadLeaderboard(); }
+        window.FBSSDropdown.setOptions(
+            el.lbDistanceDropdown,
+            distances.map(d => ({ value: String(d), label: `${d} m` })),
+            String(lb.distance)
         );
     }
+
+    el.lbStrokeDropdown.addEventListener('dropdown:change', () => {
+        lb.stroke = window.FBSSDropdown.get(el.lbStrokeDropdown);
+        loadLeaderboard();
+    });
+
+    el.lbDistanceDropdown.addEventListener('dropdown:change', () => {
+        lb.distance = Number(window.FBSSDropdown.get(el.lbDistanceDropdown));
+        loadLeaderboard();
+    });
 
     function rankCell(rank) {
         const wrapper = make('span', { className: 'adRank' });
@@ -541,7 +551,7 @@
             el.welcome.textContent = `Welcome, ${result.data.first_name || 'athlete'}.`;
 
             lb = { stroke: strokes[0].key, distance: distances[0] };
-            renderLbFilters();
+            setupLbFilters();
 
             renderSummary();
             renderBests();

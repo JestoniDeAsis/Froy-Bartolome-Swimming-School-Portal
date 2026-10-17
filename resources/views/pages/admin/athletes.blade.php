@@ -378,7 +378,7 @@
 }
 
 /* =========================================================
-   Leaderboard filters — button-based event selection
+   Leaderboard filters — dropdown event selection
 ========================================================= */
 
 .adFilters {
@@ -409,18 +409,7 @@
     font-weight: 700;
 }
 
-#adminLeaderboardStrokes,
-#adminLeaderboardDistances {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-#adminLeaderboardStrokes .btn-tab,
-#adminLeaderboardDistances .btn-tab {
-    min-width: 0;
-    white-space: nowrap;
-}
+.adFilterGroup .registerDropdown { --dd-min-width: 180px; }
 
 #adminLeaderboardTableContainer {
     max-height: calc(
@@ -471,18 +460,6 @@
     font-weight: 700;
 }
 
-#adminLeaderboardStrokes,
-#adminLeaderboardDistances {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-#adminLeaderboardStrokes .btn-tab,
-#adminLeaderboardDistances .btn-tab {
-    min-width: 0;
-    white-space: nowrap;
-}
 
 #adminLeaderboardTableContainer {
     max-height: calc(
@@ -621,23 +598,27 @@
             <div class="adFilterGroup">
                 <span class="adFilterLabel">Stroke</span>
 
-                <div
-                    class="btn-tab-group"
-                    id="adminLeaderboardStrokes"
-                    role="group"
-                    aria-label="Select swimming stroke"
-                ></div>
+                <div class="registerDropdown" id="adminLeaderboardStrokeDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" type="button" aria-expanded="false" aria-controls="adminLeaderboardStrokeOptions" aria-label="Select swimming stroke">
+                        <span>Freestyle</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+                    <div class="registerDropdownOptions" id="adminLeaderboardStrokeOptions" hidden></div>
+                    <input id="adminLeaderboardStrokeInput" type="hidden" value="">
+                </div>
             </div>
 
             <div class="adFilterGroup">
                 <span class="adFilterLabel">Distance</span>
 
-                <div
-                    class="btn-tab-group"
-                    id="adminLeaderboardDistances"
-                    role="group"
-                    aria-label="Select swimming distance"
-                ></div>
+                <div class="registerDropdown" id="adminLeaderboardDistanceDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" type="button" aria-expanded="false" aria-controls="adminLeaderboardDistanceOptions" aria-label="Select swimming distance">
+                        <span>50 m</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+                    <div class="registerDropdownOptions" id="adminLeaderboardDistanceOptions" hidden></div>
+                    <input id="adminLeaderboardDistanceInput" type="hidden" value="">
+                </div>
             </div>
         </div>
 
@@ -731,6 +712,7 @@
     </div>
 </div>
 
+<script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -782,8 +764,8 @@
         confirmModalCancelButton: document.getElementById('confirmModalCancelButton'),
         confirmModalConfirmButton: document.getElementById('confirmModalConfirmButton'),
 
-        leaderboardStrokes: document.getElementById('adminLeaderboardStrokes'),
-        leaderboardDistances: document.getElementById('adminLeaderboardDistances'),
+        leaderboardStrokeDropdown: document.getElementById('adminLeaderboardStrokeDropdown'),
+        leaderboardDistanceDropdown: document.getElementById('adminLeaderboardDistanceDropdown'),
         leaderboardEvent: document.getElementById('adminLeaderboardEvent'),
         leaderboardTableHead: document.getElementById('adminLeaderboardTableHead'),
         leaderboardTableBody: document.getElementById('adminLeaderboardTableBody'),
@@ -1222,83 +1204,42 @@
 
 
     /* =========================================================
-    FILTER BUTTONS
+    FILTER DROPDOWNS
     ========================================================= */
 
-    function buildLeaderboardChoiceGroup(
-        container,
-        choices,
-        selectedValue,
-        onSelect
-    ) {
-        if (!container) return;
-
-        container.replaceChildren();
-
-        choices.forEach(({ value, label }) => {
-            const button = document.createElement('button');
-
-            button.type = 'button';
-            button.className = 'btn btn-outline-primary btn-tab';
-            button.textContent = label;
-            button.dataset.value = String(value);
-
-            const selected =
-                String(value) === String(selectedValue);
-
-            button.classList.toggle('active', selected);
-            button.setAttribute('aria-pressed', String(selected));
-
-            button.addEventListener('click', () => {
-                if (String(value) === String(selectedValue)) return;
-
-                onSelect(value);
-            });
-
-            container.appendChild(button);
-        });
-    }
-
-
     function renderAdminLeaderboardFilters() {
-        const strokeChoices = Object.entries(
-            adminLeaderboardStrokes
-        ).map(([value, label]) => ({
-            value,
-            label
-        }));
-
-        const distanceChoices = adminLeaderboardDistances.map(
-            distance => ({
-                value: distance,
-                label: `${distance}m`
-            })
+        window.FBSSDropdown.setOptions(
+            elements.leaderboardStrokeDropdown,
+            Object.entries(adminLeaderboardStrokes).map(([value, label]) => ({
+                value,
+                label
+            })),
+            adminLeaderboardSelection.stroke
         );
 
-        buildLeaderboardChoiceGroup(
-            elements.leaderboardStrokes,
-            strokeChoices,
-            adminLeaderboardSelection.stroke,
-            value => {
-                adminLeaderboardSelection.stroke = value;
-
-                renderAdminLeaderboardFilters();
-                loadAdminLeaderboard();
-            }
-        );
-
-        buildLeaderboardChoiceGroup(
-            elements.leaderboardDistances,
-            distanceChoices,
-            adminLeaderboardSelection.distance,
-            value => {
-                adminLeaderboardSelection.distance = value;
-
-                renderAdminLeaderboardFilters();
-                loadAdminLeaderboard();
-            }
+        window.FBSSDropdown.setOptions(
+            elements.leaderboardDistanceDropdown,
+            adminLeaderboardDistances.map(distance => ({
+                value: String(distance),
+                label: `${distance} m`
+            })),
+            String(adminLeaderboardSelection.distance)
         );
     }
+
+    elements.leaderboardStrokeDropdown.addEventListener('dropdown:change', () => {
+        adminLeaderboardSelection.stroke =
+            window.FBSSDropdown.get(elements.leaderboardStrokeDropdown);
+
+        loadAdminLeaderboard();
+    });
+
+    elements.leaderboardDistanceDropdown.addEventListener('dropdown:change', () => {
+        adminLeaderboardSelection.distance =
+            Number(window.FBSSDropdown.get(elements.leaderboardDistanceDropdown));
+
+        loadAdminLeaderboard();
+    });
 
 
     /* =========================================================
