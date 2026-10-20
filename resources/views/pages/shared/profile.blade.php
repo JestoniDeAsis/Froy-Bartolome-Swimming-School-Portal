@@ -269,6 +269,13 @@
                 </div>
             </div>
 
+            <div class="col-12">
+                <div class="profile-field">
+                    <div class="profile-field-label">Address</div>
+                    <div class="profile-field-value">{{ $profile->address ?: '—' }}</div>
+                </div>
+            </div>
+
         </div>
 
         <div class="profile-section-title">{{ $contactSectionLabel }}</div>
@@ -313,19 +320,31 @@
         <div class="mb-3">
             <label class="form-label">First Name <span class="required-mark">*</span></label>
             <input type="text" class="form-control" id="firstName" name="first_name"
-                   value="{{ $profile->first_name }}" required>
+                   value="{{ $profile->first_name }}" maxlength="50" data-name required>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="firstName"></span>
+                <span class="ms-auto"><span data-count-for="firstName">0</span> / 50</span>
+            </div>
         </div>
 
         <div class="mb-3">
             <label class="form-label">Middle Name</label>
             <input type="text" class="form-control" id="middleName" name="middle_name"
-                   value="{{ $profile->middle_name }}">
+                   value="{{ $profile->middle_name }}" maxlength="50" data-name>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="middleName"></span>
+                <span class="ms-auto"><span data-count-for="middleName">0</span> / 50</span>
+            </div>
         </div>
 
         <div class="mb-3">
             <label class="form-label">Last Name <span class="required-mark">*</span></label>
             <input type="text" class="form-control" id="lastName" name="last_name"
-                   value="{{ $profile->last_name }}" required>
+                   value="{{ $profile->last_name }}" maxlength="50" data-name required>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="lastName"></span>
+                <span class="ms-auto"><span data-count-for="lastName">0</span> / 50</span>
+            </div>
         </div>
 
         <div class="mb-3">
@@ -351,9 +370,13 @@
             <input type="tel" class="form-control" id="phoneNumber" name="phone_number"
                    placeholder="09XXXXXXXXX" pattern="09[0-9]{9}" maxlength="11" inputmode="numeric"
                    value="{{ $profile->phone_number }}" required>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="phoneNumber"></span>
+                <span class="ms-auto"><span data-count-for="phoneNumber">0</span> / 11</span>
+            </div>
         </div>
 
-        <div class="mb-4">
+        <div class="mb-3">
             <label class="form-label d-block">Sex <span class="required-mark">*</span></label>
             <div class="d-flex gap-4">
                 <div class="form-check">
@@ -369,6 +392,16 @@
             </div>
         </div>
 
+        <div class="mb-4">
+            <label class="form-label">Address <span class="required-mark">*</span></label>
+            <textarea class="form-control" id="address" name="address" rows="2" maxlength="255"
+                      placeholder="House no., street, barangay, city, province" required>{{ $profile->address }}</textarea>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="address"></span>
+                <span class="ms-auto"><span data-count-for="address">0</span> / 255</span>
+            </div>
+        </div>
+
         <hr>
 
         <div class="profile-section-title">{{ $contactSectionLabel }}</div>
@@ -376,7 +409,11 @@
         <div class="mb-3">
             <label class="form-label">{{ $contactSectionLabel }} Full Name <span class="required-mark">*</span></label>
             <input type="text" class="form-control" id="parentGuardianFullname" name="parent_guardian_fullname"
-                   value="{{ $profile->parent_guardian_fullname }}" required>
+                   value="{{ $profile->parent_guardian_fullname }}" maxlength="100" data-name required>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="parentGuardianFullname"></span>
+                <span class="ms-auto"><span data-count-for="parentGuardianFullname">0</span> / 100</span>
+            </div>
         </div>
 
         <div class="mb-3">
@@ -405,6 +442,10 @@
             <input type="tel" class="form-control" id="parentGuardianPhoneNumber" name="parent_guardian_phone_number"
                    placeholder="09XXXXXXXXX" pattern="09[0-9]{9}" maxlength="11" inputmode="numeric"
                    value="{{ $profile->parent_guardian_phone_number }}" required>
+            <div class="form-text d-flex justify-content-between">
+                <span class="text-danger" data-msg-for="parentGuardianPhoneNumber"></span>
+                <span class="ms-auto"><span data-count-for="parentGuardianPhoneNumber">0</span> / 11</span>
+            </div>
         </div>
 
         <div class="d-flex gap-2 profile-button-row">
@@ -611,6 +652,7 @@
         viewMode.classList.add('d-none');
         editForm.classList.remove('d-none');
         document.getElementById('editProfileButton').classList.add('d-none');
+        updateCounters();
     }
 
     function cancelEditMode() {
@@ -618,6 +660,8 @@
         const editForm = document.getElementById('profileEditForm');
 
         editForm.reset();
+        document.querySelectorAll('[data-msg-for]').forEach(function(el) { el.textContent = ''; });
+        updateCounters();
         editForm.classList.add('d-none');
         viewMode.classList.remove('d-none');
         document.getElementById('editProfileButton').classList.remove('d-none');
@@ -652,6 +696,47 @@
         return true;
     }
 
+    const NAME_PATTERN = /^\p{L}[\p{L} .'’-]*$/u;
+
+    function validateNameField(id, label, required) {
+        const input = document.getElementById(id);
+        const value = input.value.trim();
+
+        if (value === '' && !required) {
+            return true;
+        }
+
+        if (required && value.length < 2) {
+            showToast(label + ' must be at least 2 characters.', 'danger');
+            input.focus();
+            return false;
+        }
+
+        if (!NAME_PATTERN.test(value)) {
+            showToast(label + ' can only contain letters, spaces, periods, apostrophes, and hyphens.', 'danger');
+            input.focus();
+            return false;
+        }
+
+        return true;
+    }
+
+    function validateNames() {
+        return validateNameField('firstName', 'First name', true)
+            && validateNameField('middleName', 'Middle name', false)
+            && validateNameField('lastName', 'Last name', true)
+            && validateNameField('parentGuardianFullname', 'Full name', true);
+    }
+
+    function updateCounters() {
+        document.querySelectorAll('[data-count-for]').forEach(function(el) {
+            const input = document.getElementById(el.dataset.countFor);
+            if (input) {
+                el.textContent = input.value.length;
+            }
+        });
+    }
+
     // Step 1 of saving: validate the visible form, then pop the
     // password-confirmation modal instead of submitting right away.
     function requestSaveProfile() {
@@ -663,6 +748,10 @@
         }
 
         if (!validateBirthdate()) {
+            return;
+        }
+
+        if (!validateNames()) {
             return;
         }
 
@@ -938,12 +1027,32 @@
     });
 
     document.addEventListener('input', function(event) {
-        if (event.target.id === 'phoneNumber' || event.target.id === 'parentGuardianPhoneNumber') {
-            const digitsOnly = event.target.value.replace(/\D/g, '').slice(0, 11);
-            if (digitsOnly !== event.target.value) {
-                event.target.value = digitsOnly;
+        const input = event.target;
+
+        if (input.id === 'phoneNumber' || input.id === 'parentGuardianPhoneNumber') {
+            const digitsOnly = input.value.replace(/\D/g, '').slice(0, 11);
+            if (digitsOnly !== input.value) {
+                input.value = digitsOnly;
             }
         }
+
+        // Names: no numbers or symbols, must start with a letter
+        if (input.hasAttribute && input.hasAttribute('data-name')) {
+            const cleaned = input.value
+                .replace(/[^\p{L} .'’-]/gu, '')
+                .replace(/^[^\p{L}]+/u, '')
+                .replace(/ {2,}/g, ' ');
+            const msgEl = document.querySelector('[data-msg-for="' + input.id + '"]');
+
+            if (cleaned !== input.value) {
+                input.value = cleaned;
+                if (msgEl) msgEl.textContent = 'Only letters, spaces, periods, apostrophes, and hyphens are allowed.';
+            } else if (msgEl) {
+                msgEl.textContent = '';
+            }
+        }
+
+        updateCounters();
     });
 
     // Reset the change-password modal whenever it's closed, so a

@@ -35,12 +35,85 @@
 
     <ul class="nav flex-column sidebar-footer">
         <li class="nav-item border-top pt-2">
-            <form method="POST" action="{{ route('logout') }}">
+            <form method="POST" action="{{ route('logout') }}" id="logoutForm">
                 @csrf
-                <button type="submit" class="nav-link text-danger border-0 bg-transparent">
+                <button type="button" class="nav-link text-danger border-0 bg-transparent" id="logoutButton">
                     <i class="bi bi-box-arrow-right me-2"></i>Logout
                 </button>
             </form>
         </li>
     </ul>
 </aside>
+
+{{-- =====================================
+     LOGOUT CONFIRMATION MODAL
+     (moved to <body> by the script below so the sidebar's
+     positioning can't hide it behind the page)
+====================================== --}}
+
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logoutModalLabel">Log Out</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to log out?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="logoutForm" class="btn btn-danger" id="confirmLogoutButton">Log Out</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+
+    // Keep one copy of the modal, sitting directly under <body>.
+    const modals = Array.from(document.querySelectorAll('#logoutModal'));
+    const inBody = modals.find(function (el) { return el.parentElement === document.body; });
+
+    if (inBody) {
+        modals.filter(function (el) { return el !== inBody; }).forEach(function (el) { el.remove(); });
+    } else if (modals[0]) {
+        document.body.appendChild(modals[0]);
+    }
+
+    // Attach the listeners only once, even if this partial is injected again.
+    if (window.__logoutModalInitialized) {
+        return;
+    }
+    window.__logoutModalInitialized = true;
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('#logoutButton')) {
+            return;
+        }
+
+        const modalEl = document.getElementById('logoutModal');
+
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        } else if (window.confirm('Are you sure you want to log out?')) {
+            // Fallback if Bootstrap's JavaScript isn't loaded on this page
+            document.getElementById('logoutForm').submit();
+        }
+    });
+
+    document.addEventListener('submit', function (event) {
+        if (event.target.id !== 'logoutForm') {
+            return;
+        }
+
+        const confirmButton = document.getElementById('confirmLogoutButton');
+        if (confirmButton) {
+            confirmButton.disabled = true;
+            confirmButton.textContent = 'Logging out...';
+        }
+    });
+
+})();
+</script>
