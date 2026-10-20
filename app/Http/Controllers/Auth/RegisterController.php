@@ -107,9 +107,11 @@ class RegisterController extends Controller
                 'birthdate' => $validated['birthdate'],
                 'sex' => $validated['sex'],
                 'phone_number' => $validated['phone_number'],
+                'address' => $validated['address'],
                 'parent_guardian_fullname' => $validated['parent_guardian_fullname'],
                 'parent_guardian_relationship' => $validated['parent_guardian_relationship'],
                 'parent_guardian_phone_number' => $validated['parent_guardian_phone_number'],
+                'account_handler' => $validated['account_handler'],
             ]);
         });
 

@@ -37,6 +37,52 @@
             min-height: 100vh; 
         } 
     }
+    .toggle-password {
+        display: flex;
+        align-items: center;
+    }
+    .rule-icon {
+        display: inline-block;
+        width: 1.2em;
+        text-align: center;
+    }
+    #waiverDialog {
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0;
+        width: min(720px, 94vw);
+        max-height: 90vh;
+        background: #fff;
+        color: #212529;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    #waiverDialog[open] {
+        display: flex;
+        flex-direction: column;
+    }
+    #waiverDialog::backdrop {
+        background: rgba(0, 0, 0, 0.55);
+    }
+    .waiver-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .waiver-body {
+        padding: 1.25rem 1.5rem;
+        overflow-y: auto;
+        flex: 1 1 auto;
+        min-height: 0;
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+    .waiver-footer {
+        padding: 0.85rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
 </style>
 @endsection
 
@@ -61,24 +107,27 @@
                     <div class="signup-step" id="step1">
 
                         <h2 class="signup-title text-center mb-1">Create Account</h2>
-                        <p class="text-center text-muted mb-4">Enter your account details</p>
+                        <p class="text-center text-muted mb-4">Who is this registration for?</p>
 
-                        <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" name="username"
-                                   placeholder="Choose a username" minlength="3" maxlength="30" required>
-                            <div class="form-text">3–30 characters. Letters, numbers, and underscores only.</div>
+                        <div class="form-check border rounded p-3 ps-5 mb-2">
+                            <input class="form-check-input" type="radio" name="account_handler"
+                                   id="handlerParent" value="parent_guardian" required>
+                            <label class="form-check-label w-100" for="handlerParent">
+                                <strong>I'm a parent or guardian</strong><br>
+                                <span class="text-muted small">I'm registering someone else, like my child. I will manage the account, payments, and classes.</span>
+                            </label>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="emailAddress" name="email_address"
-                                   placeholder="Enter your email address" required>
+                        <div class="form-check border rounded p-3 ps-5 mb-4">
+                            <input class="form-check-input" type="radio" name="account_handler"
+                                   id="handlerSelf" value="self" required>
+                            <label class="form-check-label w-100" for="handlerSelf">
+                                <strong>I'm registering for myself</strong><br>
+                                <span class="text-muted small">I'm 18 or older and will manage my own account, payments, and classes.</span>
+                            </label>
                         </div>
 
-                        <button type="button" class="btn btn-primary w-100" id="sendCodeButton" onclick="sendVerificationCode()">
-                            Send
-                        </button>
+                        <button type="button" class="btn btn-primary w-100" onclick="goToStep(2)">Next</button>
 
                         <hr>
 
@@ -92,109 +141,93 @@
                     <!-- ================= STEP 2 ================= -->
                     <div class="signup-step d-none" id="step2">
 
-                        <h2 class="signup-title text-center mb-1">Verify Email</h2>
-                        <p class="text-center text-muted mb-4">Enter the verification code sent to your email.</p>
+                        <h2 class="signup-title text-center mb-1">Account Details</h2>
+                        <p class="text-center text-muted mb-4">Set up the login for this account</p>
 
                         <div class="mb-3">
                             <label class="form-label">Username</label>
-                            <input type="text" class="form-control" id="usernameStep2" readonly>
+                            <input type="text" class="form-control" id="username" name="username"
+                                   placeholder="Choose a username" minlength="3" maxlength="30" data-counter required>
+                            <div class="form-text">3–30 characters. Letters, numbers, and underscores only.</div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Email Address</label>
-                            <div class="input-group">
-                                <input type="email" class="form-control" id="emailStep2" readonly>
-                                <span class="input-group-text text-muted resend-text" id="resendCodeText">
-                                    Resend in 60s
-                                </span>
-                            </div>
+                            <input type="email" class="form-control" id="emailAddress" name="email_address"
+                                   placeholder="Enter your email address" maxlength="100" data-counter required>
+                            <div class="form-text">We will send a verification code to this email at the last step.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Verification Code</label>
-                            <input type="text" class="form-control" id="verificationCode"
-                                   placeholder="Enter 6-digit verification code" maxlength="6"
-                                   inputmode="numeric" pattern="[0-9]{6}" required>
+                            <label class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="password" name="password"
+                                       placeholder="Create a password" maxlength="64" autocomplete="new-password" data-counter required>
+                                <button type="button" class="btn btn-outline-secondary toggle-password"
+                                        data-target="password" aria-label="Show password" title="Show password">
+                                    <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <svg class="icon-eye-off d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                </button>
+                            </div>
+                            <ul class="list-unstyled small mt-2 mb-0" id="passwordRules">
+                                <li data-rule="length" class="text-muted"><span class="rule-icon">○</span> At least 8 characters</li>
+                                <li data-rule="upper" class="text-muted"><span class="rule-icon">○</span> At least one uppercase letter</li>
+                                <li data-rule="lower" class="text-muted"><span class="rule-icon">○</span> At least one lowercase letter</li>
+                                <li data-rule="number" class="text-muted"><span class="rule-icon">○</span> At least one number</li>
+                                <li data-rule="special" class="text-muted"><span class="rule-icon">○</span> At least one special character</li>
+                            </ul>
                         </div>
 
-                        <button type="button" class="btn btn-primary w-100" id="verifyCodeButton" onclick="verifyRegistrationCode()">
-                            Confirm
-                        </button>
+                        <div class="mb-3">
+                            <label class="form-label">Confirm Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="confirmPassword" name="confirm_password"
+                                       placeholder="Confirm your password" maxlength="64" autocomplete="new-password" required>
+                                <button type="button" class="btn btn-outline-secondary toggle-password"
+                                        data-target="confirmPassword" aria-label="Show password" title="Show password">
+                                    <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <svg class="icon-eye-off d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                </button>
+                            </div>
+                            <div class="form-text" id="passwordMatchText"></div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary w-50" onclick="goToStep(1)">Back</button>
+                            <button type="button" class="btn btn-primary w-50" onclick="goToStep(3)">Next</button>
+                        </div>
 
                     </div>
 
                     <!-- ================= STEP 3 ================= -->
                     <div class="signup-step d-none" id="step3">
 
-                        <h2 class="signup-title text-center mb-1">Secure Your Account</h2>
-                        <p class="text-center text-muted mb-4">Create your password</p>
+                        <h2 class="signup-title text-center mb-1"
+                            data-parent="Applicant Information" data-self="Personal Information">Personal Information</h2>
+                        <p class="text-center text-muted mb-4"
+                           data-parent="Tell us about the person who will take the classes"
+                           data-self="Tell us about yourself">Tell us about yourself</p>
 
                         <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" id="usernameStep3" readonly>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="emailStep3" readonly>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password"
-                                   placeholder="Create a password" autocomplete="new-password" required>
-                            <div class="form-text mt-2">
-                                Password must contain:
-                                <ul class="mb-0 ps-3">
-                                    <li>At least 8 characters</li>
-                                    <li>At least one uppercase letter</li>
-                                    <li>At least one lowercase letter</li>
-                                    <li>At least one number</li>
-                                    <li>At least one special character</li>
-                                </ul>
-                            </div>
-                        </div>
-
-                        <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" id="showPassword">
-                            <label class="form-check-label" for="showPassword">Show Password</label>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Confirm Password</label>
-                            <input type="password" class="form-control" id="confirmPassword" name="confirm_password"
-                                   placeholder="Confirm your password" autocomplete="new-password" required>
-                        </div>
-
-                        <button type="button" class="btn btn-primary w-100" onclick="goToStep(4)">Next</button>
-
-                    </div>
-
-                    <!-- ================= STEP 4 ================= -->
-                    <div class="signup-step d-none" id="step4">
-
-                        <h2 class="signup-title text-center mb-1">Personal Information</h2>
-                        <p class="text-center text-muted mb-4">Tell us about yourself</p>
-
-                        <div class="mb-3">
-                            <label class="form-label">First Name</label>
+                            <label class="form-label" data-applicant="First Name">First Name</label>
                             <input type="text" class="form-control" id="firstName" name="first_name"
-                                   placeholder="Enter your first name" required>
+                                   data-applicant-ph="first name" placeholder="Enter your first name" maxlength="50" data-counter data-name required>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Middle Name</label>
-                            <input type="text" class="form-control" name="middle_name" placeholder="Enter your middle name">
+                            <label class="form-label" data-applicant="Middle Name">Middle Name</label>
+                            <input type="text" class="form-control" name="middle_name"
+                                   data-applicant-ph="middle name" placeholder="Enter your middle name" maxlength="50" data-counter data-name>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Last Name</label>
+                            <label class="form-label" data-applicant="Last Name">Last Name</label>
                             <input type="text" class="form-control" id="lastName" name="last_name"
-                                   placeholder="Enter your last name" required>
+                                   data-applicant-ph="last name" placeholder="Enter your last name" maxlength="50" data-counter data-name required>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Name Suffix</label>
+                            <label class="form-label" data-applicant="Name Suffix">Name Suffix</label>
                             <select class="form-select" name="name_suffix">
                                 <option value="" selected>None</option>
                                 <option value="Jr.">Jr.</option>
@@ -207,19 +240,20 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Date of Birth</label>
+                            <label class="form-label" data-applicant="Date of Birth">Date of Birth</label>
                             <input type="date" class="form-control" id="birthdate" name="birthdate" required>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Mobile Number</label>
-                            <input type="tel" class="form-control" id="phoneNumber" name="phone_number"
+                            <label class="form-label" data-applicant="Mobile Number">Mobile Number</label>
+                            <input type="tel" class="form-control" id="phoneNumber" name="phone_number" data-counter data-digits
                                    placeholder="09XXXXXXXXX" pattern="09[0-9]{9}" maxlength="11"
                                    inputmode="numeric" required>
+                            <div class="form-text" data-parent="No mobile number? You can use your own." data-self=""></div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label d-block">Sex</label>
+                            <label class="form-label d-block" data-applicant="Sex">Sex</label>
                             <div class="d-flex gap-4">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="sex" id="male" value="Male" required>
@@ -232,24 +266,39 @@
                             </div>
                         </div>
 
-                        <button type="button" class="btn btn-primary w-100" onclick="goToStep(5)">Next</button>
+                        <div class="mb-3">
+                            <label class="form-label" data-applicant="Home Address">Home Address</label>
+                            <textarea class="form-control" name="address" id="address" rows="2" maxlength="255" data-counter
+                                      placeholder="House no., street, barangay, city, province" required></textarea>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary w-50" onclick="goToStep(2)">Back</button>
+                            <button type="button" class="btn btn-primary w-50" onclick="goToStep(4)">Next</button>
+                        </div>
 
                     </div>
 
-                    <!-- ================= STEP 5 ================= -->
-                    <div class="signup-step d-none" id="step5">
+                    <!-- ================= STEP 4 ================= -->
+                    <div class="signup-step d-none" id="step4">
 
-                        <h2 class="signup-title text-center mb-1">Parent / Guardian</h2>
-                        <p class="text-center text-muted mb-4">Provide parent or guardian information</p>
+                        <h2 class="signup-title text-center mb-1"
+                            data-parent="Parent / Guardian" data-self="Emergency Contact">Parent / Guardian</h2>
+                        <p class="text-center text-muted mb-4"
+                           data-parent="Provide your information as the parent or guardian"
+                           data-self="Someone we can call in case of an emergency">Provide parent or guardian information</p>
 
                         <div class="mb-3">
-                            <label class="form-label">Parent/Guardian Full Name</label>
+                            <label class="form-label"
+                                   data-parent="Your Full Name" data-self="Contact Person's Full Name">Full Name</label>
                             <input type="text" class="form-control" name="parent_guardian_fullname"
-                                   placeholder="Enter full name" required>
+                                   placeholder="Enter full name" maxlength="100" data-counter data-name required>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Relationship to the Registrant</label>
+                            <label class="form-label"
+                                   data-parent="Your Relationship to the Applicant"
+                                   data-self="Their Relationship to You">Relationship</label>
                             <select class="form-select" name="parent_guardian_relationship" required>
                                 <option value="" selected disabled>Select relationship</option>
                                 <option value="Mother">Mother</option>
@@ -269,15 +318,44 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Parent/Guardian Mobile Number</label>
-                            <input type="tel" class="form-control" name="parent_guardian_phone_number"
+                            <label class="form-label"
+                                   data-parent="Your Mobile Number"
+                                   data-self="Contact Person's Mobile Number">Mobile Number</label>
+                            <input type="tel" class="form-control" name="parent_guardian_phone_number" data-counter data-digits
                                    placeholder="09XXXXXXXXX" pattern="09[0-9]{9}" maxlength="11"
                                    inputmode="numeric" required>
                         </div>
 
                         <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary w-50" onclick="goToStep(3)">Back</button>
+                            <button type="button" class="btn btn-primary w-50" onclick="goToStep(5)">Next</button>
+                        </div>
+
+                    </div>
+
+                    <!-- ================= STEP 5 ================= -->
+                    <div class="signup-step d-none" id="step5">
+
+                        <h2 class="signup-title text-center mb-1">Waiver and Agreement</h2>
+                        <p class="text-center text-muted mb-4">Please review and accept the waiver</p>
+
+                        <div class="border rounded p-3 mb-3 text-center">
+                            <p class="mb-3">You need to read the full Waiver and Agreement before you can register.</p>
+                            <button type="button" class="btn btn-outline-primary" id="openWaiverButton">Read Waiver and Agreement</button>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" id="waiverCheck">
+                            <label class="form-check-label" for="waiverCheck">
+                                I have read and agree to the waiver and agreement terms.
+                            </label>
+                        </div>
+
+                        <input type="hidden" name="waiver_agreement" id="waiverAgreement" value="">
+
+                        <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary w-50" onclick="goToStep(4)">Back</button>
-                            <button type="button" class="btn btn-primary w-50" onclick="goToStep(6)">Next</button>
+                            <button type="button" class="btn btn-primary w-50" id="continueButton" onclick="continueToVerification()">Continue</button>
                         </div>
 
                     </div>
@@ -285,10 +363,50 @@
                     <!-- ================= STEP 6 ================= -->
                     <div class="signup-step d-none" id="step6">
 
-                        <h2 class="signup-title text-center mb-1">Waiver and Agreement</h2>
-                        <p class="text-center text-muted mb-4">Please review and accept the waiver</p>
+                        <h2 class="signup-title text-center mb-1">Verify Email</h2>
+                        <p class="text-center text-muted mb-4">Last step. Enter the verification code sent to your email.</p>
 
-                        <div class="border rounded p-3 mb-3" style="max-height: 250px; overflow-y: auto; font-size: 0.875rem;">
+                        <div class="mb-3">
+                            <label class="form-label">Email Address</label>
+                            <div class="input-group">
+                                <input type="email" class="form-control" id="emailStep6" readonly>
+                                <span class="input-group-text text-muted resend-text" id="resendCodeText">
+                                    Resend in 60s
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Verification Code</label>
+                            <input type="text" class="form-control" id="verificationCode"
+                                   placeholder="Enter 6-digit verification code" maxlength="6"
+                                   inputmode="numeric" pattern="[0-9]{6}" required>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary w-50" onclick="goToStep(5)">Back</button>
+                            <button type="button" class="btn btn-primary w-50" id="verifyCodeButton" onclick="verifyRegistrationCode()">Confirm &amp; Register</button>
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+<dialog id="waiverDialog" aria-labelledby="waiverTitle">
+    <div class="waiver-header d-flex justify-content-between align-items-start">
+        <div>
+            <h5 class="mb-0" id="waiverTitle">Waiver and Agreement</h5>
+            <small class="text-muted">Froy Bartolome Swimming School</small>
+        </div>
+        <button type="button" class="btn-close" id="closeWaiverX" aria-label="Close"></button>
+    </div>
+
+    <div class="waiver-body" id="waiverBody">
                             <h6 class="fw-bold mb-2">Agreement Terms:</h6>
                             <ol class="ps-3 mb-3">
                                 <li class="mb-2">
@@ -347,43 +465,29 @@
 
                             <h6 class="fw-bold mb-2">PHOTO AND VIDEO RELEASE</h6>
                             <p class="mb-3">
-                                I hereby grant FBSS Swimming School, its owners, coaches, staff, and partners the right to take photographs and video recordings of the swimmer during training sessions, classes, events, and related activities[cite: 1].
+                                I hereby grant FBSS Swimming School, its owners, coaches, staff, and partners the right to take photographs and video recordings of the swimmer during training sessions, classes, events, and related activities.
                             </p>
 
                             <h6 class="fw-bold mb-2">Waiver and Release of Liability</h6>
                             <p class="mb-2">
-                                I acknowledge that participation in swimming activities involves inherent risks, including the possibility of injury. I voluntarily assume all risks associated with participation in the Learn to Swim Program[cite: 1].
+                                I acknowledge that participation in swimming activities involves inherent risks, including the possibility of injury. I voluntarily assume all risks associated with participation in the Learn to Swim Program.
                             </p>
                             <p class="mb-2">
-                                I, the undersigned, hereby release and hold harmless FBSS Swim School, including its coaches, instructors, staff, affiliated personnel, and partner facilities, from any and all liability, claims, demands, actions, or causes of action arising out of or related to any injury, accident, loss, or damage that may occur during participation in the program[cite: 1].
+                                I, the undersigned, hereby release and hold harmless FBSS Swim School, including its coaches, instructors, staff, affiliated personnel, and partner facilities, from any and all liability, claims, demands, actions, or causes of action arising out of or related to any injury, accident, loss, or damage that may occur during participation in the program.
                             </p>
                             <p class="mb-0 fw-semibold">
-                                I confirm that I have read, understood, and agree to all the terms stated above[cite: 1].
+                                I confirm that I have read, understood, and agree to all the terms stated above.
                             </p>
-                        </div>
-
-                        <div class="form-check mb-4">
-                            <input class="form-check-input" type="checkbox" id="waiverAgreement"
-                                   name="waiver_agreement" value="1" required>
-                            <label class="form-check-label" for="waiverAgreement">
-                                I have read and agree to the waiver and agreement terms[cite: 1].
-                            </label>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary w-50" onclick="goToStep(5)">Back</button>
-                            <button type="submit" class="btn btn-primary w-50">Register</button>
-                        </div>
-
-                    </div>
-
-                </form>
-
-            </div>
-        </div>
+                        
     </div>
 
-</div>
+    <div class="waiver-footer">
+        <small class="text-muted me-auto" id="waiverHint">Scroll to the bottom to enable the agree button.</small>
+        <button type="button" class="btn btn-outline-secondary" id="closeWaiverButton">Close</button>
+        <button type="button" class="btn btn-primary" id="agreeWaiverButton" disabled>I Have Read and Agree</button>
+    </div>
+</dialog>
+
 @endsection
 
 @section('scripts')
@@ -393,6 +497,61 @@
     let resendTimer = null;
     let resendSeconds = 60;
     let dailyLimitReached = false;
+    let codeSentKey = null;
+    let submitting = false;
+
+    const val = (id) => document.getElementById(id).value.trim();
+
+    function getHandler() {
+        const checked = document.querySelector('input[name="account_handler"]:checked');
+        return checked ? checked.value : null;
+    }
+
+    function applyRegistrantType() {
+        const isParent = getHandler() === "parent_guardian";
+        const key = isParent ? "parent" : "self";
+
+        document.querySelectorAll("[data-parent]").forEach(function (el) {
+            el.textContent = el.dataset[key];
+        });
+
+        document.querySelectorAll("[data-applicant]").forEach(function (el) {
+            el.textContent = (isParent ? "Applicant's " : "") + el.dataset.applicant;
+        });
+
+        document.querySelectorAll("[data-applicant-ph]").forEach(function (el) {
+            el.placeholder = (isParent ? "Enter the applicant's " : "Enter your ") + el.dataset.applicantPh;
+        });
+    }
+
+    document.querySelectorAll('input[name="account_handler"]').forEach(function (radio) {
+        radio.addEventListener("change", applyRegistrantType);
+    });
+
+    const NAME_PATTERN = /^\p{L}[\p{L} .'’-]*$/u;
+
+    function validateName(fieldName, label, required) {
+        const input = document.querySelector('[name="' + fieldName + '"]');
+        const value = input.value.trim();
+
+        if (value === "" && !required) {
+            return true;
+        }
+
+        if (required && value.length < 2) {
+            showToast(label + " must be at least 2 characters.", "danger");
+            input.focus();
+            return false;
+        }
+
+        if (!NAME_PATTERN.test(value)) {
+            showToast(label + " can only contain letters, spaces, periods, apostrophes, and hyphens.", "danger");
+            input.focus();
+            return false;
+        }
+
+        return true;
+    }
 
     function validateStep(step) {
         const stepElement = document.getElementById("step" + step);
@@ -405,15 +564,12 @@
             }
         }
 
-        if (step === 1) {
-            const username = document.getElementById("username").value.trim();
-            if (!/^[A-Za-z0-9_]{3,30}$/.test(username)) {
+        if (step === 2) {
+            if (!/^[A-Za-z0-9_]{3,30}$/.test(val("username"))) {
                 showToast("Username must be 3 to 30 characters and may only contain letters, numbers, and underscores.", "danger");
                 return false;
             }
-        }
 
-        if (step === 3) {
             const password = document.getElementById("password").value;
             const confirmPassword = document.getElementById("confirmPassword").value;
             const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
@@ -431,10 +587,14 @@
             }
         }
 
-        if (step === 4) {
+        if (step === 3) {
+            if (!validateName("first_name", "First name", true)) return false;
+            if (!validateName("middle_name", "Middle name", false)) return false;
+            if (!validateName("last_name", "Last name", true)) return false;
+
             const birthdate = document.getElementById("birthdate").value;
             if (!birthdate) {
-                showToast("Please enter your date of birth.", "danger");
+                showToast("Please enter the date of birth.", "danger");
                 return false;
             }
 
@@ -448,9 +608,28 @@
                 return false;
             }
 
-            const minimumBirthdate = new Date(today.getFullYear() - 5, today.getMonth(), today.getDate());
+            const isSelf = getHandler() === "self";
+            const minAge = isSelf ? 18 : 5;
+            const minimumBirthdate = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+
             if (selectedDate > minimumBirthdate) {
-                showToast("The applicant must be at least 5 years old to be registered.", "danger");
+                showToast(
+                    isSelf
+                        ? "You must be at least 18 years old to register for yourself. Ask a parent or guardian to register you."
+                        : "The applicant must be at least 5 years old to be registered.",
+                    "danger"
+                );
+                return false;
+            }
+        }
+
+        if (step === 4) {
+            if (!validateName("parent_guardian_fullname", "Full name", true)) return false;
+        }
+
+        if (step === 5) {
+            if (document.getElementById("waiverAgreement").value !== "1") {
+                showToast("Please read the waiver and tick the agreement box to continue.", "danger");
                 return false;
             }
         }
@@ -459,23 +638,12 @@
     }
 
     function goToStep(step) {
-        if (step > currentStep) {
-            if (!validateStep(currentStep)) {
-                return;
-            }
+        if (step > currentStep && !validateStep(currentStep)) {
+            return;
         }
 
-        const username = document.getElementById("username").value.trim();
-        const emailAddress = document.getElementById("emailAddress").value.trim();
-
-        if (step === 2) {
-            document.getElementById("usernameStep2").value = username;
-            document.getElementById("emailStep2").value = emailAddress;
-        }
-
-        if (step === 3) {
-            document.getElementById("usernameStep3").value = username;
-            document.getElementById("emailStep3").value = emailAddress;
+        if (step === 6) {
+            document.getElementById("emailStep6").value = val("emailAddress");
         }
 
         document.getElementById("step" + currentStep).classList.add("d-none");
@@ -485,14 +653,24 @@
         document.getElementById("stepText").textContent = "Step " + step + " of 6";
     }
 
-    async function sendVerificationCode() {
-        if (!validateStep(1)) {
+    async function continueToVerification() {
+        if (!validateStep(5)) {
             return;
         }
 
-        const username = document.getElementById("username").value.trim();
-        const emailAddress = document.getElementById("emailAddress").value.trim();
-        const button = document.getElementById("sendCodeButton");
+        // Code already sent for this same username + email, so just go to the verify step
+        if (codeSentKey === val("username") + "|" + val("emailAddress")) {
+            goToStep(6);
+            return;
+        }
+
+        await sendVerificationCode();
+    }
+
+    async function sendVerificationCode() {
+        const username = val("username");
+        const emailAddress = val("emailAddress");
+        const button = document.getElementById("continueButton");
 
         button.disabled = true;
         button.textContent = "Sending...";
@@ -514,11 +692,11 @@
             const data = await response.json();
 
             if (data.success) {
-                document.getElementById("usernameStep2").value = username;
-                document.getElementById("emailStep2").value = emailAddress;
+                codeSentKey = username + "|" + emailAddress;
+                document.getElementById("emailStep6").value = emailAddress;
 
-                if (currentStep !== 2) {
-                    goToStep(2);
+                if (currentStep !== 6) {
+                    goToStep(6);
                 }
 
                 document.getElementById("verificationCode").value = "";
@@ -529,19 +707,25 @@
                     dailyLimitReached = true;
                     lockResend();
                 }
+
                 showToast(data.message ?? "Unable to send verification code.", "danger");
+
+                // Username or email already taken: send them back to the account step
+                if (data.errors && (data.errors.username || data.errors.email_address)) {
+                    goToStep(2);
+                }
             }
         } catch (error) {
             console.error(error);
             showToast("Something went wrong while sending the verification code.", "danger");
         } finally {
             button.disabled = false;
-            button.textContent = "Send";
+            button.textContent = "Continue";
         }
     }
 
     async function verifyRegistrationCode() {
-        const verificationCode = document.getElementById("verificationCode").value.trim();
+        const verificationCode = val("verificationCode");
 
         if (!/^\d{6}$/.test(verificationCode)) {
             showToast("Please enter a valid 6-digit verification code.", "danger");
@@ -565,25 +749,195 @@
             const data = await response.json();
 
             if (data.success) {
-                const username = document.getElementById("username").value.trim();
-                const emailAddress = document.getElementById("emailAddress").value.trim();
-
-                document.getElementById("usernameStep3").value = username;
-                document.getElementById("emailStep3").value = emailAddress;
-
-                goToStep(3);
-                document.getElementById("password").focus();
-            } else {
-                showToast(data.message ?? "Invalid verification code.", "danger");
+                submitting = true;
+                button.textContent = "Registering...";
+                document.getElementById("signupForm").submit();
+                return;
             }
+
+            showToast(data.message ?? "Invalid verification code.", "danger");
         } catch (error) {
             console.error(error);
             showToast("Something went wrong while verifying the code.", "danger");
         } finally {
-            button.disabled = false;
-            button.textContent = "Confirm";
+            if (!submitting) {
+                button.disabled = false;
+                button.textContent = "Confirm & Register";
+            }
         }
     }
+
+    // Stops the Enter key from submitting early. The real submit happens after the code is verified.
+    document.getElementById("signupForm").addEventListener("submit", function (event) {
+        if (!submitting) {
+            event.preventDefault();
+        }
+    });
+
+    // ---------- character counters and input filters ----------
+    document.querySelectorAll("[data-counter]").forEach(function (input) {
+        const limit = input.getAttribute("maxlength");
+
+        const wrap = document.createElement("div");
+        wrap.className = "form-text d-flex justify-content-between";
+        wrap.innerHTML = '<span class="char-msg text-danger"></span><span class="char-count ms-auto"></span>';
+        (input.closest(".input-group") || input).after(wrap);
+
+        const count = wrap.querySelector(".char-count");
+        const msg = wrap.querySelector(".char-msg");
+
+        function updateCount() {
+            count.textContent = input.value.length + " / " + limit;
+            count.classList.toggle("text-danger", input.value.length >= Number(limit));
+        }
+
+        input.addEventListener("input", function () {
+            const original = input.value;
+            let cleaned = original;
+            let message = "";
+
+            if (input.hasAttribute("data-name")) {
+                cleaned = cleaned
+                    .replace(/[^\p{L} .'’-]/gu, "")
+                    .replace(/^[^\p{L}]+/u, "")
+                    .replace(/ {2,}/g, " ");
+                message = "Only letters, spaces, periods, apostrophes, and hyphens are allowed.";
+            }
+
+            if (input.hasAttribute("data-digits")) {
+                cleaned = cleaned.replace(/\D/g, "");
+                message = "Numbers only.";
+            }
+
+            if (cleaned !== original) {
+                input.value = cleaned;
+                msg.textContent = message;
+            } else {
+                msg.textContent = "";
+            }
+
+            updateCount();
+        });
+
+        updateCount();
+    });
+
+    // ---------- eye icons ----------
+    document.querySelectorAll(".toggle-password").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const input = document.getElementById(button.dataset.target);
+            const show = input.type === "password";
+
+            input.type = show ? "text" : "password";
+            button.querySelector(".icon-eye").classList.toggle("d-none", show);
+            button.querySelector(".icon-eye-off").classList.toggle("d-none", !show);
+            button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+            button.title = show ? "Hide password" : "Show password";
+        });
+    });
+
+    // ---------- live password checklist ----------
+    const passwordRules = {
+        length: function (v) { return v.length >= 8; },
+        upper: function (v) { return /[A-Z]/.test(v); },
+        lower: function (v) { return /[a-z]/.test(v); },
+        number: function (v) { return /\d/.test(v); },
+        special: function (v) { return /[^A-Za-z0-9]/.test(v); }
+    };
+
+    function updatePasswordMatch() {
+        const password = document.getElementById("password").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+        const matchText = document.getElementById("passwordMatchText");
+
+        if (confirmPassword === "") {
+            matchText.textContent = "";
+            matchText.className = "form-text";
+            return;
+        }
+
+        const same = password === confirmPassword;
+        matchText.textContent = same ? "Passwords match." : "Passwords do not match.";
+        matchText.className = "form-text " + (same ? "text-success" : "text-danger");
+    }
+
+    function updatePasswordChecklist() {
+        const value = document.getElementById("password").value;
+
+        document.querySelectorAll("#passwordRules li").forEach(function (li) {
+            const ok = passwordRules[li.dataset.rule](value);
+            li.classList.toggle("text-success", ok);
+            li.classList.toggle("text-muted", !ok);
+            li.querySelector(".rule-icon").textContent = ok ? "✓" : "○";
+        });
+
+        updatePasswordMatch();
+    }
+
+    document.getElementById("password").addEventListener("input", updatePasswordChecklist);
+    document.getElementById("confirmPassword").addEventListener("input", updatePasswordMatch);
+
+    // ---------- waiver modal ----------
+    const waiverDialog = document.getElementById("waiverDialog");
+    const waiverBody = document.getElementById("waiverBody");
+    const agreeWaiverButton = document.getElementById("agreeWaiverButton");
+    const waiverHint = document.getElementById("waiverHint");
+    const waiverCheck = document.getElementById("waiverCheck");
+    const waiverField = document.getElementById("waiverAgreement");
+    let waiverRead = false;
+
+    function checkWaiverScrolled() {
+        if (waiverRead) {
+            return;
+        }
+
+        const atBottom = waiverBody.scrollTop + waiverBody.clientHeight >= waiverBody.scrollHeight - 8;
+
+        if (atBottom) {
+            waiverRead = true;
+            agreeWaiverButton.disabled = false;
+            waiverHint.classList.add("d-none");
+        }
+    }
+
+    function openWaiver() {
+        waiverDialog.showModal();
+        waiverBody.scrollTop = 0;
+        checkWaiverScrolled();
+    }
+
+    document.getElementById("openWaiverButton").addEventListener("click", openWaiver);
+    waiverBody.addEventListener("scroll", checkWaiverScrolled);
+
+    document.getElementById("closeWaiverButton").addEventListener("click", function () {
+        waiverDialog.close();
+    });
+    document.getElementById("closeWaiverX").addEventListener("click", function () {
+        waiverDialog.close();
+    });
+    waiverDialog.addEventListener("click", function (event) {
+        if (event.target === waiverDialog) {
+            waiverDialog.close();
+        }
+    });
+
+    agreeWaiverButton.addEventListener("click", function () {
+        waiverField.value = "1";
+        waiverCheck.checked = true;
+        waiverDialog.close();
+    });
+
+    // Ticking the box opens the waiver first. Unticking takes the agreement back.
+    waiverCheck.addEventListener("click", function (event) {
+        if (waiverCheck.checked) {
+            event.preventDefault();
+            openWaiver();
+        } else {
+            waiverField.value = "";
+        }
+    });
+
+    applyRegistrantType();
 
     function startResendTimer(seconds) {
         if (dailyLimitReached) {
@@ -654,32 +1008,6 @@
         }
         return "Resend in " + seconds + "s";
     }
-
-    const checkbox = document.getElementById("showPassword");
-    const passwordInput = document.getElementById("password");
-
-    checkbox.addEventListener("change", function () {
-        const type = this.checked ? "text" : "password";
-        passwordInput.type = type;
-    });
-
-    document.getElementById("signupForm").addEventListener("submit", function (event) {
-        if (currentStep !== 6) {
-            event.preventDefault();
-            return;
-        }
-
-        if (!validateStep(6)) {
-            event.preventDefault();
-            return;
-        }
-
-        const submitButton = event.submitter;
-        if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.textContent = "Registering...";
-        }
-    });
 
     window.addEventListener("pageshow", function (event) {
         if (event.persisted) {

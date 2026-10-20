@@ -324,13 +324,13 @@
     <!-- TABS -->
     <nav class="attendanceTabsContainer" id="attendanceTabs" aria-label="Attendance sections">
         <button class="btn btn-primary attendanceTab active" type="button" id="activeCoachesTabButton" data-attendance-tab="coaches" aria-selected="true">
-            Active Coaches
+            Coaches
         </button>
         <button class="btn btn-outline-primary attendanceTab" type="button" id="activeStudentsTabButton" data-attendance-tab="students" aria-selected="false">
-            Active Students
+            Students
         </button>
         <button class="btn btn-outline-primary attendanceTab" type="button" id="activeAthletesTabButton" data-attendance-tab="athletes" aria-selected="false">
-            Active Athletes
+            Athletes
         </button>
     </nav>
 
