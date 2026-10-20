@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AthleteRecord;
+use App\Models\Attendance;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,8 +65,10 @@ class AthleteRecordController extends Controller
 
     /* ---------------------------------------------------------
      * GET /coach/athlete-records/data
-     * Strokes, distances, whether this coach can manage records,
-     * and (for managers) the Active athletes to pick from.
+     * Strokes, distances, whether this coach can manage records and, for
+     * managers, ONLY the athletes this coach logged in attendance today
+     * (with their attendance), plus whether this coach has timed in.
+     * Optional ?date=YYYY-MM-DD (the browser's today, within a day of the server's).
      * --------------------------------------------------------- */
     public function data(Request $request): JsonResponse
     {
@@ -74,6 +77,9 @@ class AthleteRecordController extends Controller
         }
 
         $canManage = $this->canManage($request->user());
+        $coachId   = (int) Auth::id();
+        $date      = $this->today($request->query('date'));
+        $reason    = $canManage ? $this->sessionBlockReason($coachId, $date) : null;
 
         return response()->json([
             'success' => true,
@@ -82,7 +88,9 @@ class AthleteRecordController extends Controller
                 ->values(),
             'distances' => AthleteRecord::DISTANCES,
             'can_manage' => $canManage,
-            'athletes' => $canManage ? $this->activeAthletes() : [],
+            'athletes' => $canManage ? $this->loggedAthletes($coachId, $date) : [],
+            'can_log' => $canManage && $reason === null,
+            'block_reason' => $reason,
         ]);
     }
 
@@ -170,6 +178,10 @@ class AthleteRecordController extends Controller
             return $this->fail('Athlete not found.', 404);
         }
 
+        if (! $this->isLoggedByCoach((int) Auth::id(), $user)) {
+            return $this->fail('Log this athlete in attendance first.', 403);
+        }
+
         return response()->json(['success' => true] + $this->athletePayload($user));
     }
 
@@ -205,6 +217,10 @@ class AthleteRecordController extends Controller
 
         if (! $this->isActiveAthlete($athleteId)) {
             return $this->fail('Active athlete not found.', 404);
+        }
+
+        if (! $this->isLoggedByCoach((int) Auth::id(), $athleteId)) {
+            return $this->fail('Log this athlete in attendance first.', 403);
         }
 
         $result = DB::transaction(function () use ($v, $cs, $athleteId) {
@@ -276,6 +292,87 @@ class AthleteRecordController extends Controller
      * Helpers
      * --------------------------------------------------------- */
 
+    /**
+     * The Active athletes THIS coach logged in attendance on $date (any record:
+     * Present, Expected or Absent), with that attendance for the page's buttons.
+     */
+    private function loggedAthletes(int $coachId, string $date): Collection
+    {
+        $logs = Attendance::query()
+            ->where('logged_by', $coachId)
+            ->where('role_id', self::ATHLETE_ROLE_ID)
+            ->onDate($date)
+            ->orderByDesc((new Attendance)->getKeyName())
+            ->get()
+            ->unique('user_id')      // the latest row per athlete
+            ->keyBy('user_id');
+
+        if ($logs->isEmpty()) {
+            return collect();
+        }
+
+        return $this->activeAthletes($logs->keys()->map(fn ($id) => (int) $id)->all())
+            ->map(function (array $a) use ($logs) {
+                $log    = $logs->get($a['id']);
+                $timeIn = Attendance::hhmm($log->time_in);
+
+                return $a + [
+                    'state'        => $log->attendance_state ?: ($timeIn ? Attendance::STATE_PRESENT : null),
+                    'time_in'      => $timeIn,
+                    'time_out'     => Attendance::hhmm($log->time_out),
+                    'is_expecting' => $log->attendance_state === CoachAttendanceController::STATE_EXPECTING && ! $timeIn,
+                ];
+            })
+            ->values();
+    }
+
+    /** Whether this coach logged the athlete in attendance (a day of slack either side for timezones). */
+    private function isLoggedByCoach(int $coachId, int $athleteId): bool
+    {
+        return Attendance::query()
+            ->where('user_id', $athleteId)
+            ->where('role_id', self::ATHLETE_ROLE_ID)
+            ->where('logged_by', $coachId)
+            ->whereBetween('attendance_at', [
+                Carbon::now()->subDay()->toDateString(),
+                Carbon::now()->addDay()->toDateString(),
+            ])
+            ->exists();
+    }
+
+    /** Same rule as the Attendance page: the coach must have timed in for the day first. */
+    private function sessionBlockReason(int $coachId, string $date): ?string
+    {
+        $timedIn = Attendance::query()
+            ->where('user_id', $coachId)
+            ->where('role_id', CoachController::ROLE_COACH)
+            ->onDate($date)
+            ->whereNotNull('time_in')
+            ->exists();
+
+        return $timedIn ? null : 'You need to Time In first (on the Attendance page) before you can log attendance.';
+    }
+
+    /** The browser's date when it is within a day of the server's, otherwise the server's. */
+    private function today(?string $date): string
+    {
+        $server = Carbon::now()->startOfDay();
+
+        if ($date) {
+            try {
+                $given = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+
+                if (abs($given->diffInDays($server, false)) <= 1) {
+                    return $given->toDateString();
+                }
+            } catch (\Throwable $e) {
+                // fall through to the server date
+            }
+        }
+
+        return $server->toDateString();
+    }
+
     private function isActiveAthlete(int $userId): bool
     {
         return DB::table(CoachController::USERS_TABLE . ' as u')
@@ -286,13 +383,14 @@ class AthleteRecordController extends Controller
             ->exists();
     }
 
-    private function activeAthletes(): Collection
+    private function activeAthletes(?array $ids = null): Collection
     {
         return DB::table(CoachController::USERS_TABLE . ' as u')
             ->join('tbl_user_profile as p', 'p.user_id', '=', 'u.' . CoachController::USER_PK)
             ->join(CoachController::STATUS_TABLE . ' as st', 'st.' . CoachController::STATUS_ID_COL, '=', 'u.' . CoachController::STATUS_COL)
             ->where('u.' . CoachController::ROLE_COL, self::ATHLETE_ROLE_ID)
             ->where('st.' . CoachController::STATUS_NAME_COL, 'Active')
+            ->when($ids !== null, fn ($q) => $q->whereIn('u.' . CoachController::USER_PK, $ids))
             ->orderBy('p.last_name')
             ->orderBy('p.first_name')
             ->get([

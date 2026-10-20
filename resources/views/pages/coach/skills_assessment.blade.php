@@ -380,9 +380,6 @@
             <button class="btn btn-outline-danger" id="markAbsentButton" type="button" disabled title="Mark a student absent if they have not timed in">Mark Absent</button>
             <button class="btn btn-outline-danger" id="removeMarkButton" type="button" disabled title="Remove an Expected or Absent mark from the selected student">Remove Mark</button>
             <button class="btn btn-primary" id="viewChecklistButton" type="button" disabled>View Checklist</button>
-            <button class="btn btn-outline-primary" id="refreshButton" type="button" title="Reload now. The page also refreshes by itself.">
-                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
-            </button>
         </div>
 
     </div>
@@ -528,7 +525,6 @@
         timeClose: $('timeModalCloseButton'),
         timeCancel: $('timeModalCancelButton'),
         timeSave: $('timeModalSaveButton'),
-        refreshButton: $('refreshButton'),
 
         overlay: $('checklistModalOverlay'),
         modalTitle: $('checklistModalTitle'),
@@ -841,9 +837,7 @@
 
     el.search.addEventListener('input', applyLocalFilters);
     el.classFilter.addEventListener('dropdown:change', () => loadRows());
-    el.refreshButton.addEventListener('click', () => loadRows({ keepSelection: true }));
-
-    // Keeps the list current without pressing Refresh (other coaches or the admin may change
+    // Keeps the list current by itself (other coaches or the admin may change
     // attendance). Skipped while the tab is hidden, a modal is open or a save is running.
     let refreshing = false;
 

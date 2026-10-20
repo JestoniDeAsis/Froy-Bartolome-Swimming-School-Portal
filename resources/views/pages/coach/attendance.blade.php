@@ -433,9 +433,6 @@
             <button class="btn btn-outline-primary" id="markExpectingButton" type="button" disabled title="Mark the selection as Expected (no Time In / Time Out is recorded yet)">Expected</button>
             <button class="btn btn-outline-danger" id="markAbsentButton" type="button" disabled title="Mark the selection as Absent (only if they have not timed in)">Absent</button>
             <button class="btn btn-outline-primary" id="viewLogsButton" type="button" disabled>View Logs</button>
-            <button class="btn btn-outline-primary" id="refreshButton" type="button" title="Reload now. The page also refreshes by itself.">
-                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
-            </button>
         </div>
 
     </div>
@@ -631,7 +628,6 @@
         expectingButton: $('markExpectingButton'),
         absentButton: $('markAbsentButton'),
         viewLogsButton: $('viewLogsButton'),
-        refreshButton: $('refreshButton'),
         lastUpdated: $('lastUpdated'),
 
         logsOverlay: $('logsModalOverlay'),
@@ -1091,9 +1087,7 @@
     el.search.addEventListener('input', applyLocalFilters);
     el.classFilter.addEventListener('dropdown:change', () => loadRows());
     el.loggedFilter.addEventListener('dropdown:change', applyLocalFilters);
-    el.refreshButton.addEventListener('click', () => loadRows({ keepSelection: true }));
-
-    // Keeps the page current without pressing Refresh: the admin or another
+    // Keeps the page current by itself: the admin or another
     // coach may change attendance while this tab is open. Skipped while the tab
     // is hidden, a modal is open or a save is running, and requests never stack.
     let refreshing = false;
@@ -1262,11 +1256,6 @@
         if (!remove) {
             if (!time) {
                 showToast('Please choose a time.', 'danger');
-                return;
-            }
-
-            if (session.time_in && time < session.time_in) {
-                showToast(`The time cannot be earlier than your own Time In (${formatTimeLabel(session.time_in)}).`, 'danger');
                 return;
             }
 

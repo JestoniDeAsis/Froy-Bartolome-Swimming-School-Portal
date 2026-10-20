@@ -99,6 +99,23 @@
 
 .arAthleteDropdown { --dd-min-width: 100%; }
 
+/* ---- Attendance of the chosen athlete ---- */
+
+.arAttendance { display: grid; gap: .6rem; margin-bottom: 1rem; padding: .85rem 1rem; background: #f8fafb; border: 1px solid #e7ebef; border-radius: 10px; }
+.arAttendanceStatus { margin: 0; color: #344054; font-size: .875rem; }
+.arAttendanceActions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.arNotice { margin: 0; padding: .5rem .75rem; border: 1px solid #ffe08a; border-radius: .5rem; background: #fff8e1; color: #8a6100; font-size: .8125rem; }
+.arLastUpdated { margin: 0 0 .75rem; color: #98a2b3; font-size: .75rem; }
+
+/* Small time modal (backdrop = shared .modalOverlay) */
+.arModal { width: 100%; max-width: 360px; display: flex; flex-direction: column; background: #fff; border-radius: 12px; box-shadow: 0 20px 40px rgba(16, 24, 40, .18); overflow: hidden; }
+.arModalHeader { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: 1rem 1.25rem; border-bottom: 1px solid #e7ebef; }
+.arModalHeader h5 { margin: 0; font-size: 1rem; font-weight: 700; }
+.arModalClose { border: none; background: transparent; color: #667085; font-size: 1.25rem; line-height: 1; padding: 0; cursor: pointer; }
+.arModalBody { display: flex; flex-direction: column; gap: .5rem; padding: 1.25rem; }
+.arModalName { margin: 0 0 .25rem; color: #344054; font-size: .875rem; }
+.arModalFooter { display: flex; justify-content: flex-end; gap: .75rem; padding: 1rem 1.25rem; border-top: 1px solid #e7ebef; }
+
 @media (max-width: 991.98px) {
     .arManageGrid { grid-template-columns: minmax(0, 1fr); }
 }
@@ -122,6 +139,8 @@
     </div>
 
     {{-- ===== LEADERBOARDS (every coach) ===== --}}
+    <p class="arLastUpdated" id="arLastUpdated" aria-hidden="true"></p>
+
     <div id="arPanelLeaderboards">
         <div class="arFilters">
             <div class="arFilterGroup">
@@ -176,6 +195,22 @@
                     </button>
                     <div class="registerDropdownOptions" id="arAthleteOptions" hidden></div>
                     <input id="arAthleteInput" type="hidden" value="">
+                </div>
+
+                <p class="arHint mb-3" id="arAthleteEmpty" hidden>No athletes yet. Only athletes you log in attendance today appear here.</p>
+
+                <!-- Attendance of the chosen athlete -->
+                <div class="arAttendance" id="arAttendance" hidden>
+                    <p class="arAttendanceStatus" id="arAttendanceStatus"></p>
+
+                    <div class="arAttendanceActions">
+                        <button class="btn btn-sm btn-outline-primary" id="arTimeInButton" type="button" disabled>Time In</button>
+                        <button class="btn btn-sm btn-outline-primary" id="arTimeOutButton" type="button" disabled>Time Out</button>
+                        <button class="btn btn-sm btn-outline-danger" id="arAbsentButton" type="button" disabled>Mark Absent</button>
+                        <button class="btn btn-sm btn-outline-danger" id="arRemoveMarkButton" type="button" disabled>Remove Mark</button>
+                    </div>
+
+                    <p class="arNotice" id="arAttendanceNotice" role="status" hidden></p>
                 </div>
 
                 <div class="arTableWrap">
@@ -259,6 +294,29 @@
 
 </section>
 
+<!-- TIME IN / TIME OUT MODAL (athlete) -->
+<div class="modalOverlay" id="arClockOverlay" hidden>
+    <div class="arModal" role="dialog" aria-modal="true" aria-labelledby="arClockTitle">
+
+        <div class="arModalHeader">
+            <h5 id="arClockTitle">Record Time Out</h5>
+            <button class="arModalClose" id="arClockClose" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="arModalBody">
+            <p class="arModalName" id="arClockName"></p>
+            <label class="arFilterLabel" for="arClockInput">Current Time</label>
+            <input class="form-control" id="arClockInput" type="time">
+        </div>
+
+        <div class="arModalFooter">
+            <button class="btn btn-outline-primary" id="arClockCancel" type="button">Cancel</button>
+            <button class="btn btn-primary" id="arClockSave" type="button">Save</button>
+        </div>
+
+    </div>
+</div>
+
 <script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
@@ -269,8 +327,19 @@
         leaderboard: '/coach/athlete-records/leaderboard',
         athlete: id => `/coach/athlete-records/athletes/${id}`,
         store: '/coach/athlete-records',
-        remove: id => `/coach/athlete-records/${id}`
+        remove: id => `/coach/athlete-records/${id}`,
+
+        // Athlete attendance: the same endpoints the Attendance page uses (they accept athlete_id).
+        timeIn: '/coach/attendance/students/time-in',
+        timeOut: '/coach/attendance/students/time-out',
+        expecting: '/coach/attendance/students/expecting',
+        absent: '/coach/attendance/students/absent'
     };
+
+    const REFRESH_MS = 10000;   // auto-refresh every 10 seconds
+
+    // The stored attendance_state stays 'Expecting'; this is only the wording people read.
+    const EXPECTING_LABEL = 'Expected';
 
     const $ = id => document.getElementById(id);
 
@@ -295,7 +364,25 @@
         notes: $('arNotesInput'),
         save: $('arSaveButton'),
 
-        historyBody: $('arHistoryBody')
+        historyBody: $('arHistoryBody'),
+
+        lastUpdated: $('arLastUpdated'),
+        athleteEmpty: $('arAthleteEmpty'),
+        attendance: $('arAttendance'),
+        attStatus: $('arAttendanceStatus'),
+        attNotice: $('arAttendanceNotice'),
+        timeInButton: $('arTimeInButton'),
+        timeOutButton: $('arTimeOutButton'),
+        absentButton: $('arAbsentButton'),
+        removeMarkButton: $('arRemoveMarkButton'),
+
+        clockOverlay: $('arClockOverlay'),
+        clockTitle: $('arClockTitle'),
+        clockName: $('arClockName'),
+        clockInput: $('arClockInput'),
+        clockClose: $('arClockClose'),
+        clockCancel: $('arClockCancel'),
+        clockSave: $('arClockSave')
     };
 
     let strokes = [];
@@ -331,6 +418,14 @@
         if (!iso) return '';
         const [y, m, d] = iso.split('-').map(Number);
         return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
+    function formatTimeLabel(value) {
+        if (!value) return '';
+        const [h, m] = value.split(':').map(Number);
+        const ref = new Date();
+        ref.setHours(h, m, 0, 0);
+        return ref.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     }
 
     async function api(url, { method = 'GET', body } = {}) {
@@ -444,10 +539,10 @@
         });
     }
 
-    async function loadLeaderboard() {
+    async function loadLeaderboard({ silent = false } = {}) {
         const seq = ++lbSeq;
 
-        emptyRow(el.lbBody, 4, 'Loading...');
+        if (!silent) emptyRow(el.lbBody, 4, 'Loading...');
 
         const params = new URLSearchParams({ stroke: lb.stroke, distance: String(lb.distance) });
 
@@ -456,8 +551,10 @@
             if (seq !== lbSeq) return;
 
             if (!result.ok) {
-                emptyRow(el.lbBody, 4, 'Unable to load the leaderboard.');
-                showToast(errorText(result, 'Unable to load the leaderboard.'), 'danger');
+                if (!silent) {
+                    emptyRow(el.lbBody, 4, 'Unable to load the leaderboard.');
+                    showToast(errorText(result, 'Unable to load the leaderboard.'), 'danger');
+                }
                 return;
             }
 
@@ -466,8 +563,11 @@
         } catch (error) {
             if (seq !== lbSeq) return;
             console.error(error);
-            emptyRow(el.lbBody, 4, 'Unable to load the leaderboard.');
-            showToast('Something went wrong while loading the leaderboard.', 'danger');
+
+            if (!silent) {
+                emptyRow(el.lbBody, 4, 'Unable to load the leaderboard.');
+                showToast('Something went wrong while loading the leaderboard.', 'danger');
+            }
         }
     }
 
@@ -560,6 +660,7 @@
     function renderManage() {
         renderBests();
         renderHistory();
+        renderAttendance();
         el.save.disabled = busy || !athleteId;
     }
 
@@ -663,6 +764,220 @@
         }
     }
 
+    /* ---------- attendance of the chosen athlete ---------- */
+
+    let athletes = [];          // ONLY the athletes this coach logged today (the server decides)
+    let canLog = false;         // this coach has timed in (on the Attendance page)
+    let blockReason = null;
+    let optionsKey = '';
+    let clockMode = null;       // 'in' | 'out'
+
+    const selectedAthlete = () => athletes.find(a => String(a.id) === String(athleteId)) || null;
+
+    // 'Absent' | 'Expected' for an athlete who only has a mark (no Time In), else null.
+    function markLabelOf(a) {
+        if (!a || a.time_in) return null;
+        if (a.state === 'Absent') return 'Absent';
+        return a.is_expecting ? EXPECTING_LABEL : null;
+    }
+
+    function renderAttendance() {
+        const a = selectedAthlete();
+
+        el.athleteEmpty.hidden = !canManage || athletes.length > 0;
+        el.attendance.hidden = !a;
+        if (!a) return;
+
+        const label = a.state === 'Expecting' ? EXPECTING_LABEL : (a.state || 'Logged');
+        const parts = [`Today: ${label}`];
+        if (a.time_in) parts.push(`Time In ${formatTimeLabel(a.time_in)}`);
+        if (a.time_out) parts.push(`Time Out ${formatTimeLabel(a.time_out)}`);
+        el.attStatus.textContent = parts.join(' \u00B7 ');
+
+        // Needs this coach to be timed in; the buttons follow the same rules as the Attendance page.
+        const open = canLog && !busy;
+        const mark = markLabelOf(a);
+
+        el.timeInButton.disabled = !open || Boolean(a.time_in);
+        el.timeOutButton.disabled = !open || !a.time_in || Boolean(a.time_out);
+        el.absentButton.disabled = !open || Boolean(a.time_in) || a.state === 'Absent';
+        el.removeMarkButton.disabled = !open || !mark;
+        el.removeMarkButton.textContent = mark ? `Remove ${mark}` : 'Remove Mark';
+
+        el.attNotice.hidden = canLog || !blockReason;
+        if (blockReason && el.attNotice.textContent !== blockReason) el.attNotice.textContent = blockReason;
+    }
+
+    // Fills the dropdown with the athletes the server returned. Only touches it when the list
+    // changed, so the auto-refresh never closes a menu the coach is using.
+    function syncAthleteOptions() {
+        const options = [{ value: '', label: 'Select an athlete' }].concat(
+            athletes.map(a => {
+                const mark = markLabelOf(a);
+                return { value: String(a.id), label: mark ? `${a.name} (${mark})` : a.name };
+            })
+        );
+
+        // Removing a mark takes the athlete out of the list: drop the selection too.
+        if (athleteId && !selectedAthlete()) {
+            athleteId = null;
+            payload = null;
+            optionsKey = '';
+        }
+
+        const key = JSON.stringify(options);
+        if (key === optionsKey) return;
+
+        optionsKey = key;
+        window.FBSSDropdown.setOptions(el.athleteDropdown, options, athleteId ? String(athleteId) : '');
+    }
+
+    function applyAttendanceData(data) {
+        athletes = data.athletes || [];
+        canLog = Boolean(data.can_log);
+        blockReason = data.block_reason || null;
+
+        if (!canManage) return;
+
+        const hadSelection = athleteId;
+        syncAthleteOptions();
+
+        if (hadSelection && !athleteId) renderManage();   // the chosen athlete left the list
+        else renderAttendance();
+    }
+
+    const todayParam = () => `?date=${toLocalISODate(new Date())}`;
+
+    function touchUpdated() {
+        el.lastUpdated.textContent = `Auto-refreshes every ${REFRESH_MS / 1000}s. Updated ${new Date().toLocaleTimeString('en-US')}`;
+    }
+
+    async function loadAthletes() {
+        const result = await api(URLS.data + todayParam());
+        if (result.ok) applyAttendanceData(result.data);
+    }
+
+    // One attendance action for the chosen athlete. Returns true when it saved.
+    async function attendanceAction(url, extra, okText) {
+        const a = selectedAthlete();
+        if (!a || busy || !canLog) return false;
+
+        busy = true;
+        renderAttendance();
+        el.save.disabled = true;
+
+        let saved = false;
+
+        try {
+            const result = await api(url, {
+                method: 'POST',
+                body: { athlete_id: a.id, date: toLocalISODate(new Date()), ...extra }
+            });
+
+            if (result.ok) {
+                saved = true;
+                showToast(result.data.message || okText, 'success');
+            } else {
+                showToast(errorText(result, 'Unable to save the attendance.'), 'danger');
+            }
+
+            // Whatever happened, show what the server now says.
+            await loadAthletes();
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while saving the attendance.', 'danger');
+        } finally {
+            busy = false;
+            renderAttendance();
+            el.save.disabled = busy || !athleteId;
+        }
+
+        return saved;
+    }
+
+    function openClock(mode) {
+        const a = selectedAthlete();
+        if (!a || busy || !canLog) return;
+
+        clockMode = mode;
+        el.clockTitle.textContent = mode === 'in' ? 'Record Time In' : 'Record Time Out';
+        el.clockName.textContent = a.name;
+        el.clockInput.value = new Date().toTimeString().slice(0, 5);   // "HH:MM", change it if needed
+        el.clockOverlay.hidden = false;
+        el.clockInput.focus();
+    }
+
+    function closeClock() {
+        el.clockOverlay.hidden = true;
+        clockMode = null;
+    }
+
+    async function saveClock() {
+        const a = selectedAthlete();
+        if (!a || busy || !clockMode) return;
+
+        const time = el.clockInput.value;   // "HH:MM"
+
+        if (!time) {
+            showToast('Please choose a time.', 'danger');
+            return;
+        }
+
+        if (clockMode === 'out' && a.time_in && time <= a.time_in) {
+            showToast('Time Out must be later than Time In.', 'danger');
+            return;
+        }
+
+        const saved = await attendanceAction(
+            clockMode === 'in' ? URLS.timeIn : URLS.timeOut,
+            { time },
+            clockMode === 'in' ? 'Time In saved.' : 'Time Out saved.'
+        );
+
+        if (saved) closeClock();
+    }
+
+    el.timeInButton.addEventListener('click', () => openClock('in'));
+    el.timeOutButton.addEventListener('click', () => openClock('out'));
+    el.absentButton.addEventListener('click', () => attendanceAction(URLS.absent, {}, 'Marked as Absent.'));
+    el.removeMarkButton.addEventListener('click', () => {
+        const a = selectedAthlete();
+        if (!markLabelOf(a)) return;
+
+        attendanceAction(a.state === 'Absent' ? URLS.absent : URLS.expecting, { remove: true }, 'Mark removed.');
+    });
+
+    el.clockSave.addEventListener('click', saveClock);
+    el.clockCancel.addEventListener('click', closeClock);
+    el.clockClose.addEventListener('click', closeClock);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !el.clockOverlay.hidden) closeClock();
+    });
+
+    // Keeps the list and the leaderboard current without pressing anything. Skipped while the tab
+    // is hidden, a save is running, the time modal is open or the athlete menu is being used.
+    let refreshing = false;
+
+    async function refreshQuietly() {
+        const menuOpen = el.athleteDropdown.querySelector('.registerDropdownToggle')?.getAttribute('aria-expanded') === 'true';
+        if (document.hidden || busy || refreshing || menuOpen || !el.clockOverlay.hidden) return;
+
+        refreshing = true;
+
+        try {
+            if (canManage) await loadAthletes();
+            if (!el.panelLeaderboards.hidden && lb.stroke) await loadLeaderboard({ silent: true });
+            touchUpdated();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            refreshing = false;
+        }
+    }
+
+    document.addEventListener('visibilitychange', refreshQuietly);
+    setInterval(refreshQuietly, REFRESH_MS);
+
     // Only digits, ":" and "." in the time box.
     el.time.addEventListener('input', () => {
         el.time.value = el.time.value.replace(/[^0-9:.]/g, '');
@@ -671,13 +986,8 @@
     el.athleteDropdown.addEventListener('dropdown:change', loadAthlete);
     el.save.addEventListener('click', saveRecord);
 
-    function setupManage(athletes) {
-        window.FBSSDropdown.setOptions(
-            el.athleteDropdown,
-            [{ value: '', label: 'Select an athlete' }].concat(athletes.map(a => ({ value: String(a.id), label: a.name }))),
-            ''
-        );
-
+    function setupManage() {
+        // The athlete list (only the ones this coach logged today) is filled by applyAttendanceData().
         window.FBSSDropdown.setOptions(
             el.strokeDropdown,
             strokes.map(s => ({ value: s.key, label: s.label })),
@@ -704,7 +1014,7 @@
         emptyRow(el.lbBody, 4, 'Loading...');
 
         try {
-            const result = await api(URLS.data);
+            const result = await api(URLS.data + todayParam());
 
             if (!result.ok) {
                 emptyRow(el.lbBody, 4, 'Unable to load athlete records.');
@@ -720,7 +1030,9 @@
             setupLbFilters();
             loadLeaderboard();
 
-            if (canManage) setupManage(result.data.athletes || []);
+            if (canManage) setupManage();
+            applyAttendanceData(result.data);
+            touchUpdated();
         } catch (error) {
             console.error(error);
             emptyRow(el.lbBody, 4, 'Unable to load athlete records.');

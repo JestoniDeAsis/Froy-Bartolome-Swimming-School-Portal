@@ -667,10 +667,6 @@ class CoachAttendanceController extends Controller
 
             $time = $v['time'] ?? null;   // null only for "expecting"
 
-            if ($time !== null && $time < $this->hhmm($coachRow->time_in)) {
-                return $this->fail('The time cannot be earlier than your own Time In (' . $this->hhmm($coachRow->time_in) . ').');
-            }
-
             $row = Attendance::forEnrollment((int) $enrollment->enrollment_id)
                 ->onDate($v['date'])
                 ->earliestFirst()
@@ -857,8 +853,8 @@ class CoachAttendanceController extends Controller
     }
 
     /**
-     * Same rules as a student log (the coach must be timed in and not timed
-     * out, no earlier than their own Time In), but for an athlete: the row is
+     * Same rules as a student log (the coach must be timed in), but for an
+     * athlete: the row is
      * found / created by user id with role 4 and no enrollment.
      */
     private function recordAthleteTime(array $v, string $kind, int $coachId): JsonResponse
@@ -888,10 +884,6 @@ class CoachAttendanceController extends Controller
             }
 
             $time = $v['time'] ?? null;   // null when removing a time
-
-            if ($time !== null && $time < $this->hhmm($coachRow->time_in)) {
-                return $this->fail('The time cannot be earlier than your own Time In (' . $this->hhmm($coachRow->time_in) . ').');
-            }
 
             $row = Attendance::ofRole(self::ATHLETE_ROLE_ID)
                 ->forUser($athleteId)

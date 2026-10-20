@@ -102,6 +102,7 @@ Route::post('/admin/attendance/coaches/time-in', [AdminAttendanceController::cla
 Route::post('/admin/attendance/coaches/time-out', [AdminAttendanceController::class, 'coachTimeOut'])->middleware('auth');
 Route::get('/admin/attendance/athlete-logs', [AdminAttendanceController::class, 'athleteLogs'])->middleware('auth');
 Route::get('/admin/attendance/coach-logs', [AdminAttendanceController::class, 'coachLogs'])->middleware('auth');
+Route::post('/admin/attendance/records', [AdminAttendanceController::class, 'record']);
 
 use App\Http\Controllers\CoachAttendanceController;
 

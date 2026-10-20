@@ -13,9 +13,11 @@ use Illuminate\Validation\Rule;
 
 /**
  * Admin > Attendance.
- *   - Coaches tab: records each coach's Time In / Time Out and shows their logs.
- *   - Students tab: read-only view of what coaches logged for students.
- *   - Athletes tab: read-only view of athlete attendance (role_id = 4).
+ *   - Coaches tab: records, edits or removes each coach's Time In / Time Out,
+ *     shows their logs, and has a Monthly view (days present and total hours)
+ *     that can be used as a base for salary.
+ *   - Students tab and Athletes tab (role_id = 4): the admin can do everything a
+ *     coach can (Time In / Time Out and Absent, each added, edited or removed) with no class or coach restrictions: see record().
  *
  * Rows live in tbl_attendances (see App\Models\Attendance).
  * Coach rows have role_id = 2 and no enrollment_id; student rows point
@@ -60,6 +62,8 @@ class AdminAttendanceController extends Controller
             'tab' => ['required', Rule::in(['coaches', 'students', 'athletes'])],
             'date' => ['required', 'date_format:Y-m-d'],
             'course_id' => ['nullable', 'integer'],
+            // Coaches tab, Monthly view: totals for the whole month instead of one day.
+            'month' => ['nullable', 'date_format:Y-m'],
         ]);
 
         $courseId = isset($v['course_id'])
@@ -79,7 +83,9 @@ class AdminAttendanceController extends Controller
             ->values();
 
         if ($v['tab'] === 'coaches') {
-            $rows = $this->coachRows($v['date'], $courseId);
+            $rows = !empty($v['month'])
+                ? $this->coachMonthlyRows($v['month'], $courseId)
+                : $this->coachRows($v['date'], $courseId);
         } elseif ($v['tab'] === 'students') {
             $rows = $this->studentRows($v['date'], $courseId);
         } else {
@@ -181,6 +187,96 @@ class AdminAttendanceController extends Controller
                 'state' => $log->attendance_state ?? null,
             ];
         })->values()->all();
+    }
+
+    /* =========================================================
+     * Coaches, Monthly view: one row per Active coach with the month's
+     * totals. Hours = Time Out minus Time In of every day that has both;
+     * a day with a Time In but no Time Out is counted as present but
+     * listed in "incomplete" (its hours cannot be known).
+     * ========================================================= */
+    private function coachMonthlyRows(string $month, ?int $courseId): array
+    {
+        $start = Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        // Same coaches (and assigned classes) as the daily list.
+        $coaches = $this->coachRows($start->toDateString(), $courseId);
+
+        if (!$coaches) {
+            return [];
+        }
+
+        $logs = Attendance::ofRole(CoachController::ROLE_COACH)
+            ->forUser(collect(array_column($coaches, 'id')))
+            ->whereBetween('attendance_at', [$start->toDateTimeString(), $end->toDateTimeString()])
+            ->get(['user_id', 'attendance_at', 'time_in', 'time_out'])
+            ->groupBy('user_id');
+
+        return array_map(function ($c) use ($logs) {
+            $t = $this->monthTotals($logs->get($c['id']) ?? collect());
+
+            return [
+                'id' => $c['id'],
+                'name' => $c['name'],
+                'classes' => $c['classes'],
+                'days' => $t['days'],
+                'hours' => $t['hours'],
+                'hours_label' => $t['hours_label'],
+                'incomplete' => $t['incomplete'],
+            ];
+        }, $coaches);
+    }
+
+    /** Days present, worked time and days missing a Time Out for a set of one coach's logs. */
+    private function monthTotals($logs): array
+    {
+        $days = [];
+        $minutes = 0;
+        $incomplete = 0;
+
+        foreach ($logs as $log) {
+            if (!$log->time_in) {
+                continue;
+            }
+
+            $days[Carbon::parse($log->attendance_at)->toDateString()] = true;
+
+            if ($log->time_out) {
+                $minutes += $this->minutesBetween($log->time_in, $log->time_out);
+            } else {
+                $incomplete++;
+            }
+        }
+
+        return [
+            'days' => count($days),
+            'minutes' => $minutes,
+            'hours' => round($minutes / 60, 2),
+            'hours_label' => $this->hoursLabel($minutes),
+            'incomplete' => $incomplete,
+        ];
+    }
+
+    private function minutesBetween($timeIn, $timeOut): int
+    {
+        $in = $this->hhmm($timeIn);
+        $out = $this->hhmm($timeOut);
+
+        if (!$in || !$out) {
+            return 0;
+        }
+
+        [$ih, $im] = array_map('intval', explode(':', $in));
+        [$oh, $om] = array_map('intval', explode(':', $out));
+
+        return max(0, ($oh * 60 + $om) - ($ih * 60 + $im));
+    }
+
+    /** 135 -> "2 h 15 m" */
+    private function hoursLabel(int $minutes): string
+    {
+        return intdiv($minutes, 60) . ' h ' . str_pad((string) ($minutes % 60), 2, '0', STR_PAD_LEFT) . ' m';
     }
 
     /* =========================================================
@@ -304,12 +400,15 @@ class AdminAttendanceController extends Controller
 
         $v = $request->validate([
             'coach_id' => ['required', 'integer'],
+            // Only that month's days (and the month's totals), for the Monthly view.
+            'month' => ['nullable', 'date_format:Y-m'],
         ]);
 
         return $this->roleLogsPayload(
             (int) $v['coach_id'],
             CoachController::ROLE_COACH,
-            'Coach not found.'
+            'Coach not found.',
+            $v['month'] ?? null
         );
     }
 
@@ -317,7 +416,7 @@ class AdminAttendanceController extends Controller
      * Shared by the athlete and coach log endpoints: the full attendance
      * history of one user with the given role.
      */
-    private function roleLogsPayload(int $userId, int $roleId, string $notFoundMessage): JsonResponse
+    private function roleLogsPayload(int $userId, int $roleId, string $notFoundMessage, ?string $month = null): JsonResponse
     {
         $users = CoachController::USERS_TABLE;
         $pk = CoachController::USER_PK;
@@ -336,6 +435,14 @@ class AdminAttendanceController extends Controller
 
         $attendance = Attendance::ofRole($roleId)
             ->forUser($userId)
+            ->when($month, function ($q) use ($month) {
+                $start = Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfMonth();
+
+                $q->whereBetween('attendance_at', [
+                    $start->toDateTimeString(),
+                    $start->copy()->endOfMonth()->toDateTimeString(),
+                ]);
+            })
             ->earliestFirst()
             ->get([
                 'attendance_at',
@@ -385,13 +492,241 @@ class AdminAttendanceController extends Controller
                 'logged_by' => $logger
                     ? $this->formatName($logger)
                     : '--',
+                // Time Out minus Time In, when both exist.
+                'worked' => $log->time_in && $log->time_out
+                    ? $this->hoursLabel($this->minutesBetween($log->time_in, $log->time_out))
+                    : null,
             ];
         })->values();
 
         return response()->json([
             'success' => true,
             'logs' => $logs,
+            'summary' => $this->monthTotals($attendance),
         ]);
+    }
+
+    /* =========================================================
+     * POST /admin/attendance/records
+     * { kind, enrollment_id | athlete_id, date, time?, remove? }
+     *
+     * kind: in | out | absent
+     * The admin can do everything a coach can for students and athletes,
+     * without the coach rules: no Time In needed first, no class ownership,
+     * and any mark or time can be changed or removed. The row is saved with
+     * the admin as "logged by".
+     * ========================================================= */
+    public function record(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) {
+            return $denied;
+        }
+
+        $kind = (string) $request->input('kind');
+        $isMark = $kind === 'absent';
+
+        $v = $request->validate([
+            'kind' => ['required', Rule::in(['in', 'out', 'absent'])],
+            'enrollment_id' => ['required_without:athlete_id', 'nullable', 'integer'],
+            'athlete_id' => ['required_without:enrollment_id', 'nullable', 'integer'],
+            'date' => ['required', 'date_format:Y-m-d', 'before_or_equal:' . Carbon::now()->addDay()->toDateString()],
+            'remove' => ['sometimes', 'boolean'],
+            // No time for Absent, or when removing a time.
+            'time' => [
+                $isMark || $request->boolean('remove') ? 'nullable' : 'required',
+                'date_format:H:i',
+            ],
+        ], [
+            'time.date_format' => 'Please enter a valid time.',
+            'date.before_or_equal' => 'You cannot record attendance for a future date.',
+        ]);
+
+        $adminId = (int) Auth::id();
+        $remove = in_array($kind, ['in', 'out', 'absent'], true) && (bool) ($v['remove'] ?? false);
+        $time = $v['time'] ?? null;
+        $isAthlete = !empty($v['athlete_id']);
+
+        if ($isAthlete) {
+            $athleteId = (int) $v['athlete_id'];
+
+            $exists = DB::table(CoachController::USERS_TABLE . ' as u')
+                ->where('u.' . CoachController::USER_PK, $athleteId)
+                ->where('u.' . CoachController::ROLE_COL, self::ROLE_ATHLETE)
+                ->exists();
+
+            if (!$exists) {
+                return $this->fail('Athlete not found.', 404);
+            }
+
+            $attrs = [
+                'user_id' => $athleteId,
+                'role_id' => self::ROLE_ATHLETE,
+                'attendance_at' => $v['date'],
+                'enrollment_id' => null,
+            ];
+            $who = 'athlete';
+        } else {
+            $enrollment = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
+                ->join(CoachController::USERS_TABLE . ' as u', 'u.' . CoachController::USER_PK, '=', 'e.user_id')
+                ->where('e.enrollment_id', (int) $v['enrollment_id'])
+                ->first(['e.enrollment_id', 'e.user_id', 'u.' . CoachController::ROLE_COL . ' as role_id']);
+
+            if (!$enrollment) {
+                return $this->fail('Student not found.', 404);
+            }
+
+            $attrs = [
+                'user_id' => $enrollment->user_id,
+                'role_id' => $enrollment->role_id,
+                'attendance_at' => $v['date'],
+                'enrollment_id' => $enrollment->enrollment_id,
+            ];
+            $who = 'student';
+        }
+
+        return DB::transaction(function () use ($v, $kind, $remove, $time, $adminId, $isAthlete, $attrs, $who) {
+            $row = $isAthlete
+                ? Attendance::ofRole(self::ROLE_ATHLETE)
+                    ->forUser((int) $v['athlete_id'])
+                    ->onDate($v['date'])
+                    ->earliestFirst()
+                    ->lockForUpdate()
+                    ->first()
+                : Attendance::forEnrollment((int) $v['enrollment_id'])
+                    ->onDate($v['date'])
+                    ->earliestFirst()
+                    ->lockForUpdate()
+                    ->first();
+
+            if ($kind === 'absent') {
+                return $this->applyMark($row, $kind, $remove, $adminId, $attrs);
+            }
+
+            return $this->applyInOut($row, $kind, $remove, $time, $adminId, $attrs, $who);
+        });
+    }
+
+    /**
+     * Marks someone Absent, or removes that mark. A mark row holds no times,
+     * so removing deletes it. The admin may change any coach's mark.
+     */
+    private function applyMark(?Attendance $row, string $kind, bool $remove, int $adminId, array $createAttrs): JsonResponse
+    {
+        $state = 'Absent';
+        $label = 'Absent';
+
+        if ($remove) {
+            if (!$row || $row->attendance_state !== $state) {
+                return $this->fail('Not marked as ' . $label . '.');
+            }
+
+            if ($row->time_in) {
+                return $this->fail('A Time In is already recorded for that date.');
+            }
+
+            $row->delete();
+
+            return response()->json(['success' => true, 'message' => $label . ' removed.']);
+        }
+
+        if ($row && $row->time_in) {
+            return $this->fail('Someone who has timed in cannot be marked absent. Remove their Time In first.');
+        }
+
+        if ($row && $row->attendance_state === $state) {
+            return $this->fail('Already marked as ' . $label . '.');
+        }
+
+        if ($row) {
+            $row->update(['attendance_state' => $state, 'logged_by' => $adminId]);
+        } else {
+            Attendance::create($createAttrs + ['attendance_state' => $state, 'logged_by' => $adminId]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Marked as ' . $label . '.']);
+    }
+
+    /**
+     * Adds a Time In / Time Out, overwrites one that exists (edit), or clears
+     * it when $remove is true. Same rules as the coach side, minus the coach checks.
+     */
+    private function applyInOut(?Attendance $row, string $kind, bool $remove, ?string $time, int $adminId, array $createAttrs, string $who): JsonResponse
+    {
+        /* ---------------- Time In ---------------- */
+        if ($kind === 'in') {
+            if ($remove) {
+                if (!$row || !$row->time_in) {
+                    return $this->fail("This $who has no Time In to remove.");
+                }
+
+                if ($row->time_out) {
+                    return $this->fail('Remove the Time Out first before removing the Time In.');
+                }
+
+                if ($row->attendance_state === CoachAttendanceController::STATE_PRESENT_LATE) {
+                    // Back to Expected, as it was before the late Time In.
+                    $row->update([
+                        'time_in' => null,
+                        'attendance_state' => CoachAttendanceController::STATE_EXPECTING,
+                    ]);
+                } else {
+                    // Nothing left to keep for that day.
+                    $row->delete();
+                }
+
+                return response()->json(['success' => true, 'message' => 'Time In removed.']);
+            }
+
+            if ($row && $row->time_out && $time >= $this->hhmm($row->time_out)) {
+                return $this->fail('Time In must be earlier than Time Out.');
+            }
+
+            if ($row && $row->time_in) {
+                // Edit: only the time changes (Present-Late stays Present-Late).
+                $row->update(['time_in' => $time, 'logged_by' => $adminId]);
+
+                return response()->json(['success' => true, 'message' => 'Time In saved.']);
+            }
+
+            if ($row) {
+                $row->update([
+                    'time_in' => $time,
+                    'attendance_state' => Attendance::STATE_PRESENT,
+                    'logged_by' => $adminId,
+                ]);
+            } else {
+                Attendance::create($createAttrs + [
+                    'time_in' => $time,
+                    'attendance_state' => Attendance::STATE_PRESENT,
+                    'logged_by' => $adminId,
+                ]);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Time In saved.']);
+        }
+
+        /* ---------------- Time Out ---------------- */
+        if (!$row || !$row->time_in) {
+            return $this->fail('Record the Time In first.');
+        }
+
+        if ($remove) {
+            if (!$row->time_out) {
+                return $this->fail("This $who has no Time Out to remove.");
+            }
+
+            $row->update(['time_out' => null]);
+
+            return response()->json(['success' => true, 'message' => 'Time Out removed.']);
+        }
+
+        if ($time <= $this->hhmm($row->time_in)) {
+            return $this->fail('Time Out must be later than Time In.');
+        }
+
+        $row->update(['time_out' => $time]);
+
+        return response()->json(['success' => true, 'message' => 'Time Out saved.']);
     }
 
     public function coachTimeOut(Request $request): JsonResponse
