@@ -71,6 +71,7 @@ use App\Http\Controllers\CoachSkillsAssessmentController;
 Route::get('/coach/skills-assessment/data', [CoachSkillsAssessmentController::class, 'data'])->middleware('auth');
 Route::put('/coach/skills-assessment/{enrollment}', [CoachSkillsAssessmentController::class, 'save'])->middleware('auth')->whereNumber('enrollment');
 Route::post('/coach/skills-assessment/absent',[CoachSkillsAssessmentController::class, 'markAbsent'])->middleware('auth');
+Route::post('/coach/skills-assessment/remove-mark', [CoachSkillsAssessmentController::class, 'removeMark']);
 
 
 use App\Http\Controllers\AthleteRecordController;

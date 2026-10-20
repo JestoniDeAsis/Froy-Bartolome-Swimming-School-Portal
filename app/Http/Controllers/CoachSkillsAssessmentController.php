@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * Coach Skills Assessment page.
  *
  * The page lists the students THIS coach has an attendance record for TODAY
- * (a Time In, or marked "Expecting" on the Attendance page), with their Time In /
+ * (a Time In, or marked "Expected" or "Absent" on the Attendance page), with their Time In /
  * Time Out, each student's status, and the categories/skills of the course they
  * are enrolled in with any saved Pass/Failed marks.
  */
@@ -48,6 +48,9 @@ class CoachSkillsAssessmentController extends Controller
         $coachId  = $coach->getKey();
         $courseId = $input['course_id'] ?? null;
         $date     = $this->today($input['date'] ?? null);
+
+        // Logging attendance here needs the coach to have timed in (Attendance page).
+        $blockReason = $this->sessionBlockReason((int) $coachId, $date);
 
         // Class dropdown: the courses of the students this coach has a record for today.
         $loggedEnrollmentIds = Attendance::query()
@@ -168,9 +171,11 @@ class CoachSkillsAssessmentController extends Controller
             ->values();
 
         return response()->json([
-            'success' => true,
-            'courses' => $courses,
-            'rows'    => $rows,
+            'success'      => true,
+            'courses'      => $courses,
+            'rows'         => $rows,
+            'can_log'      => $blockReason === null,
+            'block_reason' => $blockReason,
         ]);
     }
 
@@ -199,6 +204,10 @@ class CoachSkillsAssessmentController extends Controller
         $coachId = (int) $coach->getKey();
 
         return DB::transaction(function () use ($input, $date, $coachId) {
+            if ($reason = $this->sessionBlockReason($coachId, $date)) {
+                return response()->json(['success' => false, 'message' => $reason], 403);
+            }
+
             // Only update an attendance record this coach logged for this date.
             // Skill Assessment only lists students with an existing attendance record.
             $log = Attendance::query()
@@ -239,6 +248,62 @@ class CoachSkillsAssessmentController extends Controller
                 'success' => true,
                 'message' => 'Student marked as absent.',
             ]);
+        });
+    }
+
+    /**
+     * POST /coach/skills-assessment/remove-mark
+     * Body: { enrollment_id, date }
+     * Removes an Expected or Absent mark this coach set (a mark holds no times,
+     * so the attendance row is deleted and the student leaves this list).
+     * A student who has timed in is never touched here.
+     */
+    public function removeMark(Request $request): JsonResponse
+    {
+        $coach = $request->user();
+
+        if (! $coach || (int) $coach->role_id !== self::COACH_ROLE_ID) {
+            return response()->json(['success' => false, 'message' => 'Only coaches can remove a mark.'], 403);
+        }
+
+        $input = $request->validate([
+            'enrollment_id' => ['required', 'integer'],
+            'date'          => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $date    = $this->today($input['date']);
+        $coachId = (int) $coach->getKey();
+
+        return DB::transaction(function () use ($input, $date, $coachId) {
+            if ($reason = $this->sessionBlockReason($coachId, $date)) {
+                return response()->json(['success' => false, 'message' => $reason], 403);
+            }
+
+            $log = Attendance::query()
+                ->where('enrollment_id', (int) $input['enrollment_id'])
+                ->where('logged_by', $coachId)
+                ->onDate($date)
+                ->orderByDesc((new Attendance)->getKeyName())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $log) {
+                return response()->json(['success' => false, 'message' => 'No attendance record was found for this student today.'], 404);
+            }
+
+            if ($log->time_in) {
+                return response()->json(['success' => false, 'message' => 'This student has already timed in, so there is no mark to remove.'], 422);
+            }
+
+            if (! in_array($log->attendance_state, [CoachAttendanceController::STATE_EXPECTING, 'Absent'], true)) {
+                return response()->json(['success' => false, 'message' => 'This student is not marked Expected or Absent.'], 422);
+            }
+
+            $label = $log->attendance_state === 'Absent' ? 'Absent' : 'Expected';
+
+            $log->delete();
+
+            return response()->json(['success' => true, 'message' => $label . ' removed.']);
         });
     }
 
@@ -352,6 +417,22 @@ class CoachSkillsAssessmentController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Skills assessment saved.']);
+    }
+
+    /**
+     * Same rule as the Attendance page: the coach must have timed in for the
+     * day before logging anything. (Timing out does not lock it again.)
+     */
+    private function sessionBlockReason(int $coachId, string $date): ?string
+    {
+        $timedIn = Attendance::query()
+            ->where('user_id', $coachId)
+            ->where('role_id', self::COACH_ROLE_ID)
+            ->onDate($date)
+            ->whereNotNull('time_in')
+            ->exists();
+
+        return $timedIn ? null : 'You need to Time In first (on the Attendance page) before you can log attendance.';
     }
 
     /**

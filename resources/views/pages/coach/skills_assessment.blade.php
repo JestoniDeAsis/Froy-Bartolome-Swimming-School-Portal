@@ -310,6 +310,21 @@
 @media (max-width: 575.98px) {
     .skillsModalFooter { flex-direction: column-reverse; align-items: stretch; }
 }
+.skillsNotice {
+    margin-bottom: .75rem;
+    padding: .55rem .85rem;
+    border-radius: .5rem;
+    border: 1px solid #ffe08a;
+    background: #fff8e1;
+    color: #8a6100;
+    font-size: .85rem;
+}
+
+.skillsLastUpdated {
+    margin: .25rem 0 .35rem;
+    font-size: .75rem;
+    color: #98a2b3;
+}
 </style>
 
 
@@ -319,9 +334,12 @@
         <h2 class="mb-1" id="skillsTitle">Skills Assessment</h2>
         <p class="text-muted mb-0" id="skillsDescription"></p>
         <p class="text-muted small mb-0" id="skillsHint">
-            Shows today's students you have an attendance record for (timed in, or marked Expecting). Select a student to assess their course skills; use Time In (Late) for a student marked Expecting.
+            Shows today's students you have an attendance record for (timed in, Expected or Absent). Select a student to assess their course skills; use Time In (Late) for a student marked Expected.
         </p>
     </header>
+
+    <!-- Shown while the coach has not timed in yet (Attendance page) -->
+    <div class="skillsNotice" id="sessionNotice" role="status" hidden></div>
 
     <!-- TOOLBAR -->
     <div class="skillsToolbar">
@@ -357,16 +375,20 @@
 
         <!-- Actions -->
         <div class="skillsToolbarActions">
-            <button class="btn btn-primary" id="timeInLateButton" type="button" disabled title="Only for students marked Expecting">Time In (Late)</button>
+            <button class="btn btn-primary" id="timeInLateButton" type="button" disabled title="Only for students marked Expected">Time In (Late)</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled title="Time Out is available once the student has a Time In">Time Out</button>
             <button class="btn btn-outline-danger" id="markAbsentButton" type="button" disabled title="Mark a student absent if they have not timed in">Mark Absent</button>
+            <button class="btn btn-outline-danger" id="removeMarkButton" type="button" disabled title="Remove an Expected or Absent mark from the selected student">Remove Mark</button>
             <button class="btn btn-primary" id="viewChecklistButton" type="button" disabled>View Checklist</button>
-            <button class="btn btn-outline-primary" id="refreshButton" type="button">
+            <button class="btn btn-outline-primary" id="refreshButton" type="button" title="Reload now. The page also refreshes by itself.">
                 <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
             </button>
         </div>
 
     </div>
+
+    <!-- Auto-refresh note -->
+    <div class="skillsLastUpdated" id="lastUpdated" aria-hidden="true"></div>
 
     <!-- TABLE -->
     <div class="skillsTableContainer" id="skillsTableContainer">
@@ -450,6 +472,7 @@
         timeOut: '/coach/attendance/students/time-out',
         timeInLate: '/coach/attendance/students/time-in-late',
         absent: '/coach/skills-assessment/absent',
+        removeMark: '/coach/skills-assessment/remove-mark',
         data: '/coach/skills-assessment/data',
         save: '/coach/skills-assessment'
     };
@@ -461,11 +484,16 @@
         { label: 'Date', key: 'date', isDate: true },
         { label: 'Time In', key: 'time_in', isTime: true },
         { label: 'Time Out', key: 'time_out', isTime: true },
-        { label: 'Status', key: 'state' },
+        { label: 'Status', key: 'state', isState: true },
         { label: 'Assessment', key: 'assessment' }
     ];
 
     const SEARCH_KEYS = ['name', 'course', 'state', 'assessment'];
+
+    const REFRESH_MS = 10000;   // auto-refresh every 10 seconds
+
+    // The stored attendance_state stays 'Expecting'; this is only the wording people read.
+    const EXPECTING_LABEL = 'Expected';
 
     /* =========================================================
        ELEMENTS + STATE
@@ -485,6 +513,9 @@
 
         timeOutButton: $('recordTimeOutButton'),
         absentButton: $('markAbsentButton'),
+        removeMarkButton: $('removeMarkButton'),
+        notice: $('sessionNotice'),
+        lastUpdated: $('lastUpdated'),
         timeInLateButton: $('timeInLateButton'),
         timeTitle: $('timeModalTitle'),
         viewButton: $('viewChecklistButton'),
@@ -517,6 +548,8 @@
     let classOptionsKey = '';
     let busy = false;
     let timeModalMode = 'late';
+    let canLog = false;         // the coach has timed in (server decides)
+    let blockReason = null;
 
     /* =========================================================
        HELPERS
@@ -617,6 +650,16 @@
        TABLE
     ========================================================= */
 
+    // attendance_state -> the text people read
+    const stateLabel = state => state === 'Expecting' ? EXPECTING_LABEL : (state ?? '');
+
+    // 'Absent' | 'Expected' for a student who only has a mark (no Time In), else null.
+    function markLabelOf(record) {
+        if (!record || record.time_in) return null;
+        if (record.state === 'Absent') return 'Absent';
+        return record.is_expecting ? EXPECTING_LABEL : null;
+    }
+
     function getSelectedRecord() {
         return selectedId === null ? null : rows.find(r => r.id === selectedId) || null;
     }
@@ -638,6 +681,8 @@
             value = formatTimeLabel(record[column.key]);
         } else if (column.isDate) {
             value = record[column.key] ? formatShortDate(parseISODate(record[column.key])) : '';
+        } else if (column.isState) {
+            value = stateLabel(record[column.key]);
         } else {
             value = record[column.key] ?? '';
         }
@@ -653,7 +698,7 @@
         if (!term) return rows;
 
         return rows.filter(record =>
-            SEARCH_KEYS.some(key => String(record[key] ?? '').toLowerCase().includes(term))
+            SEARCH_KEYS.some(key => String(key === 'state' ? stateLabel(record.state) : (record[key] ?? '')).toLowerCase().includes(term))
         );
     }
 
@@ -682,7 +727,7 @@
                 className: 'skillsEmptyState',
                 text: loading
                     ? 'Loading...'
-                    : (rows.length ? 'No matching students found.' : 'No students are logged or marked Expecting for you today.'),
+                    : (rows.length ? 'No matching students found.' : 'No students are logged, Expected or Absent for you today.'),
                 attributes: { colSpan: COLUMNS.length + 1 }
             }));
             el.tableBody.append(emptyRow);
@@ -715,24 +760,37 @@
     function updateToolbarState() {
         const record = getSelectedRecord();
 
+        // Attendance actions need the coach to be timed in; the checklist does not.
+        const open = canLog && !busy;
+        const mark = markLabelOf(record);
+
         el.viewButton.disabled = busy || !record;
-        el.timeInLateButton.disabled = busy || !record || !record.is_expecting;
-        el.timeOutButton.disabled = busy || !record || !record.time_in || !!record.time_out;
-        el.absentButton.disabled = busy || !record || !!record.time_in || record.state === 'Absent';
+        el.timeInLateButton.disabled = !open || !record || !record.is_expecting;
+        el.timeOutButton.disabled = !open || !record || !record.time_in || !!record.time_out;
+        el.absentButton.disabled = !open || !record || !!record.time_in || record.state === 'Absent';
+
+        el.removeMarkButton.disabled = !open || !mark;
+        el.removeMarkButton.textContent = mark ? `Remove ${mark}` : 'Remove Mark';
+
+        el.notice.hidden = canLog || !blockReason;
+        if (blockReason && el.notice.textContent !== blockReason) el.notice.textContent = blockReason;
     }
 
     /* =========================================================
        LOAD DATA (the class filter is sent to the server)
     ========================================================= */
 
-    async function loadRows({ keepSelection = false } = {}) {
+    async function loadRows({ keepSelection = false, silent = false } = {}) {
         const seq = ++loadSeq;
 
         if (!keepSelection) selectedId = null;
 
-        loading = true;
-        updateToolbarState();
-        renderTable();
+        // A silent (auto) refresh swaps the data in place without a "Loading..." flash.
+        if (!silent) {
+            loading = true;
+            updateToolbarState();
+            renderTable();
+        }
 
         // Only today's attendance records are listed (the browser's local date).
         const params = new URLSearchParams({ date: toLocalISODate(new Date()) });
@@ -746,10 +804,15 @@
             loading = false;
 
             if (!result.ok) {
-                rows = [];
-                toastServerErrors(result, 'Unable to load students.');
+                if (!silent) {
+                    rows = [];
+                    toastServerErrors(result, 'Unable to load students.');
+                }
             } else {
                 rows = result.data.rows || [];
+                canLog = Boolean(result.data.can_log);
+                blockReason = result.data.block_reason || null;
+                el.lastUpdated.textContent = `Auto-refreshes every ${REFRESH_MS / 1000}s. Updated ${new Date().toLocaleTimeString('en-US')}`;
 
                 // Rebuilt only when the list of today's classes changes.
                 const courses = result.data.courses || [];
@@ -765,8 +828,11 @@
             if (seq !== loadSeq) return;
             console.error(error);
             loading = false;
-            rows = [];
-            showToast('Something went wrong while loading students.', 'danger');
+
+            if (!silent) {
+                rows = [];
+                showToast('Something went wrong while loading students.', 'danger');
+            }
         }
 
         updateToolbarState();
@@ -776,6 +842,25 @@
     el.search.addEventListener('input', applyLocalFilters);
     el.classFilter.addEventListener('dropdown:change', () => loadRows());
     el.refreshButton.addEventListener('click', () => loadRows({ keepSelection: true }));
+
+    // Keeps the list current without pressing Refresh (other coaches or the admin may change
+    // attendance). Skipped while the tab is hidden, a modal is open or a save is running.
+    let refreshing = false;
+
+    async function refreshQuietly() {
+        if (document.hidden || busy || refreshing || loading
+            || !el.timeOverlay.hidden || !el.overlay.hidden) return;
+
+        refreshing = true;
+        try {
+            await loadRows({ keepSelection: true, silent: true });
+        } finally {
+            refreshing = false;
+        }
+    }
+
+    document.addEventListener('visibilitychange', refreshQuietly);
+    setInterval(refreshQuietly, REFRESH_MS);
 
     /* =========================================================
        CHECKLIST MODAL
@@ -994,6 +1079,38 @@
         }
     }
 
+    // Removes the Expected / Absent mark. The student then leaves this list.
+    async function removeSelectedMark() {
+        const record = getSelectedRecord();
+        const mark = markLabelOf(record);
+        if (busy || !canLog || !mark) return;
+
+        busy = true;
+        updateToolbarState();
+
+        try {
+            const result = await api(URLS.removeMark, {
+                method: 'POST',
+                body: { enrollment_id: record.id, date: toLocalISODate(new Date()) }
+            });
+
+            if (result.ok) {
+                showToast(`${mark} removed for ${record.name}.`, 'success');
+                await loadRows({ keepSelection: true, silent: true });
+            } else {
+                toastServerErrors(result, `Unable to remove ${mark}.`);
+
+                if (result.status === 403 || result.status === 404) await loadRows({ keepSelection: true, silent: true });
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while removing the mark.', 'danger');
+        } finally {
+            busy = false;
+            updateToolbarState();
+        }
+    }
+
     function closeTimeModal() {
         el.timeOverlay.hidden = true;
     }
@@ -1054,6 +1171,7 @@
     el.timeInLateButton.addEventListener('click', openTimeInLateModal);
     el.timeOutButton.addEventListener('click', openTimeOutModal);
     el.absentButton.addEventListener('click', markSelectedAbsent);
+    el.removeMarkButton.addEventListener('click', removeSelectedMark);
     el.timeClose.addEventListener('click', () => { if (!busy) closeTimeModal(); });
     el.timeCancel.addEventListener('click', () => { if (!busy) closeTimeModal(); });
     el.timeSave.addEventListener('click', saveTimeInLate);
