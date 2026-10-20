@@ -47,6 +47,9 @@ class AdminDashboardController extends Controller
         'athlete' => ['tbl_athlete_payments', 'amount',      'paid_at'],
     ];
 
+    /** Sources whose rows can be archived (archived_at set by the admin); those rows never count. */
+    private const ARCHIVABLE = ['tbl_course_payments', 'tbl_athlete_payments'];
+
     public function pageData(): array
     {
         $now   = Carbon::now();
@@ -160,6 +163,7 @@ class AdminDashboardController extends Controller
     private function enrollments(): Collection
     {
         $paid = DB::table('tbl_course_payments')
+            ->whereNull('archived_at')
             ->selectRaw('student_id, SUM(amount) AS paid')
             ->groupBy('student_id');
 
@@ -280,6 +284,7 @@ class AdminDashboardController extends Controller
 
         foreach (self::SOURCES as $source => [$table, $amount, $date]) {
             $sums = DB::table($table)
+                ->when(in_array($table, self::ARCHIVABLE, true), fn ($q) => $q->whereNull('archived_at'))
                 ->selectRaw("DATE_FORMAT($date, '%Y-%m') AS ym, SUM($amount) AS total")
                 ->where($date, '>=', $first)
                 ->groupBy('ym')
@@ -322,6 +327,7 @@ class AdminDashboardController extends Controller
             ->leftJoin('tbl_enrollments as e', 'e.enrollment_id', '=', 'p.student_id')
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'e.user_id')
             ->leftJoin('tbl_user_profile as pr', 'pr.user_id', '=', 'e.user_id')
+            ->whereNull('p.archived_at')
             ->orderByDesc('p.paid_at')->limit($limit)
             ->select(['p.amount', 'p.paid_at AS at', 'p.payment_method'])
             ->selectRaw($this->nameSql() . ' AS who')
@@ -341,6 +347,7 @@ class AdminDashboardController extends Controller
         $athlete = DB::table('tbl_athlete_payments as a')
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'a.user_id')
             ->leftJoin('tbl_user_profile as pr', 'pr.user_id', '=', 'a.user_id')
+            ->whereNull('a.archived_at')
             ->orderByDesc('a.paid_at')->limit($limit)
             ->select(['a.amount', 'a.paid_at AS at', 'a.payment_method'])
             ->selectRaw($this->nameSql() . ' AS who')

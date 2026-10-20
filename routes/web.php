@@ -141,6 +141,10 @@ Route::put('/sales/athlete-payments/{payment}', [SalesInvoiceController::class, 
 Route::post('/sales/athlete-fees', [SalesInvoiceController::class, 'storeAthleteFee'])->middleware('auth');
 Route::put('/sales/athlete-fees/{fee}', [SalesInvoiceController::class, 'updateAthleteFee'])->middleware('auth')->whereNumber('fee');
 Route::delete('/sales/athlete-fees/{fee}', [SalesInvoiceController::class, 'deleteAthleteFee'])->middleware('auth')->whereNumber('fee');
+Route::post('/sales/payments/{payment}/archive', [SalesInvoiceController::class, 'archivePayment'])->middleware('auth')->whereNumber('payment')->name('sales.payments.archive');
+Route::post('/sales/payments/{payment}/restore', [SalesInvoiceController::class, 'restorePayment'])->middleware('auth')->whereNumber('payment')->name('sales.payments.restore');
+Route::post('/sales/athlete-payments/{payment}/archive', [SalesInvoiceController::class, 'archiveAthletePayment'])->middleware('auth')->whereNumber('payment');
+Route::post('/sales/athlete-payments/{payment}/restore', [SalesInvoiceController::class, 'restoreAthletePayment'])->middleware('auth')->whereNumber('payment');
 
 use App\Http\Controllers\AdminGraduationController;
 use App\Http\Controllers\CertificateController;

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Payment history for the logged-in swimmer (student, applicant or athlete).
  * View only: it lists the payments that belong to THIS user's enrollments.
+ * Archived payments (archived_at set by the admin) are never listed or counted.
  *
  * Same rules as the admin Sales & Invoice page (SalesInvoiceController):
  *  - a payment belongs to COALESCE(enrollment_id, student_id), because
@@ -65,6 +66,7 @@ class PaymentHistoryController extends Controller
             ? collect()
             : CoursePayment::query()
                 ->with('receivedBy.profile')
+                ->whereNull('archived_at')   // archived payments are hidden from the student
                 ->where(function ($query) use ($enrollmentIds) {
                     $query->whereIn('enrollment_id', $enrollmentIds)
                         ->orWhere(fn ($q) => $q->whereNull('enrollment_id')->whereIn('student_id', $enrollmentIds));
@@ -150,13 +152,14 @@ class PaymentHistoryController extends Controller
     private function athleteData(User $user): JsonResponse
     {
         $sumOfDue = 'SELECT COALESCE(SUM(x.amount), 0) FROM tbl_athlete_payments x'
-            . ' WHERE x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
+            . ' WHERE x.archived_at IS NULL AND x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
 
         $rows = DB::table('tbl_athlete_payments as ap')
             ->join('tbl_athlete_fees as f', 'f.athlete_fee_id', '=', 'ap.athlete_fee_id')
             ->leftJoin('tbl_users as rb', 'rb.user_id', '=', 'ap.received_by')
             ->leftJoin('tbl_user_profile as rp', 'rp.user_id', '=', 'rb.user_id')
             ->where('ap.user_id', $user->getKey())
+            ->whereNull('ap.archived_at')   // archived payments are hidden from the athlete
             ->select('ap.athlete_payment_id as id', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as paidAt')
             ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', rp.first_name, rp.middle_name, rp.last_name, rp.name_suffix)), ''), rb.username, '') as receivedBy")
             ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')

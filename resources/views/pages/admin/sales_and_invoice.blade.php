@@ -219,6 +219,11 @@
     background: #FFF7E0;
 }
 
+.sales-badge--archived {
+    color: #5B6470;
+    background: #ECEEF1;
+}
+
 .sales-empty {
     padding: 2rem !important;
     color: var(--sales-muted);
@@ -588,6 +593,17 @@
                 </div>
                 <input id="salesStatusFilter" name="statusFilter" type="hidden" value="">
             </div>
+            <div class="registerDropdown sales-filter" id="salesRecordFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="salesRecordFilterToggle" type="button" aria-expanded="false" aria-controls="salesRecordFilterOptions" aria-label="Show active or archived payments">
+                    <span>Active</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+                <div class="registerDropdownOptions" id="salesRecordFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="active">Active</button>
+                    <button class="registerDropdownOption" type="button" data-value="archived">Archived</button>
+                </div>
+                <input id="salesRecordFilter" name="recordFilter" type="hidden" value="active">
+            </div>
         </div>
     </div>
 
@@ -617,6 +633,7 @@
         <form class="sales-form" id="coursePaymentForm">
             <input type="hidden" name="id">
             <input type="hidden" name="paymentId">
+            <input type="hidden" name="relog" value="">
             <div class="sales-field" id="coursePaymentEnrollmentGroup" hidden><label for="coursePaymentEnrollmentToggle">Student <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="coursePaymentEnrollmentDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="coursePaymentEnrollmentToggle" type="button" aria-expanded="false" aria-controls="coursePaymentEnrollmentOptions"><span>Select student</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="coursePaymentEnrollmentOptions" hidden></div><input id="coursePaymentEnrollment" type="hidden" value=""></div></div>
             <div class="sales-balance-line"><strong>Balance</strong><strong id="coursePaymentBalance">₱0</strong></div>
             <div class="sales-field"><label for="coursePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
@@ -676,6 +693,7 @@
             <input type="hidden" name="userId">
             <input type="hidden" name="feeId">
             <input type="hidden" name="periodKey">
+            <input type="hidden" name="relog" value="">
             <div class="sales-field" id="athletePaymentDueGroup" hidden><label for="athletePaymentDueToggle">Athlete &amp; fee <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="athletePaymentDueDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="athletePaymentDueToggle" type="button" aria-expanded="false" aria-controls="athletePaymentDueOptions"><span>Select athlete</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="athletePaymentDueOptions" hidden></div><input id="athletePaymentDue" type="hidden" value=""></div></div>
             <div class="sales-balance-line"><strong>Balance</strong><strong id="athletePaymentBalance">₱0</strong></div>
             <div class="sales-field"><label for="athletePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="athletePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱500" required><small id="athletePaymentLimit"></small><small class="sales-field-error" id="athletePaymentError" hidden></small></div>
@@ -732,6 +750,8 @@
 
     // Filled by loadData() from GET /sales/data (SalesInvoiceController).
     let courseRows = [];
+    let archivedCourseRows = [];
+    let archivedAthleteRows = [];
     let items = [];
     let logs = [];
     let athleteRows = [];
@@ -753,6 +773,9 @@
     const search = document.getElementById('salesSearch');
     const statusFilter = document.getElementById('salesStatusFilter');            // hidden input holding the value
     const statusFilterRoot = document.getElementById('salesStatusFilterDropdown'); // the shared dropdown
+    const recordFilter = document.getElementById('salesRecordFilter');             // 'active' | 'archived' (course + athlete payment tabs)
+    const recordFilterRoot = document.getElementById('salesRecordFilterDropdown');
+    const viewingArchived = () => (activeTab === 'course' || activeTab === 'athletes') && recordFilter.value === 'archived';
 
     // Selects `value` on a shared dropdown (silent). Resets to the first option
     // first, so an unknown value (e.g. an old payment method) can't leave a stale pick.
@@ -818,7 +841,7 @@
     }
 
     function updateStats() {
-        document.getElementById('salesStats').hidden = activeTab === 'items' || activeTab === 'fees';
+        document.getElementById('salesStats').hidden = activeTab === 'items' || activeTab === 'fees' || viewingArchived();
         const course = courseStats();
         const item = itemStats();
         const athlete = athleteStats();
@@ -837,7 +860,17 @@
         document.getElementById('salesUnpaid').textContent = money(stats.unpaid);
     }
 
+    function renderArchivedCourseRows() {
+        const { text } = currentFilter();
+        const visible = archivedCourseRows.filter(row =>
+            !text || `${row.course} ${row.name} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
+        document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row =>
+            `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>Archived ${escapeHtml(row.archivedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span></td><td>--</td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="11">No archived course payments.</td></tr>';
+    }
+
     function renderCourseRows() {
+        if (viewingArchived()) { renderArchivedCourseRows(); return; }
         const { text, status } = currentFilter();
         const visible = courseRows.filter(row => {
             const rowStatus = row.status;
@@ -846,7 +879,7 @@
         });
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row => {
             const balance = Number(row.balance);
-            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-delete="${row.id}" aria-label="Remove ${escapeHtml(row.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
+            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td class="sales-empty" colspan="11">No course payments match your search.</td></tr>';
     }
 
@@ -915,6 +948,8 @@
         const labels = { all: '', course: 'Record Course Payment', logs: 'Add New Purchase', items: 'Add New Item', athletes: 'Record Athlete Payment', fees: 'Add Athlete Fee' };
         addButton.querySelector('span').textContent = labels[tab];
         addButton.hidden = tab === 'all';   // nothing to add from the combined view
+        setDropdown(recordFilterRoot, '');   // back to "Active"
+        recordFilterRoot.hidden = tab !== 'course' && tab !== 'athletes';
         statusFilterRoot.hidden = tab === 'items' || tab === 'fees';
         render();   // new tab: re-apply the (now cleared) search/filter and refresh the totals
     }
@@ -934,6 +969,7 @@
 
         paymentDialog = { toPay: Number(row.toPay), others, available };
         paymentSubmitLabel = editing ? 'Update' : 'Record';
+        form.elements.relog.value = '';
 
         document.getElementById('coursePaymentEnrollmentGroup').hidden = true;
         document.getElementById('coursePaymentSubmit').textContent = paymentSubmitLabel;
@@ -949,6 +985,39 @@
         document.getElementById('coursePaymentLimit').textContent = editing
             ? `Up to ${money(available)} for this payment (course price minus the other payments).`
             : `Up to ${money(available)} (the remaining balance).`;
+
+        refreshPaymentPreview();
+        document.getElementById('coursePaymentDialog').showModal();
+    }
+
+    // "Re-log" an archived payment: same dialog, prefilled, and checked against
+    // the ACTIVE payments only (course price minus what is currently counted).
+    function showRelogPayment(row) {
+        const form = document.getElementById('coursePaymentForm');
+        const others = round2(row.enrollmentPaid);
+        const available = Math.max(round2(Number(row.toPay) - others), 0);
+
+        if (available <= 0) {
+            notify(`${row.name} is already fully paid, so this payment can't be re-logged.`, 'danger');
+            return;
+        }
+
+        paymentDialog = { toPay: Number(row.toPay), others, available };
+        paymentSubmitLabel = 'Re-log';
+
+        document.getElementById('coursePaymentEnrollmentGroup').hidden = true;
+        document.getElementById('coursePaymentSubmit').textContent = paymentSubmitLabel;
+        form.elements.id.value = row.enrollmentId;
+        form.elements.paymentId.value = row.id;
+        form.elements.relog.value = '1';
+        form.elements.amount.value = row.paid;
+        setDropdown(document.getElementById('coursePaymentMethodDropdown'), row.method || '');
+        document.getElementById('coursePaymentMethodDropdown').classList.remove('isInvalid');
+        form.elements.reference.value = row.reference || '';
+
+        document.getElementById('coursePaymentTitle').textContent = 'Re-logging course payment';
+        document.getElementById('coursePaymentStudent').textContent = `Student name: ${row.name}`;
+        document.getElementById('coursePaymentLimit').textContent = `Up to ${money(available)} (course price minus the payments currently counted).`;
 
         refreshPaymentPreview();
         document.getElementById('coursePaymentDialog').showModal();
@@ -980,6 +1049,7 @@
         const form = document.getElementById('coursePaymentForm');
         paymentDialog = { toPay: 0, others: 0, available: 0 };
         paymentSubmitLabel = 'Record';
+        form.elements.relog.value = '';
 
         form.elements.id.value = '';
         form.elements.paymentId.value = '';
@@ -1151,14 +1221,24 @@
     const errorText = (result, fallback) =>
         (result.data.errors ? Object.values(result.data.errors)[0][0] : null) || result.data.message || `${fallback} (error ${result.status}).`;
 
+    function renderArchivedAthleteRows() {
+        const { text } = currentFilter();
+        const visible = archivedAthleteRows.filter(row =>
+            !text || `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
+        document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
+            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>Archived ${escapeHtml(row.archivedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span></td><td>--</td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="12">No archived athlete payments.</td></tr>';
+    }
+
     function renderAthleteRows() {
+        if (viewingArchived()) { renderArchivedAthleteRows(); return; }
         const { text, status } = currentFilter();
         const visible = athleteRows.filter(row => {
             const haystack = `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date}`.toLocaleLowerCase();
             return (!status || status === row.status) && (!text || haystack.includes(text));
         });
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`
+            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-athlete-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="12">No athlete payments match your search.</td></tr>';
     }
 
@@ -1183,6 +1263,7 @@
 
         athleteDialog = { toPay: Number(row.toPay), others, available };
         athleteSubmitLabel = editing ? 'Update' : 'Record';
+        form.elements.relog.value = '';
 
         document.getElementById('athletePaymentDueGroup').hidden = true;
         document.getElementById('athletePaymentSubmit').textContent = athleteSubmitLabel;
@@ -1200,6 +1281,41 @@
         document.getElementById('athletePaymentLimit').textContent = editing
             ? `Up to ${money(available)} for this payment (fee amount minus the other payments).`
             : `Up to ${money(available)} (the remaining balance).`;
+
+        refreshAthletePreview();
+        document.getElementById('athletePaymentDialog').showModal();
+    }
+
+    // "Re-log" an archived athlete payment: same dialog, prefilled, checked
+    // against the ACTIVE payments of that due only.
+    function showRelogAthletePayment(row) {
+        const form = document.getElementById('athletePaymentForm');
+        const others = round2(row.duePaid);
+        const available = Math.max(round2(Number(row.toPay) - others), 0);
+
+        if (available <= 0) {
+            notify(`${row.name} already paid this fee in full, so this payment can't be re-logged.`, 'danger');
+            return;
+        }
+
+        athleteDialog = { toPay: Number(row.toPay), others, available };
+        athleteSubmitLabel = 'Re-log';
+
+        document.getElementById('athletePaymentDueGroup').hidden = true;
+        document.getElementById('athletePaymentSubmit').textContent = athleteSubmitLabel;
+        form.elements.paymentId.value = row.id;
+        form.elements.userId.value = row.userId;
+        form.elements.feeId.value = row.feeId;
+        form.elements.periodKey.value = row.periodKey;
+        form.elements.relog.value = '1';
+        form.elements.amount.value = row.paid;
+        setDropdown(document.getElementById('athletePaymentMethodDropdown'), row.method || '');
+        document.getElementById('athletePaymentMethodDropdown').classList.remove('isInvalid');
+        form.elements.reference.value = row.reference || '';
+
+        document.getElementById('athletePaymentTitle').textContent = 'Re-logging athlete payment';
+        document.getElementById('athletePaymentSubtitle').textContent = `Athlete: ${row.name} - ${row.fee} (${row.period})`;
+        document.getElementById('athletePaymentLimit').textContent = `Up to ${money(available)} (fee amount minus the payments currently counted).`;
 
         refreshAthletePreview();
         document.getElementById('athletePaymentDialog').showModal();
@@ -1230,7 +1346,7 @@
         athleteDialog = { toPay: 0, others: 0, available: 0 };
         athleteSubmitLabel = 'Record';
 
-        ['paymentId', 'userId', 'feeId', 'periodKey', 'amount', 'reference'].forEach(name => { form.elements[name].value = ''; });
+        ['paymentId', 'userId', 'feeId', 'periodKey', 'relog', 'amount', 'reference'].forEach(name => { form.elements[name].value = ''; });
         setDropdown(document.getElementById('athletePaymentMethodDropdown'), '');
         document.getElementById('athletePaymentMethodDropdown').classList.remove('isInvalid');
 
@@ -1303,8 +1419,10 @@
         document.getElementById('feeDialog').showModal();
     }
 
-    function askRemove(message, callback) {
+    function askRemove(message, callback, options = {}) {
         pendingRemoval = callback;
+        document.getElementById('confirmTitle').textContent = options.title || 'Remove this record?';
+        document.getElementById('confirmDelete').textContent = options.label || 'Remove';
         document.getElementById('confirmMessage').textContent = message;
         document.getElementById('confirmDialog').showModal();
     }
@@ -1312,6 +1430,13 @@
     document.querySelectorAll('[data-sales-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.salesTab)));
     search.addEventListener('input', render);
     statusFilterRoot.addEventListener('dropdown:change', render);
+    recordFilterRoot.addEventListener('dropdown:change', () => {
+        // Paid / Unpaid / Partial mean nothing for archived rows.
+        const archived = viewingArchived();
+        if (archived) setDropdown(statusFilterRoot, '');
+        statusFilterRoot.hidden = archived;
+        render();
+    });
     addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : activeTab === 'athletes' ? showRecordAthletePayment() : activeTab === 'fees' ? showFee() : showRecordPayment());
     document.getElementById('purchaseItemDropdown').addEventListener('dropdown:change', refreshPurchasePrice);
     document.getElementById('purchaseQuantity').addEventListener('input', refreshPurchasePrice);
@@ -1326,10 +1451,22 @@
             showReceipt(byId(source, target.dataset.allReceipt), kind);
         }
         if (target.matches('[data-course-receipt]')) showReceipt(byId(courseRows, target.dataset.courseReceipt), 'course');
-        if (target.matches('[data-course-delete]')) {
-            const row = byId(courseRows, target.dataset.courseDelete);
-            askRemove(`Remove ${row.name} and this course payment row from the current preview?`, () => { courseRows = courseRows.filter(item => item.id !== row.id); render(); });
+        if (target.matches('[data-course-archive]')) {
+            const row = byId(courseRows, target.dataset.courseArchive);
+            askRemove(`Archive the ${money(row.paid)} payment (${row.receipt}) from ${row.name}? It will stop counting toward their balance, but it stays on file and can be re-logged from the Archived filter.`, async () => {
+                try {
+                    const result = await sendJson(`{{ url('/sales/payments') }}/${row.id}/archive`, 'POST');
+                    if (!result.ok) { notify(errorText(result, 'Could not archive the payment'), 'danger'); return false; }
+                    await loadData();
+                    return `Archived ${row.receipt} for ${row.name}.`;
+                } catch (error) {
+                    console.error(error);
+                    notify('Something went wrong while archiving the payment.', 'danger');
+                    return false;
+                }
+            }, { title: 'Archive this payment?', label: 'Archive' });
         }
+        if (target.matches('[data-course-relog]')) showRelogPayment(byId(archivedCourseRows, target.dataset.courseRelog));
         if (target.matches('[data-log-edit]')) showPurchase(byId(logs, target.dataset.logEdit));
         if (target.matches('[data-log-receipt]')) showReceipt(byId(logs, target.dataset.logReceipt), 'item');
         if (target.matches('[data-log-delete]')) {
@@ -1342,6 +1479,22 @@
             askRemove(`Remove ${item.name} from the current catalog preview? Previous item logs will remain visible.`, () => { items = items.filter(row => row.id !== item.id); render(); });
         }
         if (target.matches('[data-athlete-edit]')) showAthletePayment(byId(athleteRows, target.dataset.athleteEdit));
+        if (target.matches('[data-athlete-archive]')) {
+            const row = byId(athleteRows, target.dataset.athleteArchive);
+            askRemove(`Archive the ${money(row.paid)} payment (${row.receipt}) from ${row.name} for ${row.fee} (${row.period})? It will stop counting toward that fee, but it stays on file and can be re-logged from the Archived filter.`, async () => {
+                try {
+                    const result = await sendJson(`{{ url('/sales/athlete-payments') }}/${row.id}/archive`, 'POST');
+                    if (!result.ok) { notify(errorText(result, 'Could not archive the payment'), 'danger'); return false; }
+                    await loadData();
+                    return `Archived ${row.receipt} for ${row.name}.`;
+                } catch (error) {
+                    console.error(error);
+                    notify('Something went wrong while archiving the payment.', 'danger');
+                    return false;
+                }
+            }, { title: 'Archive this payment?', label: 'Archive' });
+        }
+        if (target.matches('[data-athlete-relog]')) showRelogAthletePayment(byId(archivedAthleteRows, target.dataset.athleteRelog));
         if (target.matches('[data-athlete-receipt]')) showReceipt(byId(athleteRows, target.dataset.athleteReceipt), 'athlete');
         if (target.matches('[data-fee-edit]')) showFee(byId(athleteFees, target.dataset.feeEdit));
         if (target.matches('[data-fee-delete]')) {
@@ -1367,6 +1520,7 @@
         const submitButton = document.getElementById('coursePaymentSubmit');
         const enrollmentId = Number(form.elements.id.value);
         const paymentId = Number(form.elements.paymentId.value) || null;
+        const relog = form.elements.relog.value === '1';
 
         if (!enrollmentId) {
             document.getElementById('coursePaymentEnrollmentDropdown').classList.add('isInvalid');
@@ -1390,17 +1544,19 @@
         if (round2(amount) > paymentDialog.available) { notify(`Payment exceeds the limit of ${money(paymentDialog.available)}.`, 'danger'); return; }
 
         submitButton.disabled = true;
-        submitButton.textContent = paymentId ? 'Updating...' : 'Recording...';
+        submitButton.textContent = relog ? 'Re-logging...' : paymentId ? 'Updating...' : 'Recording...';
 
         // Editing a payment log -> PUT that payment; a new payment ("Record
         // Course Payment" or an unpaid row) -> POST a new log row.
-        const url = paymentId
-            ? `{{ url('/sales/payments') }}/${paymentId}`
-            : `{{ url('/sales/enrollments') }}/${enrollmentId}/payments`;
+        const url = relog
+            ? `{{ url('/sales/payments') }}/${paymentId}/restore`
+            : paymentId
+                ? `{{ url('/sales/payments') }}/${paymentId}`
+                : `{{ url('/sales/enrollments') }}/${enrollmentId}/payments`;
 
         try {
             const response = await fetch(url, {
-                method: paymentId ? 'PUT' : 'POST',
+                method: paymentId && !relog ? 'PUT' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
@@ -1417,7 +1573,7 @@
             if (response.ok && data.success) {
                 document.getElementById('coursePaymentDialog').close();
                 await loadData();
-                notify(paymentId ? `Successfully updated the payment for ${row.name}.` : `Successfully recorded the payment for ${row.name}.`);
+                notify(relog ? `Successfully re-logged the payment for ${row.name}.` : paymentId ? `Successfully updated the payment for ${row.name}.` : `Successfully recorded the payment for ${row.name}.`);
             } else {
                 const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
                 notify(firstError || data.message || `Could not update the payment (error ${response.status}).`, 'danger');
@@ -1478,6 +1634,7 @@
         const form = event.currentTarget;
         const submitButton = document.getElementById('athletePaymentSubmit');
         const paymentId = Number(form.elements.paymentId.value) || null;
+        const relog = form.elements.relog.value === '1';
         const userId = Number(form.elements.userId.value);
         const feeId = Number(form.elements.feeId.value);
 
@@ -1498,7 +1655,7 @@
         if (amount <= 0) { notify('Enter a payment amount greater than zero.', 'danger'); return; }
         if (round2(amount) > athleteDialog.available) { notify(`Payment exceeds the limit of ${money(athleteDialog.available)}.`, 'danger'); return; }
 
-        const athleteName = athleteRows.find(row => row.userId === userId && row.feeId === feeId)?.name || 'the athlete';
+        const athleteName = [...athleteRows, ...archivedAthleteRows].find(row => row.userId === userId && row.feeId === feeId)?.name || 'the athlete';
         const body = {
             amount,
             payment_method: form.elements.method.value,
@@ -1511,18 +1668,19 @@
         }
 
         submitButton.disabled = true;
-        submitButton.textContent = paymentId ? 'Updating...' : 'Recording...';
+        submitButton.textContent = relog ? 'Re-logging...' : paymentId ? 'Updating...' : 'Recording...';
 
         try {
             const result = await sendJson(
-                paymentId ? `{{ url('/sales/athlete-payments') }}/${paymentId}` : `{{ url('/sales/athlete-payments') }}`,
-                paymentId ? 'PUT' : 'POST',
+                relog ? `{{ url('/sales/athlete-payments') }}/${paymentId}/restore`
+                    : paymentId ? `{{ url('/sales/athlete-payments') }}/${paymentId}` : `{{ url('/sales/athlete-payments') }}`,
+                paymentId && !relog ? 'PUT' : 'POST',
                 body
             );
             if (result.ok) {
                 document.getElementById('athletePaymentDialog').close();
                 await loadData();
-                notify(paymentId ? `Successfully updated the payment for ${athleteName}.` : `Successfully recorded the payment for ${athleteName}.`);
+                notify(relog ? `Successfully re-logged the payment for ${athleteName}.` : paymentId ? `Successfully updated the payment for ${athleteName}.` : `Successfully recorded the payment for ${athleteName}.`);
             } else {
                 notify(errorText(result, 'Could not save the payment'), 'danger');
             }
@@ -1601,9 +1759,11 @@
 
             const data = await response.json();
             courseRows = data.coursePayments;
+            archivedCourseRows = data.archivedCoursePayments || [];
             items = data.itemCatalog;
             logs = data.itemLogs;
             athleteRows = data.athletePayments || [];
+            archivedAthleteRows = data.archivedAthletePayments || [];
             athleteFees = data.athleteFees || [];
             render();
         } catch (error) {

@@ -40,9 +40,11 @@ class SalesInvoiceController extends Controller
     {
         return [
             'coursePayments' => $this->courseLog(),
+            'archivedCoursePayments' => $this->archivedCourseLog(),
             'itemCatalog' => $this->itemCatalog(),
             'itemLogs' => $this->itemLogs(),
             'athletePayments' => $this->athleteLog(),
+            'archivedAthletePayments' => $this->archivedAthleteLog(),
             'athleteFees' => $this->athleteFees(),
         ];
     }
@@ -77,7 +79,8 @@ class SalesInvoiceController extends Controller
             $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
 
             // COALESCE keeps old rows (saved before enrollment_id existed) counted.
-            $alreadyPaid = (float) CoursePayment::whereRaw('COALESCE(enrollment_id, student_id) = ?', [$locked->enrollment_id])
+            $alreadyPaid = (float) CoursePayment::whereNull('archived_at')
+                ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$locked->enrollment_id])
                 ->sum('amount');
 
             $remaining = round((float) $locked->course_price_at_enrollment - $alreadyPaid, 2);
@@ -106,7 +109,9 @@ class SalesInvoiceController extends Controller
             ]);
         });
 
-        $totalPaid = (float) CoursePayment::whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollment->enrollment_id])->sum('amount');
+        $totalPaid = (float) CoursePayment::whereNull('archived_at')
+            ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollment->enrollment_id])
+            ->sum('amount');
         $balance = max(round((float) $enrollment->course_price_at_enrollment - $totalPaid, 2), 0);
 
         return response()->json([
@@ -126,6 +131,10 @@ class SalesInvoiceController extends Controller
      */
     public function updatePayment(Request $request, CoursePayment $payment): JsonResponse
     {
+        if ($payment->archived_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This payment is archived. Re-log it from the Archived filter instead.'], 422);
+        }
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
@@ -139,7 +148,8 @@ class SalesInvoiceController extends Controller
             // Lock the enrollment so concurrent edits can't overpay together.
             $enrollment = Enrollment::whereKey($enrollmentId)->lockForUpdate()->firstOrFail();
 
-            $others = (float) CoursePayment::whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollmentId])
+            $others = (float) CoursePayment::whereNull('archived_at')
+                ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollmentId])
                 ->where('course_payment_id', '!=', $payment->getKey())
                 ->sum('amount');
 
@@ -162,6 +172,124 @@ class SalesInvoiceController extends Controller
         });
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * POST /sales/payments/{payment}/archive
+     * Replaces the old "delete". The row stays in tbl_course_payments with
+     * archived_at set, so nothing is lost, but it stops counting toward the
+     * enrollment's paid total / balance / status and leaves the main log.
+     * Admin only.
+     */
+    public function archivePayment(CoursePayment $payment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $enrollmentId = $payment->enrollment_id ?? $payment->student_id;
+
+        $archived = DB::transaction(function () use ($payment, $enrollmentId) {
+            // Same lock the other payment endpoints take, so a payment being
+            // recorded at the same moment sees a consistent total.
+            Enrollment::whereKey($enrollmentId)->lockForUpdate()->first();
+
+            return DB::table('tbl_course_payments')
+                ->where('course_payment_id', $payment->getKey())
+                ->whereNull('archived_at')
+                ->update([
+                    'archived_at' => now(),
+                    'archived_by' => Auth::id(),
+                    'updated_at' => now(),
+                ]) > 0;
+        });
+
+        if (! $archived) {
+            return response()->json(['success' => false, 'message' => 'This payment is already archived.'], 422);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * POST /sales/payments/{payment}/restore
+     * "Re-log" an archived payment. The admin may change amount / method /
+     * reference while doing it, and it goes through the same checks as a new
+     * payment, measured against ACTIVE payments only:
+     *   - admin only, and the row must really be archived
+     *   - amount > 0, method required, reference optional
+     *   - the enrollment can't already be fully paid
+     *   - amount can't exceed  course price - active payments of that enrollment
+     * The original paid_at and receipt number are kept.
+     */
+    public function restorePayment(Request $request, CoursePayment $payment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $amount = round((float) $validated['amount'], 2);
+        $enrollmentId = $payment->enrollment_id ?? $payment->student_id;
+
+        $balance = DB::transaction(function () use ($payment, $validated, $amount, $enrollmentId) {
+            $enrollment = Enrollment::whereKey($enrollmentId)->lockForUpdate()->firstOrFail();
+
+            // Re-read inside the lock: someone may have restored it already.
+            $row = DB::table('tbl_course_payments')
+                ->where('course_payment_id', $payment->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $row || $row->archived_at === null) {
+                throw ValidationException::withMessages(['payment' => ['This payment is not archived.']]);
+            }
+
+            $alreadyPaid = (float) CoursePayment::whereNull('archived_at')
+                ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollmentId])
+                ->sum('amount');
+
+            $remaining = round((float) $enrollment->course_price_at_enrollment - $alreadyPaid, 2);
+
+            if ($remaining <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['This enrollment is already fully paid, so this payment can\'t be re-logged.'],
+                ]);
+            }
+
+            if ($amount > $remaining) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Payment of ₱' . number_format($amount, 2)
+                        . ' exceeds the remaining balance of ₱' . number_format($remaining, 2) . '.'],
+                ]);
+            }
+
+            DB::table('tbl_course_payments')
+                ->where('course_payment_id', $payment->getKey())
+                ->update([
+                    'enrollment_id' => $enrollmentId,
+                    'amount' => $amount,
+                    'payment_method' => $validated['payment_method'],
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'archived_at' => null,
+                    'archived_by' => null,
+                    'received_by' => Auth::id(),
+                    'updated_at' => now(),
+                ]);
+
+            return max(round($remaining - $amount, 2), 0);
+        });
+
+        return response()->json([
+            'success' => true,
+            'balance' => $balance,
+            'paymentStatus' => $balance <= 0 ? 'Paid' : 'Partial',
+        ]);
     }
 
     /**
@@ -188,10 +316,11 @@ class SalesInvoiceController extends Controller
         $payments = $this->withEnrollmentDetails(
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('COALESCE(cp.enrollment_id, cp.student_id)'))
+                ->whereNull('cp.archived_at')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
-            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.course_payment_id <= cp.course_payment_id) as runningPaid')
-            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id) as totalPaid')
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL AND x.course_payment_id <= cp.course_payment_id) as runningPaid')
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL) as totalPaid')
             ->selectRaw("DATE_FORMAT(cp.paid_at, '%b-%d-%Y') as date")
             ->selectRaw("DATE_FORMAT(cp.updated_at, '%b-%d-%Y') as updatedAt")
             ->selectRaw("CONCAT('OR-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
@@ -226,7 +355,7 @@ class SalesInvoiceController extends Controller
                 ->select('e.enrollment_id as enrollmentId', 'e.enrollment_at as sortAt')
         )
             ->selectRaw("DATE_FORMAT(e.enrollment_at, '%b-%d-%Y') as date")
-            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id)')
+            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL)')
             ->get()
             ->map(function ($r) {
                 $price = (float) $r->price;
@@ -256,6 +385,46 @@ class SalesInvoiceController extends Controller
             ->concat($unpaid)
             ->sort(fn ($a, $b) => [$b['sortAt'], $b['id']] <=> [$a['sortAt'], $a['id']])
             ->values();
+    }
+
+    /**
+     * Archived course payments (the "Archived" filter). Kept apart from
+     * courseLog() so the page's totals never include them. enrollmentPaid is
+     * what the enrollment has paid in ACTIVE payments, which is what the
+     * re-log dialog needs to work out the most this payment may be.
+     */
+    private function archivedCourseLog(): Collection
+    {
+        return $this->withEnrollmentDetails(
+            DB::table('tbl_course_payments as cp')
+                ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('COALESCE(cp.enrollment_id, cp.student_id)'))
+                ->whereNotNull('cp.archived_at')
+                ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
+        )
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE COALESCE(x.enrollment_id, x.student_id) = e.enrollment_id AND x.archived_at IS NULL) as activePaid')
+            ->selectRaw("DATE_FORMAT(cp.paid_at, '%b-%d-%Y') as date")
+            ->selectRaw("DATE_FORMAT(cp.archived_at, '%b-%d-%Y') as archivedAt")
+            ->selectRaw("CONCAT('OR-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
+            ->orderByDesc('cp.archived_at')
+            ->orderByDesc('cp.course_payment_id')
+            ->get()
+            ->map(fn ($r) => [
+                'id' => (int) $r->id,
+                'enrollmentId' => (int) $r->enrollmentId,
+                'course' => $r->course,
+                'name' => $r->name,
+                'price' => (float) $r->price,
+                'toPay' => (float) $r->price,
+                'paid' => (float) $r->amount,
+                'enrollmentPaid' => round((float) $r->activePaid, 2),
+                'reference' => $r->reference ?? '',
+                'method' => $r->method ?? '',
+                'date' => $r->date ?? '',
+                'archivedAt' => $r->archivedAt ?? '',
+                'receipt' => $r->receipt,
+                'status' => 'archived',
+                'sortAt' => (string) $r->sortAt,
+            ]);
     }
 
     /**
@@ -487,6 +656,7 @@ class SalesInvoiceController extends Controller
             $periodKey = $this->resolvePeriodKey($fee->billing_cycle, $validated['period_key'] ?? null);
 
             $existing = DB::table('tbl_athlete_payments')
+                ->whereNull('archived_at')
                 ->where('user_id', $userId)
                 ->where('athlete_fee_id', $feeId)
                 ->where('period_key', $periodKey)
@@ -560,12 +730,17 @@ class SalesInvoiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Payment not found.'], 404);
         }
 
+        if ($row->archived_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This payment is archived. Re-log it from the Archived filter instead.'], 422);
+        }
+
         $amount = round((float) $validated['amount'], 2);
 
         DB::transaction(function () use ($row, $validated, $amount, $payment) {
             DB::table('tbl_users')->where('user_id', $row->user_id)->lockForUpdate()->first();
 
             $others = (float) DB::table('tbl_athlete_payments')
+                ->whereNull('archived_at')
                 ->where('user_id', $row->user_id)
                 ->where('athlete_fee_id', $row->athlete_fee_id)
                 ->where('period_key', $row->period_key)
@@ -591,6 +766,139 @@ class SalesInvoiceController extends Controller
         });
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * POST /sales/athlete-payments/{payment}/archive
+     * Same idea as archiving a course payment: the row stays in
+     * tbl_athlete_payments with archived_at set, stops counting toward its
+     * due (athlete + fee + period) and leaves the main log. Admin only.
+     */
+    public function archiveAthletePayment(int $payment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
+
+        if (! $row) {
+            return response()->json(['success' => false, 'message' => 'Payment not found.'], 404);
+        }
+
+        $archived = DB::transaction(function () use ($row, $payment) {
+            // Same lock the other athlete payment endpoints take.
+            DB::table('tbl_users')->where('user_id', $row->user_id)->lockForUpdate()->first();
+
+            return DB::table('tbl_athlete_payments')
+                ->where('athlete_payment_id', $payment)
+                ->whereNull('archived_at')
+                ->update([
+                    'archived_at' => now(),
+                    'archived_by' => Auth::id(),
+                    'updated_at' => now(),
+                ]) > 0;
+        });
+
+        if (! $archived) {
+            return response()->json(['success' => false, 'message' => 'This payment is already archived.'], 422);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * POST /sales/athlete-payments/{payment}/restore
+     * "Re-log" an archived athlete payment (amount / method / reference may be
+     * changed). Same checks as a new payment, against ACTIVE payments only:
+     *   - admin only, row must really be archived, user must still be an athlete
+     *   - amount > 0, method required, reference optional
+     *   - the due can't already be fully paid
+     *   - amount can't exceed  amount_due - active payments of that due
+     * amount_due is the one the due's active payments are frozen with, or this
+     * row's own frozen amount_due when the due has no active payment left.
+     * The original paid_at and receipt number are kept.
+     */
+    public function restoreAthletePayment(Request $request, int $payment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
+
+        if (! $row) {
+            return response()->json(['success' => false, 'message' => 'Payment not found.'], 404);
+        }
+
+        $amount = round((float) $validated['amount'], 2);
+
+        $balance = DB::transaction(function () use ($row, $validated, $amount, $payment) {
+            $athlete = DB::table('tbl_users')
+                ->where('user_id', $row->user_id)
+                ->where('role_id', self::ATHLETE_ROLE_ID)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $athlete) {
+                throw ValidationException::withMessages(['user_id' => ['This user is not an athlete.']]);
+            }
+
+            // Re-read inside the lock: someone may have restored it already.
+            $current = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->lockForUpdate()->first();
+
+            if (! $current || $current->archived_at === null) {
+                throw ValidationException::withMessages(['payment' => ['This payment is not archived.']]);
+            }
+
+            $active = DB::table('tbl_athlete_payments')
+                ->whereNull('archived_at')
+                ->where('user_id', $current->user_id)
+                ->where('athlete_fee_id', $current->athlete_fee_id)
+                ->where('period_key', $current->period_key)
+                ->orderBy('athlete_payment_id');
+
+            $first = (clone $active)->first();
+            $due = $first ? (float) $first->amount_due : (float) $current->amount_due;
+            $alreadyPaid = (float) (clone $active)->sum('amount');
+            $remaining = round($due - $alreadyPaid, 2);
+
+            if ($remaining <= 0) {
+                throw ValidationException::withMessages(['amount' => ['This fee is already fully paid, so this payment can\'t be re-logged.']]);
+            }
+
+            if ($amount > $remaining) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Payment of ₱' . number_format($amount, 2)
+                        . ' exceeds the remaining balance of ₱' . number_format($remaining, 2) . '.'],
+                ]);
+            }
+
+            DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->update([
+                'amount_due' => $due,
+                'amount' => $amount,
+                'payment_method' => $validated['payment_method'],
+                'reference_number' => $validated['reference_number'] ?? null,
+                'archived_at' => null,
+                'archived_by' => null,
+                'received_by' => Auth::id(),
+                'updated_at' => now(),
+            ]);
+
+            return max(round($remaining - $amount, 2), 0);
+        });
+
+        return response()->json([
+            'success' => true,
+            'balance' => $balance,
+            'paymentStatus' => $balance <= 0 ? 'Paid' : 'Partial',
+        ]);
     }
 
     /**
@@ -652,12 +960,13 @@ class SalesInvoiceController extends Controller
         $month = now()->format('Y-m');
         $year = now()->format('Y');
         $sumOfDue = 'SELECT COALESCE(SUM(x.amount), 0) FROM tbl_athlete_payments x'
-            . ' WHERE x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
+            . ' WHERE x.archived_at IS NULL AND x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
 
         $payments = DB::table('tbl_athlete_payments as ap')
             ->join('tbl_athlete_fees as f', 'f.athlete_fee_id', '=', 'ap.athlete_fee_id')
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'ap.user_id')
             ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
+            ->whereNull('ap.archived_at')
             ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
             ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')
@@ -702,7 +1011,7 @@ class SalesInvoiceController extends Controller
             ->crossJoin('tbl_athlete_fees as f')
             ->where('u.role_id', self::ATHLETE_ROLE_ID)
             ->where('f.is_active', 1)
-            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_athlete_payments x WHERE x.user_id = u.user_id AND x.athlete_fee_id = f.athlete_fee_id AND x.period_key = ' . $periodCase . ')', [$month, $year])
+            ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_athlete_payments x WHERE x.archived_at IS NULL AND x.user_id = u.user_id AND x.athlete_fee_id = f.athlete_fee_id AND x.period_key = ' . $periodCase . ')', [$month, $year])
             ->select('u.user_id as userId', 'f.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'f.amount as due')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
             ->selectRaw($periodCase . ' as periodKey', [$month, $year])
@@ -740,6 +1049,54 @@ class SalesInvoiceController extends Controller
             ->concat($unpaid)
             ->sort(fn ($a, $b) => [$b['sortAt'], $b['id']] <=> [$a['sortAt'], $a['id']])
             ->values();
+    }
+
+    /**
+     * Archived athlete payments (the "Archived" filter), kept apart from
+     * athleteLog() so the page's totals never include them. toPay / duePaid
+     * are what the re-log dialog needs: the due as it stands among ACTIVE
+     * payments (or this row's own frozen amount_due when none are left).
+     */
+    private function archivedAthleteLog(): Collection
+    {
+        $activeOfDue = ' FROM tbl_athlete_payments x WHERE x.archived_at IS NULL'
+            . ' AND x.user_id = ap.user_id AND x.athlete_fee_id = ap.athlete_fee_id AND x.period_key = ap.period_key';
+
+        return DB::table('tbl_athlete_payments as ap')
+            ->join('tbl_athlete_fees as f', 'f.athlete_fee_id', '=', 'ap.athlete_fee_id')
+            ->leftJoin('tbl_users as u', 'u.user_id', '=', 'ap.user_id')
+            ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
+            ->whereNotNull('ap.archived_at')
+            ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as ownDue', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
+            ->selectRaw(self::PERSON_NAME_SQL . ' as name')
+            ->selectRaw('(SELECT x.amount_due' . $activeOfDue . ' ORDER BY x.athlete_payment_id LIMIT 1) as activeDue')
+            ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0)' . $activeOfDue . ') as duePaid')
+            ->selectRaw("DATE_FORMAT(ap.paid_at, '%b-%d-%Y') as date")
+            ->selectRaw("DATE_FORMAT(ap.archived_at, '%b-%d-%Y') as archivedAt")
+            ->selectRaw("CONCAT('AR-', YEAR(ap.paid_at), '-', LPAD(ap.athlete_payment_id, 4, '0')) as receipt")
+            ->orderByDesc('ap.archived_at')
+            ->orderByDesc('ap.athlete_payment_id')
+            ->get()
+            ->map(fn ($r) => [
+                'id' => (int) $r->id,
+                'userId' => (int) $r->userId,
+                'feeId' => (int) $r->feeId,
+                'periodKey' => (string) $r->periodKey,
+                'fee' => $r->fee,
+                'cycle' => $r->cycle,
+                'period' => $this->periodLabel($r->cycle, (string) $r->periodKey),
+                'name' => $r->name,
+                'toPay' => (float) ($r->activeDue ?? $r->ownDue),
+                'paid' => (float) $r->amount,
+                'duePaid' => round((float) $r->duePaid, 2),
+                'reference' => $r->reference ?? '',
+                'method' => $r->method ?? '',
+                'date' => $r->date ?? '',
+                'archivedAt' => $r->archivedAt ?? '',
+                'receipt' => $r->receipt,
+                'status' => 'archived',
+                'sortAt' => (string) $r->sortAt,
+            ]);
     }
 
     /**
