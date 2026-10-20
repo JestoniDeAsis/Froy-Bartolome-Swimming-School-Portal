@@ -77,13 +77,13 @@ class AnnouncementController extends Controller
 
     /**
      * Maps the logged-in user to an announcement_recipients_id (2=Coaches,
-     * 3=Students, 4=Athletes). ADJUST THIS to match your actual User model's
+     * 3=Students, 4=Athletes, 5=Applicants). ADJUST THIS to match your actual User model's
      * role column/values — this is a guess based on the FBSS Admin/Coach/
      * Swimmer module split.
      */
     /**
      * announcement_recipients_id and the user's role id share the same
-     * numbering (2=Coach, 3=Student, 4=Athlete) — role id 1 is Admin, which
+     * numbering (2=Coach, 3=Student, 4=Athlete, 5=Applicant) — role id 1 is Admin, which
      * has no dedicated audience and falls back to "Everyone" (1) instead.
      * ADJUST "role_id" below if your User model names this column differently.
      */
@@ -91,7 +91,7 @@ class AnnouncementController extends Controller
     {
         $roleId = (int) ($user->role_id ?? 0);
 
-        return in_array($roleId, [2, 3, 4], true) ? $roleId : 1;
+        return in_array($roleId, [2, 3, 4, 5], true) ? $roleId : 1;
     }
 
     /**
@@ -105,7 +105,7 @@ class AnnouncementController extends Controller
             'announcement_id' => ['nullable', 'integer', 'exists:tbl_announcements,announcement_id'],
             'announcement_title' => ['required', 'string', 'max:100'],
             'announcement_message' => ['required', 'string', 'max:1000'],
-            'announcement_recipients_id' => ['required', 'integer', Rule::in([1, 2, 3, 4])],
+            'announcement_recipients_id' => ['required', 'integer', Rule::in([1, 2, 3, 4, 5])],
         ], [
             'announcement_id.exists' => 'A valid announcement_id is required.',
             'announcement_title.required' => 'A title is required.',

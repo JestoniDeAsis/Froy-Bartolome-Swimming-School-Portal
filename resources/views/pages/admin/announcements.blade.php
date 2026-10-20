@@ -435,6 +435,7 @@
                             <button class="registerDropdownOption" id="recipientCoachOption" type="button" data-value="2">Coaches</button>
                             <button class="registerDropdownOption" id="recipientStudentOption" type="button" data-value="3">Students</button>
                             <button class="registerDropdownOption" id="recipientAthleteOption" type="button" data-value="4">Athletes</button>
+                            <button class="registerDropdownOption" id="recipientApplicantOption" type="button" data-value="5">Applicants</button>
                         </div>
                         <input id="announcementRecipientInput" name="announcement_recipients_id" type="hidden" value="">
                         <p class="announcement-recipient-error" id="announcementRecipientError" role="alert">Please choose a recipient.</p>
@@ -459,13 +460,14 @@
     const SAVE_URL = @json(url('/announcements'));
 
     // announcement_recipients_id -> label, per the tbl_announcements schema.
-    const RECIPIENT_LABELS = { 1: 'Everyone', 2: 'Coaches', 3: 'Students', 4: 'Athletes' };
+    const RECIPIENT_LABELS = { 1: 'Everyone', 2: 'Coaches', 3: 'Students', 4: 'Athletes', 5: 'Applicants' };
     const FILTERS = [
         { id: 'all', label: 'All' },
         { id: 1, label: 'Everyone' },
         { id: 2, label: 'Coaches' },
         { id: 3, label: 'Students' },
-        { id: 4, label: 'Athletes' }
+        { id: 4, label: 'Athletes' },
+        { id: 5, label: 'Applicants' }
     ];
 
     function formatDate(mysqlDatetime) {

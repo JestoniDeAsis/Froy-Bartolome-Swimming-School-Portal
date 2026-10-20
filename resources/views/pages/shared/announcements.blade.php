@@ -300,7 +300,7 @@
 
     const FEED_URL = @json(url('/announcements/feed'));
 
-    const RECIPIENT_LABELS = { 1: 'Everyone', 2: 'Coaches', 3: 'Students', 4: 'Athletes' };
+    const RECIPIENT_LABELS = { 1: 'Everyone', 2: 'Coaches', 3: 'Students', 4: 'Athletes', 5: 'Applicants' };
 
     function formatDate(mysqlDatetime) {
         if (!mysqlDatetime) return '';
@@ -329,7 +329,7 @@
     }
 
     let announcements = [];
-    // The server tells us which specific role this viewer belongs to (2/3/4),
+    // The server tells us which specific role this viewer belongs to (2/3/4/5),
     // so the second tab always matches their actual audience.
     let viewerRecipientId = null;
     let activeFilter = 'all';
@@ -367,7 +367,8 @@
     }
 
     // "All" = everything this viewer can see. "Everyone" = broadcast-only.
-    // Third tab (Coaches/Students/Athletes) only appears for roles that have
+    // Third tab ("For you": announcements addressed to the viewer's own role —
+    // Coaches/Students/Athletes/Applicants) only appears for roles that have
     // one — admins viewing this page would just see All + Everyone.
     function getFilters() {
         const filters = [
@@ -375,7 +376,7 @@
             { id: 1, label: 'Everyone' }
         ];
         if (viewerRecipientId && viewerRecipientId !== 1) {
-            filters.push({ id: viewerRecipientId, label: RECIPIENT_LABELS[viewerRecipientId] });
+            filters.push({ id: viewerRecipientId, label: 'For you' });
         }
         return filters;
     }
