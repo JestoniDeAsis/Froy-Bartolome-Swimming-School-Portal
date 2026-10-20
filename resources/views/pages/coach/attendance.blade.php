@@ -66,6 +66,9 @@
     font-size: .875rem;
 }
 .attendanceSessionBanner i { flex-shrink: 0; font-size: 1rem; }
+.attendanceSessionBanner { flex-wrap: wrap; }
+.attendanceSessionActions { display: flex; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
+.attendanceLastUpdated { margin: .5rem 0 .25rem; font-size: .75rem; color: #98a2b3; }
 .attendanceSessionBanner.isOk     { background: #ebfbee; border-color: #b2f2bb; color: #2b8a3e; }
 .attendanceSessionBanner.isWait   { background: #fff9db; border-color: #ffec99; color: #a35c00; }
 .attendanceSessionBanner.isClosed { background: #fff5f5; border-color: #ffc9c9; color: #c92a2a; }
@@ -336,14 +339,21 @@
         <h2 class="mb-1" id="attendanceTitle">Attendance</h2>
         <p class="text-muted mb-0" id="attendanceDescription"></p>
         <p class="text-muted small mb-0" id="attendanceHint">
-            Select a student, then record their Time In or Time Out. Logging opens once the admin has timed you in.
+            Time In first (My Time In, below), then select a student to record their Time In or Time Out.
         </p>
     </header>
 
-    <!-- Tells the coach whether logging is open (admin must time them in first) -->
-    <div class="attendanceSessionBanner isWait" id="sessionBanner" role="status" aria-live="polite">
+    <!-- The coach's own Time In / Time Out. The server records its own current time; nothing can be typed in. -->
+    <div class="attendanceSessionBanner isWait" id="sessionBanner">
         <i class="bi bi-hourglass-split" id="sessionBannerIcon" aria-hidden="true"></i>
-        <span id="sessionBannerText">Checking your attendance...</span>
+        <span id="sessionBannerText" role="status" aria-live="polite">Checking your attendance...</span>
+
+        <div class="attendanceSessionActions">
+            <button class="btn btn-sm btn-primary" id="sessionTimeInButton" type="button" hidden>My Time In</button>
+            <button class="btn btn-sm btn-primary" id="sessionTimeOutButton" type="button" hidden>My Time Out</button>
+            <button class="btn btn-sm btn-outline-danger" id="sessionCancelButton" type="button" hidden>Cancel Time In</button>
+            <button class="btn btn-sm btn-outline-danger" id="sessionCancelOutButton" type="button" hidden>Cancel Time Out</button>
+        </div>
     </div>
 
     <!-- TOOLBAR -->
@@ -380,7 +390,7 @@
             </div>
         </div>
 
-        <!-- Attendance filter: logged in that day or not -->
+        <!-- Attendance filter: logged in that day or not, or logged by this coach -->
         <div class="attendanceFilterGroup">
             <label class="attendanceFilterLabel">Attendance</label>
 
@@ -398,6 +408,7 @@
                     <button class="registerDropdownOption" type="button" data-value="out">
                         <span class="attendanceStatusDot absent attendanceOptionDot"></span>Not Logged In
                     </button>
+                    <button class="registerDropdownOption" type="button" data-value="mine">Logged by Me</button>
                 </div>
 
                 <input id="loggedFilterInput" name="loggedFilter" type="hidden" value="all">
@@ -419,14 +430,18 @@
         <div class="attendanceToolbarActions">
             <button class="btn btn-primary" id="recordTimeInButton" type="button" disabled>Time In</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled>Time Out</button>
-            <button class="btn btn-outline-primary" id="markExpectingButton" type="button" disabled title="Mark the selected student as Expecting (no Time In / Time Out is recorded)">Expecting</button>
+            <button class="btn btn-outline-primary" id="markExpectingButton" type="button" disabled title="Mark the selection as Expected (no Time In / Time Out is recorded yet)">Expected</button>
+            <button class="btn btn-outline-danger" id="markAbsentButton" type="button" disabled title="Mark the selection as Absent (only if they have not timed in)">Absent</button>
             <button class="btn btn-outline-primary" id="viewLogsButton" type="button" disabled>View Logs</button>
-            <button class="btn btn-outline-primary" id="refreshButton" type="button" title="Check again whether the admin has timed you in">
+            <button class="btn btn-outline-primary" id="refreshButton" type="button" title="Reload now. The page also refreshes by itself.">
                 <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
             </button>
         </div>
 
     </div>
+
+    <!-- Auto-refresh note -->
+    <div class="attendanceLastUpdated" id="lastUpdated" aria-hidden="true"></div>
 
     <!-- TABLE -->
     <div class="attendanceTableContainer" id="attendanceTableContainer">
@@ -464,6 +479,28 @@
         <div class="attendanceModalFooter">
             <button class="btn btn-outline-primary" id="timeModalCancelButton" type="button">Cancel</button>
             <button class="btn btn-primary" id="timeModalSaveButton" type="button">Save</button>
+        </div>
+
+    </div>
+</div>
+
+
+<!-- CONFIRM MODAL (Cancel Time In) -->
+<div class="modalOverlay" id="confirmModalOverlay" hidden>
+    <div class="attendanceModal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
+
+        <div class="attendanceModalHeader">
+            <h5 id="confirmModalTitle">Confirm</h5>
+            <button class="attendanceModalClose" id="confirmModalCloseButton" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="attendanceModalBody">
+            <p class="attendanceModalName mb-0" id="confirmModalMessage"></p>
+        </div>
+
+        <div class="attendanceModalFooter">
+            <button class="btn btn-outline-primary" id="confirmModalCancelButton" type="button">Keep as is</button>
+            <button class="btn btn-primary" id="confirmModalOkButton" type="button">Confirm</button>
         </div>
 
     </div>
@@ -531,7 +568,12 @@
         timeIn: '/coach/attendance/students/time-in',
         timeOut: '/coach/attendance/students/time-out',
         expecting: '/coach/attendance/students/expecting',
-        studentLogs: '/coach/attendance/student-logs'
+        absent: '/coach/attendance/students/absent',
+        studentLogs: '/coach/attendance/student-logs',
+        selfTimeIn: '/coach/attendance/self/time-in',
+        selfTimeOut: '/coach/attendance/self/time-out',
+        selfCancelIn: '/coach/attendance/self/cancel-time-in',
+        selfCancelOut: '/coach/attendance/self/cancel-time-out'
     };
 
     // "key" matches the field names the server returns.
@@ -543,12 +585,16 @@
         { label: 'Sessions Completed', key: 'sessions' },
         { label: 'Time In', key: 'time_in', isTime: true },
         { label: 'Time Out', key: 'time_out', isTime: true },
-        { label: 'Status', key: 'state' }
+        { label: 'Status', key: 'state', isState: true }
     ];
 
     const SEARCH_KEYS = ['name', 'coach', 'course', 'schedule', 'state'];
 
-    const REFRESH_MS = 60000;   // re-check the coach's session (admin may have timed them in/out)
+    const REFRESH_MS = 10000;   // auto-refresh every 10 seconds (table + the coach's own session)
+
+    // The stored attendance_state stays 'Expecting' (existing rows and the skills
+    // assessment page rely on it); this is only the wording people read.
+    const EXPECTING_LABEL = 'Expected';
 
     /* =========================================================
        ELEMENTS + STATE
@@ -562,6 +608,10 @@
         banner: $('sessionBanner'),
         bannerIcon: $('sessionBannerIcon'),
         bannerText: $('sessionBannerText'),
+        sessionTimeInButton: $('sessionTimeInButton'),
+        sessionTimeOutButton: $('sessionTimeOutButton'),
+        sessionCancelButton: $('sessionCancelButton'),
+        sessionCancelOutButton: $('sessionCancelOutButton'),
 
         tableHead: $('attendanceTableHead'),
         tableBody: $('attendanceTableBody'),
@@ -579,8 +629,10 @@
         timeInButton: $('recordTimeInButton'),
         timeOutButton: $('recordTimeOutButton'),
         expectingButton: $('markExpectingButton'),
+        absentButton: $('markAbsentButton'),
         viewLogsButton: $('viewLogsButton'),
         refreshButton: $('refreshButton'),
+        lastUpdated: $('lastUpdated'),
 
         logsOverlay: $('logsModalOverlay'),
         logsStudent: $('logsModalStudent'),
@@ -601,7 +653,14 @@
         modalSave: $('timeModalSaveButton'),
         modalRemoveWrap: $('timeModalRemoveWrap'),
         modalRemove: $('timeModalRemove'),
-        modalRemoveText: $('timeModalRemoveText')
+        modalRemoveText: $('timeModalRemoveText'),
+
+        confirmOverlay: $('confirmModalOverlay'),
+        confirmTitle: $('confirmModalTitle'),
+        confirmMessage: $('confirmModalMessage'),
+        confirmOk: $('confirmModalOkButton'),
+        confirmCancel: $('confirmModalCancelButton'),
+        confirmClose: $('confirmModalCloseButton')
     };
 
     let rows = [];
@@ -612,7 +671,11 @@
     let classOptionsBuilt = false;
     let busy = false;
     let sessionLoaded = false;
-    let session = { state: 'not_in', time_in: null, time_out: null, can_log: false, block_reason: null };
+    let session = {
+        state: 'not_in', time_in: null, time_out: null,
+        can_log: false, block_reason: null,
+        can_time_in: false, can_time_out: false, can_cancel_in: false, can_cancel_out: false, has_logs: false
+    };
     let logsAnchorId = null;    // enrollment the log modal was opened from
     let logsAnchorRecord = null; // the row it was opened from (an athlete has no enrollment)
     let logsSeq = 0;            // ignores out-of-order log responses
@@ -666,6 +729,9 @@
         ref.setHours(h, m, 0, 0);
         return ref.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     }
+
+    // attendance_state -> the text people read
+    const stateLabel = state => state === 'Expecting' ? EXPECTING_LABEL : (state ?? '');
 
     const isToday = () => el.dateInput.value === toLocalISODate(new Date());
 
@@ -726,23 +792,41 @@
             tone = 'isView';
             icon = 'bi-eye';
             text = `Viewing ${formatShortDate(parseISODate(el.dateInput.value))}. Past dates are view only; logging is available for today.`;
-        } else if (session.can_log) {
+        } else if (session.state === 'out' && session.can_log) {
             tone = 'isOk';
             icon = 'bi-check-circle-fill';
-            text = `You were timed in at ${formatTimeLabel(session.time_in)}. You can log your students' attendance.`;
-        } else if (session.state === 'out') {
-            tone = 'isClosed';
-            icon = 'bi-lock-fill';
-            text = `You were timed out at ${formatTimeLabel(session.time_out)}, so you can no longer log attendance today.`;
+            text = `You timed out at ${formatTimeLabel(session.time_out)}. You can still log attendance today. Cancel your Time Out if you are not done.`;
+        } else if (session.state === 'in' && session.can_log) {
+            tone = 'isOk';
+            icon = 'bi-check-circle-fill';
+            text = `You timed in at ${formatTimeLabel(session.time_in)}. You can log your students' attendance.`;
+            if (session.has_logs) text += ' To cancel your Time In, remove the attendance you logged today first.';
         } else {
             tone = 'isWait';
             icon = 'bi-hourglass-split';
-            text = session.block_reason || 'Waiting for the admin to record your Time In.';
+            text = session.block_reason || 'Time In to start logging attendance.';
         }
 
         el.banner.className = `attendanceSessionBanner ${tone}`;
         el.bannerIcon.className = `bi ${icon}`;
-        el.bannerText.textContent = text;
+        // Only touch the text when it changes, so screen readers are not re-announcing it on every auto-refresh.
+        if (el.bannerText.textContent !== text) el.bannerText.textContent = text;
+
+        // The coach's own buttons. The server decides which ones apply.
+        const lock = busy || !sessionLoaded;
+
+        el.sessionTimeInButton.hidden = !session.can_time_in;
+        el.sessionTimeInButton.disabled = lock;
+
+        el.sessionTimeOutButton.hidden = !session.can_time_out;
+        el.sessionTimeOutButton.disabled = lock;
+
+        el.sessionCancelButton.hidden = !session.can_time_out;
+        el.sessionCancelButton.disabled = lock || !session.can_cancel_in;
+        el.sessionCancelOutButton.hidden = !session.can_cancel_out;
+        el.sessionCancelOutButton.disabled = lock;
+
+        el.sessionCancelButton.title = session.has_logs ? 'Remove the attendance you logged today first.' : '';
     }
 
     function updateDateLabel() {
@@ -823,7 +907,9 @@
     function renderCell(column, record) {
         if (column.isNameColumn) return renderNameCell(record);
 
-        const value = column.isTime ? formatTimeLabel(record[column.key]) : (record[column.key] ?? '');
+        const value = column.isTime
+            ? formatTimeLabel(record[column.key])
+            : (column.isState ? stateLabel(record[column.key]) : (record[column.key] ?? ''));
 
         return value
             ? document.createTextNode(value)
@@ -832,19 +918,22 @@
 
     function visibleRows() {
         const term = el.search.value.trim().toLowerCase();
-        const logged = dropdownValue(el.loggedFilter);   // 'all' | 'in' | 'out'
+        const logged = dropdownValue(el.loggedFilter);   // 'all' | 'in' | 'out' | 'mine'
 
         let list = rows;
 
         // Green dot = logged in that day, red dot = not.
-        if (logged !== 'all') {
+        if (logged === 'in' || logged === 'out') {
             list = list.filter(record => logged === 'in' ? Boolean(record.time_in) : !record.time_in);
+        } else if (logged === 'mine') {
+            // Only the rows this coach logged on that date.
+            list = list.filter(record => record.logged_by_me);
         }
 
         if (!term) return list;
 
         return list.filter(record =>
-            SEARCH_KEYS.some(key => String(record[key] ?? '').toLowerCase().includes(term))
+            SEARCH_KEYS.some(key => String(key === 'state' ? stateLabel(record.state) : (record[key] ?? '')).toLowerCase().includes(term))
         );
     }
 
@@ -912,9 +1001,23 @@
         // Buttons switch to edit mode when a time is already recorded.
         el.timeInButton.textContent = record && record.time_in ? 'Time In (Edit)' : 'Time In';
         el.timeOutButton.textContent = record && record.time_out ? 'Time Out (Edit)' : 'Time Out';
-        // Students only (athletes are not part of the skills assessment); not once timed in or already Expecting.
-        el.expectingButton.disabled = busy || !open || !record || record.kind === 'athlete'
-            || Boolean(record.time_in) || record.state === 'Expecting';
+        // Expected / Absent: students and athletes, only while they have not timed in.
+        // When the person already has that mark, the button removes it.
+        const markable = Boolean(record) && !record.time_in;
+        const hasExpected = markable && record.state === 'Expecting';
+        const hasAbsent = markable && record.state === 'Absent';
+
+        el.expectingButton.disabled = busy || !open || !markable;
+        el.expectingButton.textContent = hasExpected ? `Remove ${EXPECTING_LABEL}` : EXPECTING_LABEL;
+        el.expectingButton.title = hasExpected
+            ? `Remove the ${EXPECTING_LABEL} mark from the selection`
+            : `Mark the selection as ${EXPECTING_LABEL} (no Time In / Time Out is recorded yet)`;
+
+        el.absentButton.disabled = busy || !open || !markable;
+        el.absentButton.textContent = hasAbsent ? 'Remove Absent' : 'Absent';
+        el.absentButton.title = hasAbsent
+            ? 'Remove the Absent mark from the selection'
+            : 'Mark the selection as Absent (only if they have not timed in)';
         el.viewLogsButton.disabled = busy || !record;
     }
 
@@ -957,9 +1060,15 @@
                     time_in: result.data.session?.time_in || null,
                     time_out: result.data.session?.time_out || null,
                     can_log: Boolean(result.data.can_log),
-                    block_reason: result.data.block_reason || null
+                    block_reason: result.data.block_reason || null,
+                    can_time_in: Boolean(result.data.session?.can_time_in),
+                    can_time_out: Boolean(result.data.session?.can_time_out),
+                    can_cancel_in: Boolean(result.data.session?.can_cancel_in),
+                    can_cancel_out: Boolean(result.data.session?.can_cancel_out),
+                    has_logs: Boolean(result.data.session?.has_logs)
                 };
                 sessionLoaded = true;
+                el.lastUpdated.textContent = `Auto-refreshes every ${REFRESH_MS / 1000}s. Updated ${new Date().toLocaleTimeString('en-US')}`;
 
                 if (!classOptionsBuilt) buildClassOptions(result.data.courses || []);
                 if (selectedId !== null && !rows.some(r => r.id === selectedId)) selectedId = null;
@@ -984,15 +1093,107 @@
     el.loggedFilter.addEventListener('dropdown:change', applyLocalFilters);
     el.refreshButton.addEventListener('click', () => loadRows({ keepSelection: true }));
 
-    // The admin times the coach in / out from another screen, so re-check
-    // when the coach comes back to this tab and once a minute while it is open.
-    function refreshQuietly() {
-        if (document.hidden || busy || !el.modalOverlay.hidden || !el.logsOverlay.hidden) return;
-        loadRows({ keepSelection: true, silent: true });
+    // Keeps the page current without pressing Refresh: the admin or another
+    // coach may change attendance while this tab is open. Skipped while the tab
+    // is hidden, a modal is open or a save is running, and requests never stack.
+    let refreshing = false;
+
+    async function refreshQuietly() {
+        if (document.hidden || busy || refreshing || loading
+            || !el.modalOverlay.hidden || !el.logsOverlay.hidden || !el.confirmOverlay.hidden) return;
+
+        refreshing = true;
+        try {
+            await loadRows({ keepSelection: true, silent: true });
+        } finally {
+            refreshing = false;
+        }
     }
 
     document.addEventListener('visibilitychange', refreshQuietly);
     setInterval(refreshQuietly, REFRESH_MS);
+
+    /* =========================================================
+       MY TIME IN / TIME OUT (the coach's own)
+       No time is sent: the server stamps its own current time.
+    ========================================================= */
+
+    let confirmResolve = null;
+
+    function askConfirm({ title, message, confirmText }) {
+        if (confirmResolve) closeConfirm(false);
+
+        el.confirmTitle.textContent = title;
+        el.confirmMessage.textContent = message;
+        el.confirmOk.textContent = confirmText;
+        el.confirmOverlay.hidden = false;
+        el.confirmOk.focus();
+
+        return new Promise(resolve => { confirmResolve = resolve; });
+    }
+
+    function closeConfirm(answer) {
+        el.confirmOverlay.hidden = true;
+
+        if (confirmResolve) {
+            confirmResolve(answer);
+            confirmResolve = null;
+        }
+    }
+
+    const SESSION_ACTIONS = {
+        in: { url: URLS.selfTimeIn },
+        out: { url: URLS.selfTimeOut },
+        cancelOut: { url: URLS.selfCancelOut },
+        cancel: {
+            url: URLS.selfCancelIn,
+            confirm: {
+                title: 'Cancel Time In',
+                message: 'Cancel your Time In? You will need to Time In again before you can log attendance.',
+                confirmText: 'Cancel Time In'
+            }
+        }
+    };
+
+    async function runSessionAction(kind) {
+        const action = SESSION_ACTIONS[kind];
+        if (!action || busy) return;
+
+        if (action.confirm && !(await askConfirm(action.confirm))) return;
+
+        busy = true;
+        updateToolbarState();
+        renderBanner();
+
+        try {
+            const result = await api(action.url, { method: 'POST' });
+
+            if (result.ok) {
+                showToast(result.data.message || 'Saved.', 'success');
+            } else {
+                toastServerErrors(result, 'Unable to save your attendance.');
+            }
+
+            // Whatever happened, show what the server now says.
+            await loadRows({ keepSelection: true, silent: true });
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while saving your attendance.', 'danger');
+        } finally {
+            busy = false;
+            updateToolbarState();
+            renderBanner();
+        }
+    }
+
+    el.sessionTimeInButton.addEventListener('click', () => runSessionAction('in'));
+    el.sessionTimeOutButton.addEventListener('click', () => runSessionAction('out'));
+    el.sessionCancelButton.addEventListener('click', () => runSessionAction('cancel'));
+    el.sessionCancelOutButton.addEventListener('click', () => runSessionAction('cancelOut'));
+
+    el.confirmOk.addEventListener('click', () => closeConfirm(true));
+    el.confirmCancel.addEventListener('click', () => closeConfirm(false));
+    el.confirmClose.addEventListener('click', () => closeConfirm(false));
 
     /* =========================================================
        TIME ENTRY MODAL
@@ -1124,37 +1325,55 @@
 
     // "Expecting": saves only the state (no time) so the student is listed in
     // the Skills Assessment page. Time In later works as usual.
-    async function markExpecting() {
+    // Expected / Absent: marks the selected student, or removes the mark when it is already set.
+    const MARKS = {
+        expecting: { url: URLS.expecting, state: 'Expecting', label: EXPECTING_LABEL },
+        absent: { url: URLS.absent, state: 'Absent', label: 'Absent' }
+    };
+
+    async function toggleMark(kind) {
+        const mark = MARKS[kind];
         const record = getSelectedRecord();
-        if (!record || busy || !canLog() || record.kind === 'athlete') return;
+        if (!mark || !record || busy || !canLog() || record.time_in) return;
+
+        const removing = record.state === mark.state;
 
         busy = true;
         updateToolbarState();
 
         try {
-            const result = await api(URLS.expecting, {
-                method: 'POST',
-                body: { enrollment_id: record.id, date: el.dateInput.value }
-            });
+            // An athlete is sent by user id; a student by enrollment id.
+            const body = record.kind === 'athlete'
+                ? { athlete_id: record.user_id, date: el.dateInput.value }
+                : { enrollment_id: record.id, date: el.dateInput.value };
+            if (removing) body.remove = true;
+
+            const result = await api(mark.url, { method: 'POST', body });
 
             if (result.ok) {
-                showToast(`${record.name} marked as Expecting.`, 'success');
+                showToast(
+                    removing ? `${mark.label} removed for ${record.name}.` : `${record.name} marked as ${mark.label}.`,
+                    'success'
+                );
                 await loadRows({ keepSelection: true, silent: true });
             } else {
-                toastServerErrors(result, 'Unable to mark the student as Expecting.');
+                toastServerErrors(result, removing
+                    ? `Unable to remove ${mark.label}.`
+                    : `Unable to mark as ${mark.label}.`);
 
                 if (result.status === 403) await loadRows({ keepSelection: true, silent: true });
             }
         } catch (error) {
             console.error(error);
-            showToast('Something went wrong while marking the student as Expecting.', 'danger');
+            showToast('Something went wrong while saving. Please try again.', 'danger');
         } finally {
             busy = false;
             updateToolbarState();
         }
     }
 
-    el.expectingButton.addEventListener('click', markExpecting);
+    el.expectingButton.addEventListener('click', () => toggleMark('expecting'));
+    el.absentButton.addEventListener('click', () => toggleMark('absent'));
     el.timeInButton.addEventListener('click', () => openTimeModal('in'));
     el.timeOutButton.addEventListener('click', () => openTimeModal('out'));
     el.modalClose.addEventListener('click', () => { if (!busy) closeTimeModal(); });
@@ -1174,6 +1393,7 @@
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
 
+        if (!el.confirmOverlay.hidden) closeConfirm(false);
         if (!el.logsOverlay.hidden) closeLogsModal();
         if (!el.modalOverlay.hidden && !busy) closeTimeModal();
     });
@@ -1228,7 +1448,7 @@
                 logCell(log.course),
                 logCell(formatTimeLabel(log.time_in), '-'),
                 logCell(formatTimeLabel(log.time_out), '-'),
-                logCell(log.state),
+                logCell(stateLabel(log.state)),
                 logCell(log.logged_by)
             ].forEach(content => {
                 const cell = make('td');
