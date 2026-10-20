@@ -101,10 +101,22 @@ class AdminGraduationController extends Controller
         $paidByEnrollment = $allIds->isEmpty()
             ? collect()
             : DB::table('tbl_course_payments')
+                ->whereNull('archived_at')   // archived payments don't count toward what was paid
                 ->whereIn(DB::raw('COALESCE(enrollment_id, student_id)'), $allIds)
                 ->groupBy(DB::raw('COALESCE(enrollment_id, student_id)'))
                 ->selectRaw('COALESCE(enrollment_id, student_id) as eid, SUM(amount) as paid')
                 ->pluck('paid', 'eid');
+
+        // Archived payments per enrollment: not counted, but the popup says how many were set aside.
+        $archivedByEnrollment = $allIds->isEmpty()
+            ? collect()
+            : DB::table('tbl_course_payments')
+                ->whereNotNull('archived_at')
+                ->whereIn(DB::raw('COALESCE(enrollment_id, student_id)'), $allIds)
+                ->groupBy(DB::raw('COALESCE(enrollment_id, student_id)'))
+                ->selectRaw('COALESCE(enrollment_id, student_id) as eid, COUNT(*) as n, SUM(amount) as total')
+                ->get()
+                ->keyBy('eid');
 
         // Which enrollments already have a certificate (name only, the PDF itself is not loaded).
         $certificates = $allIds->isEmpty()
@@ -140,7 +152,7 @@ class AdminGraduationController extends Controller
         $active    = $activeEnrollments->map($toRow)->values();
         $graduated = $graduatedEnrollments->map($toRow)->values();
 
-        $assessments = $this->assessmentDetails($enrollmentById, $paidByEnrollment);
+        $assessments = $this->assessmentDetails($enrollmentById, $paidByEnrollment, $archivedByEnrollment);
 
         // Sort the active students into their tab.
         $stillActive = [];
@@ -337,12 +349,13 @@ class AdminGraduationController extends Controller
         return response()->json(['success' => true, 'message' => 'Student moved back to Ready for Graduation.']);
     }
 
-    /** What the student still owes: price at enrollment minus every payment of that enrollment. */
+    /** What the student still owes: price at enrollment minus every ACTIVE (not archived) payment of that enrollment. */
     private function balanceFor(Enrollment $enrollment): float
     {
         $price = (float) ($enrollment->course_price_at_enrollment ?? $enrollment->course->course_price ?? 0);
 
         $paid = (float) DB::table('tbl_course_payments')
+            ->whereNull('archived_at')
             ->whereRaw('COALESCE(enrollment_id, student_id) = ?', [$enrollment->enrollment_id])
             ->sum('amount');
 
@@ -399,9 +412,10 @@ class AdminGraduationController extends Controller
      * Skills results + payment details for every enrollment, keyed by enrollment id.
      *
      * @param  Collection $enrollmentById  rows from the page query, keyed by enrollment_id
-     * @param  Collection $paidByEnrollment  enrollment id => total paid
+     * @param  Collection $paidByEnrollment  enrollment id => total paid (active payments only)
+     * @param  Collection $archivedByEnrollment  enrollment id => {n, total} of archived payments
      */
-    private function assessmentDetails(Collection $enrollmentById, Collection $paidByEnrollment): array
+    private function assessmentDetails(Collection $enrollmentById, Collection $paidByEnrollment, ?Collection $archivedByEnrollment = null): array
     {
         $ids = $enrollmentById->keys();
 
@@ -488,6 +502,8 @@ class AdminGraduationController extends Controller
                 'price'             => $price,
                 'paid'              => $paid,
                 'balance'           => $balance,
+                'archived_count'    => (int) ($archivedByEnrollment?->get($id)->n ?? 0),
+                'archived_total'    => (float) ($archivedByEnrollment?->get($id)->total ?? 0),
             ];
         }
 

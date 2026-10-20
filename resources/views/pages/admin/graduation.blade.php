@@ -27,6 +27,68 @@
 
     $peso = fn ($amount) => '₱' . number_format((float) $amount, 2);
 
+    // ---- search / filter toolbars for the Ready, Graduating and Graduates tabs ----
+    $gradSearchText = fn ($s) => \Illuminate\Support\Str::lower(trim($s['name'] . ' ' . $s['course'] . ' ' . ($s['schedule'] ?? '')));
+
+    $gradCourseOptions = fn ($students) => ['' => 'All Courses'] + $students
+        ->filter(fn ($s) => $s['courseId'] !== null)
+        ->unique('courseId')
+        ->sortBy('course')
+        ->mapWithKeys(fn ($s) => [(string) $s['courseId'] => $s['course']])
+        ->all();
+
+    // $options = value => label; the first one is the default.
+    $gradDropdown = function (string $id, string $key, string $aria, array $options) {
+        $firstValue = (string) array_key_first($options);
+        $html  = '<div class="registerDropdown graduationFilter" id="' . e($id) . 'Dropdown" data-fbss-dropdown>';
+        $html .= '<button class="registerDropdownToggle" id="' . e($id) . 'Toggle" type="button" aria-expanded="false" aria-controls="' . e($id) . 'Options" aria-label="' . e($aria) . '"><span>' . e(reset($options)) . '</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button>';
+        $html .= '<div class="registerDropdownOptions" id="' . e($id) . 'Options" hidden>';
+        $i = 0;
+        foreach ($options as $value => $label) {
+            $html .= '<button class="registerDropdownOption' . ($i++ === 0 ? ' active' : '') . '" type="button" data-value="' . e((string) $value) . '">' . e($label) . '</button>';
+        }
+        $html .= '</div><input type="hidden" data-pf="' . e($key) . '" value="' . e($firstValue) . '"></div>';
+
+        return $html;
+    };
+
+    // $dropdowns = list of [key, aria label, options]
+    $gradToolbar = function (string $id, string $searchLabel, array $dropdowns) use ($gradDropdown) {
+        $html  = '<div class="graduationToolbar">';
+        $html .= '<div class="graduationSearchContainer"><i class="bi bi-search graduationSearchIcon" aria-hidden="true"></i>';
+        $html .= '<input class="form-control graduationSearchInput" type="search" data-pf="search" placeholder="' . e($searchLabel) . '" autocomplete="off" aria-label="' . e($searchLabel) . '"></div>';
+        foreach ($dropdowns as [$key, $aria, $options]) {
+            $html .= $gradDropdown($id . ucfirst($key), $key, $aria, $options);
+        }
+        $html .= '<span class="graduationResultCount" data-pf-count></span></div>';
+
+        return new \Illuminate\Support\HtmlString($html);
+    };
+
+    $readyToolbar = $gradToolbar('gradReady', 'Search name, course or schedule', [
+        ['course', 'Filter by course', $gradCourseOptions($readyStudents)],
+        ['payment', 'Filter by payment', ['' => 'Any Payment', 'paid' => 'Fully paid', 'balance' => 'Has a balance']],
+        ['sort', 'Sort students', ['name' => 'Sort: Name (A-Z)', 'balance' => 'Sort: Highest balance', 'done' => 'Sort: Most sessions done']],
+    ]);
+
+    $graduatingToolbar = $gradToolbar('gradGraduating', 'Search name, course or schedule', [
+        ['course', 'Filter by course', $gradCourseOptions($graduatingStudents)],
+        ['cert', 'Filter by certificate', ['' => 'Any Certificate', 'yes' => 'Certificate uploaded', 'no' => 'Certificate needed']],
+        ['sort', 'Sort students', ['name' => 'Sort: Name (A-Z)', 'done' => 'Sort: Most sessions done']],
+    ]);
+
+    $graduateYears = $graduatedStudents
+        ->map(fn ($s) => $s['graduatedAt'] ? substr($s['graduatedAt'], 0, 4) : null)
+        ->filter()->unique()->sortDesc()
+        ->mapWithKeys(fn ($y) => [(string) $y => (string) $y])->all();
+
+    $graduatedToolbar = $gradToolbar('gradGraduated', 'Search name, course or schedule', [
+        ['course', 'Filter by course', $gradCourseOptions($graduatedStudents)],
+        ['year', 'Filter by year graduated', ['' => 'Any Year'] + $graduateYears],
+        ['cert', 'Filter by certificate', ['' => 'Any Certificate', 'yes' => 'Has certificate', 'no' => 'Certificate not recorded']],
+        ['sort', 'Sort students', ['newest' => 'Sort: Newest graduates', 'oldest' => 'Sort: Oldest graduates', 'name' => 'Sort: Name (A-Z)']],
+    ]);
+
     $dayLabel = fn ($iso) => $iso ? \Illuminate\Support\Carbon::parse($iso)->format('M d, Y') : null;
 @endphp
 
@@ -84,6 +146,10 @@
 .graduationRealView, .graduationSample { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .graduationRealView[hidden], .graduationSample[hidden] { display: none !important; }
 .graduationSample { overflow-y: auto; }
+
+/* The Ready / Graduating / Graduates lists are filtered in the browser by toggling [hidden]. */
+.graduation-student[hidden], .graduation-empty[hidden] { display: none !important; }
+.graduation-panel .graduationToolbar { margin-top: .5rem; }
 
 .graduationTabs { flex: 0 0 auto; margin-bottom: 1rem; }
 .graduationTabs .btn-tab { min-width: 150px; }
@@ -454,19 +520,20 @@
 
     {{-- ===== READY FOR GRADUATION (the coach approved; the admin reviews, e.g. the balance) ===== --}}
     <div class="graduationSample" id="graduationPanelReady" hidden>
-        <section class="graduation-panel">
+        <section class="graduation-panel" data-panel-filter>
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-patch-check" aria-hidden="true"></i>
                 Ready for Graduation <span class="group-count">({{ $readyStudents->count() }})</span>
             </h2>
             <p class="graduation-panel-hint">The coach approved these students. Check their skills and balance first. A student with a balance cannot be moved to Graduating.</p>
+            @if ($readyStudents->isNotEmpty()) {{ $readyToolbar }} @endif
             <div class="graduation-student-list">
                 @forelse ($readyStudents as $student)
                     @php
                         $detail  = $assessments[$student['id']] ?? null;
                         $balance = (float) ($detail['balance'] ?? 0);
                     @endphp
-                    <article class="graduation-student graduation-student--ready">
+                    <article class="graduation-student graduation-student--ready" data-grad-item data-name="{{ \Illuminate\Support\Str::lower($student['name']) }}" data-search="{{ $gradSearchText($student) }}" data-course-id="{{ $student['courseId'] }}" data-balance="{{ $balance }}" data-done="{{ $student['done'] }}">
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
                             <div class="graduation-student-meta">
@@ -484,22 +551,24 @@
                 @empty
                     <p class="graduation-empty">No students are marked ready by their coach yet.</p>
                 @endforelse
+                <p class="graduation-empty" data-pf-empty hidden>No students match your search or filters.</p>
             </div>
         </section>
     </div>
 
     {{-- ===== GRADUATING (the admin uploads the certificate and finalizes the graduation) ===== --}}
     <div class="graduationSample" id="graduationPanelGraduating" hidden>
-        <section class="graduation-panel">
+        <section class="graduation-panel" data-panel-filter>
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-hourglass-split" aria-hidden="true"></i>
                 Graduating <span class="group-count">({{ $graduatingStudents->count() }})</span>
             </h2>
             <p class="graduation-panel-hint">Upload the certificate PDF for each student, then mark them as graduated.</p>
+            @if ($graduatingStudents->isNotEmpty()) {{ $graduatingToolbar }} @endif
             <div class="graduation-student-list">
                 @forelse ($graduatingStudents as $student)
                     @php $hasCertificate = $student['hasCertificate']; @endphp
-                    <article class="graduation-student graduation-student--ready">
+                    <article class="graduation-student graduation-student--ready" data-grad-item data-name="{{ \Illuminate\Support\Str::lower($student['name']) }}" data-search="{{ $gradSearchText($student) }}" data-course-id="{{ $student['courseId'] }}" data-cert="{{ $hasCertificate ? 1 : 0 }}" data-done="{{ $student['done'] }}">
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
                             <div class="graduation-student-meta">
@@ -528,20 +597,22 @@
                 @empty
                     <p class="graduation-empty">No students are in Graduating right now.</p>
                 @endforelse
+                <p class="graduation-empty" data-pf-empty hidden>No students match your search or filters.</p>
             </div>
         </section>
     </div>
 
     {{-- ===== GRADUATES (enrollments with a graduation date) ===== --}}
     <div class="graduationSample" id="graduationPanelGraduated" hidden>
-        <section class="graduation-panel">
+        <section class="graduation-panel" data-panel-filter>
             <h2 class="graduation-panel-heading">
                 <i class="bi bi-mortarboard" aria-hidden="true"></i>
                 Graduates <span class="group-count">({{ $graduatedStudents->count() }})</span>
             </h2>
+            @if ($graduatedStudents->isNotEmpty()) {{ $graduatedToolbar }} @endif
             <div class="graduation-student-list">
                 @forelse ($graduatedStudents as $student)
-                    <article class="graduation-student graduation-student--graduated">
+                    <article class="graduation-student graduation-student--graduated" data-grad-item data-name="{{ \Illuminate\Support\Str::lower($student['name']) }}" data-search="{{ $gradSearchText($student) }}" data-course-id="{{ $student['courseId'] }}" data-cert="{{ $student['hasCertificate'] ? 1 : 0 }}" data-done="{{ $student['done'] }}" data-grad-at="{{ $student['graduatedAt'] }}" data-grad-year="{{ $student['graduatedAt'] ? substr($student['graduatedAt'], 0, 4) : '' }}">
                         <div class="graduation-student-info">
                             <div class="graduation-student-name">{{ $student['name'] }}</div>
                             <div class="graduation-student-meta">
@@ -560,6 +631,7 @@
                 @empty
                     <p class="graduation-empty">No students have graduated yet.</p>
                 @endforelse
+                <p class="graduation-empty" data-pf-empty hidden>No students match your search or filters.</p>
             </div>
         </section>
     </div>
@@ -593,7 +665,10 @@
                 <p class="assessment-note mt-3 mb-0" id="assessmentGraduateNote" hidden>Confirming sets today as the graduation date and moves this student to Graduates. The certificate has been uploaded and the balance is paid.</p>
             </div>
             <div class="modal-footer justify-content-between">
-                <strong class="assessment-balance">Balance: ₱0</strong>
+                <div>
+                    <strong class="assessment-balance">Balance: ₱0</strong>
+                    <div class="text-muted small" id="assessmentArchivedNote" hidden></div>
+                </div>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-primary btn-sm assessment-back" data-bs-dismiss="modal">Back</button>
                     <button type="button" class="btn btn-primary btn-sm d-none" id="confirmGraduationButton" data-bs-dismiss="modal">Mark as Graduated</button>
@@ -862,6 +937,60 @@
     render();
 
     /* =========================================================
+       SEARCH / FILTER / SORT for the server-rendered tabs
+       (Ready, Graduating, Graduates). Rows carry data-* attributes;
+       filtering toggles [hidden], sorting reorders the rows.
+    ========================================================= */
+
+    document.querySelectorAll('[data-panel-filter]').forEach(panel => {
+        const list = panel.querySelector('.graduation-student-list');
+        const rows = [...list.querySelectorAll('[data-grad-item]')];
+        const noMatch = list.querySelector('[data-pf-empty]');
+        const count = panel.querySelector('[data-pf-count]');
+        if (!rows.length || !count) return;   // nothing to filter
+
+        const value = key => panel.querySelector(`[data-pf="${key}"]`)?.value || '';
+        const byName = (a, b) => a.dataset.name.localeCompare(b.dataset.name);
+
+        const sorters = {
+            name: byName,
+            balance: (a, b) => Number(b.dataset.balance) - Number(a.dataset.balance) || byName(a, b),
+            done: (a, b) => Number(b.dataset.done) - Number(a.dataset.done) || byName(a, b),
+            newest: (a, b) => (b.dataset.gradAt || '').localeCompare(a.dataset.gradAt || '') || byName(a, b),
+            oldest: (a, b) => (a.dataset.gradAt || '').localeCompare(b.dataset.gradAt || '') || byName(a, b)
+        };
+
+        function apply() {
+            const term = value('search').trim().toLowerCase();
+            const course = value('course');
+            const payment = value('payment');
+            const cert = value('cert');
+            const year = value('year');
+            let shown = 0;
+
+            rows.forEach(row => {
+                const d = row.dataset;
+                const ok = (!term || d.search.includes(term))
+                    && (!course || d.courseId === course)
+                    && (!payment || (payment === 'paid' ? Number(d.balance) <= 0 : Number(d.balance) > 0))
+                    && (!cert || d.cert === (cert === 'yes' ? '1' : '0'))
+                    && (!year || d.gradYear === year);
+                row.hidden = !ok;
+                if (ok) shown++;
+            });
+
+            [...rows].sort(sorters[value('sort')] || sorters.name).forEach(row => list.insertBefore(row, noMatch));
+
+            noMatch.hidden = shown > 0;
+            count.textContent = `Showing ${shown} of ${rows.length}`;
+        }
+
+        panel.addEventListener('input', event => { if (event.target.matches('[data-pf="search"]')) apply(); });
+        panel.addEventListener('dropdown:change', apply);
+        apply();
+    });
+
+    /* =========================================================
        ASSESSMENT POPUP (real skills results + payment) and saving
     ========================================================= */
     (function () {
@@ -958,6 +1087,7 @@
                 progressTrack.setAttribute('aria-valuenow', '0');
                 paymentBadge.textContent = '-';
                 balance.textContent = '';
+                $('assessmentArchivedNote').hidden = true;
                 categoriesEl.replaceChildren();
                 return;
             }
@@ -992,6 +1122,13 @@
             paymentBadge.textContent = paid ? 'Paid' : 'Unpaid';
             paymentBadge.classList.toggle('assessment-payment--paid', paid);
             balance.textContent = `Balance: ${peso(detail.balance)}`;
+
+            // Archived payments are not counted; say so, so the balance makes sense.
+            const archivedNote = $('assessmentArchivedNote');
+            archivedNote.hidden = !detail.archived_count;
+            archivedNote.textContent = detail.archived_count
+                ? `${detail.archived_count} archived payment${detail.archived_count > 1 ? 's' : ''} (${peso(detail.archived_total)}) not counted.`
+                : '';
 
             renderCategories(detail.categories || []);
         });
