@@ -254,17 +254,17 @@
 
             <div class="formGroup">
                 <label for="coachAddFirstName">First name *</label>
-                <input class="form-control" id="coachAddFirstName" type="text" maxlength="255" placeholder="Juan">
+                <input class="form-control" id="coachAddFirstName" type="text" maxlength="50" placeholder="Juan" data-counter data-name>
             </div>
 
             <div class="formGroup">
                 <label for="coachAddMiddleName">Middle name</label>
-                <input class="form-control" id="coachAddMiddleName" type="text" maxlength="255" placeholder="Martin">
+                <input class="form-control" id="coachAddMiddleName" type="text" maxlength="50" placeholder="Martin" data-counter data-name>
             </div>
 
             <div class="formGroup">
                 <label for="coachAddLastName">Last name *</label>
-                <input class="form-control" id="coachAddLastName" type="text" maxlength="255" placeholder="Dela Cruz">
+                <input class="form-control" id="coachAddLastName" type="text" maxlength="50" placeholder="Dela Cruz" data-counter data-name>
             </div>
 
             <div class="formGroup">
@@ -343,18 +343,24 @@
 
             <div class="formGroup">
                 <label for="coachAddEmail">Email address *</label>
-                <input class="form-control" id="coachAddEmail" type="email" placeholder="juandelacruz@example.com" autocomplete="off">
+                <input class="form-control" id="coachAddEmail" type="email" placeholder="juandelacruz@example.com" maxlength="100" autocomplete="off" data-counter>
             </div>
 
             <div class="formGroup">
                 <label for="coachAddPhone">Mobile number *</label>
-                <input class="form-control" id="coachAddPhone" type="tel" placeholder="09XXXXXXXXX"
+                <input class="form-control" id="coachAddPhone" data-counter type="tel" placeholder="09XXXXXXXXX"
                        maxlength="11" inputmode="numeric" autocomplete="off">
             </div>
 
             <div class="formGroup">
+                <label for="coachAddAddress">Address *</label>
+                <textarea class="form-control" id="coachAddAddress" rows="2" maxlength="255"
+                          placeholder="House no., street, barangay, city, province" data-counter></textarea>
+            </div>
+
+            <div class="formGroup">
                 <label for="coachAddEmergencyName">Emergency contact name *</label>
-                <input class="form-control" id="coachAddEmergencyName" type="text" maxlength="255" placeholder="Marco Dela Cruz">
+                <input class="form-control" id="coachAddEmergencyName" type="text" maxlength="100" placeholder="Marco Dela Cruz" data-counter data-name>
             </div>
 
             <div class="formGroup">
@@ -388,7 +394,7 @@
 
             <div class="formGroup">
                 <label for="coachAddEmergencyPhone">Emergency contact number *</label>
-                <input class="form-control" id="coachAddEmergencyPhone" type="tel" placeholder="09XXXXXXXXX"
+                <input class="form-control" id="coachAddEmergencyPhone" data-counter type="tel" placeholder="09XXXXXXXXX"
                        maxlength="11" inputmode="numeric" autocomplete="off">
             </div>
 
@@ -533,7 +539,7 @@
     const FIELD_STEP = {
         first_name: 1, middle_name: 1, last_name: 1, name_suffix: 1,
         birthdate: 1, sex: 1, courses: 1, handles_athletes: 1,
-        email_address: 2, phone_number: 2, parent_guardian_fullname: 2,
+        email_address: 2, phone_number: 2, address: 2, parent_guardian_fullname: 2,
         parent_guardian_relationship: 2, parent_guardian_phone_number: 2,
         username: 3, password: 3
     };
@@ -570,6 +576,7 @@
 
         email: $('coachAddEmail'),
         phone: $('coachAddPhone'),
+        address: $('coachAddAddress'),
         emergencyName: $('coachAddEmergencyName'),
         emergencyRelationship: $('coachAddEmergencyRelationship'),
         emergencyPhone: $('coachAddEmergencyPhone'),
@@ -784,7 +791,7 @@
     ========================================================= */
 
     function resetAddForm() {
-        [el.firstName, el.middleName, el.lastName, el.birthdate, el.email, el.phone,
+        [el.firstName, el.middleName, el.lastName, el.birthdate, el.email, el.phone, el.address,
          el.emergencyName, el.emergencyPhone, el.username, el.password].forEach(i => { i.value = ''; });
 
         window.FBSSDropdown.set($('coachAddSuffixDropdown'), '');
@@ -801,10 +808,41 @@
         const limit = new Date();
         limit.setFullYear(limit.getFullYear() - MIN_COACH_AGE);
         el.birthdate.max = limit.toISOString().slice(0, 10);
+
+        refreshCounters();
     }
 
     function selectedSex() {
         return document.querySelector('input[name="coachAddSex"]:checked')?.value || '';
+    }
+
+    const NAME_PATTERN = /^\p{L}[\p{L} .'’-]*$/u;
+
+    function validateName(input, label, required) {
+        const value = input.value.trim();
+
+        if (value === '' && !required) {
+            return true;
+        }
+
+        if (required && value.length < 2) {
+            showToast(`${label} must be at least 2 characters.`, 'danger');
+            return false;
+        }
+
+        if (!NAME_PATTERN.test(value)) {
+            showToast(`${label} can only contain letters, spaces, periods, apostrophes, and hyphens.`, 'danger');
+            return false;
+        }
+
+        return true;
+    }
+
+    // Re-run each counter (used after the form is cleared from code).
+    function refreshCounters() {
+        document.querySelectorAll('[data-counter]').forEach(input => {
+            input.dispatchEvent(new Event('input'));
+        });
     }
 
     function validateStep1() {
@@ -812,6 +850,10 @@
             showToast('First name and last name are required.', 'danger');
             return false;
         }
+
+        if (!validateName(el.firstName, 'First name', true)) return false;
+        if (!validateName(el.middleName, 'Middle name', false)) return false;
+        if (!validateName(el.lastName, 'Last name', true)) return false;
 
         if (!el.birthdate.value) {
             showToast('Please enter the birthdate.', 'danger');
@@ -847,10 +889,17 @@
             return false;
         }
 
+        if (!el.address.value.trim()) {
+            showToast('Please enter the address.', 'danger');
+            return false;
+        }
+
         if (!el.emergencyName.value.trim()) {
             showToast('Please enter the emergency contact name.', 'danger');
             return false;
         }
+
+        if (!validateName(el.emergencyName, 'Emergency contact name', true)) return false;
 
         if (!el.emergencyRelationship.value) {
             showToast('Please select the emergency contact relationship.', 'danger');
@@ -980,6 +1029,7 @@
             handles_athletes: el.addHandlesAthletes.checked,
             email_address: el.email.value.trim(),
             phone_number: el.phone.value,
+            address: el.address.value.trim(),
             parent_guardian_fullname: el.emergencyName.value.trim(),
             parent_guardian_relationship: el.emergencyRelationship.value,
             parent_guardian_phone_number: el.emergencyPhone.value,
@@ -1124,6 +1174,46 @@
     /* =========================================================
        INIT
     ========================================================= */
+
+    /* =========================================================
+       CHARACTER COUNTERS + NAME FILTERS
+    ========================================================= */
+
+    document.querySelectorAll('[data-counter]').forEach(input => {
+        const limit = input.getAttribute('maxlength');
+
+        const wrap = make('div', { className: 'formHint d-flex justify-content-between' });
+        const msg = make('span', { className: 'text-danger' });
+        const count = make('span', { className: 'ms-auto' });
+        wrap.append(msg, count);
+        input.after(wrap);
+
+        const update = () => {
+            count.textContent = `${input.value.length} / ${limit}`;
+            count.classList.toggle('text-danger', input.value.length >= Number(limit));
+        };
+
+        input.addEventListener('input', () => {
+            // Names: no numbers or symbols, must start with a letter
+            if (input.hasAttribute('data-name')) {
+                const cleaned = input.value
+                    .replace(/[^\p{L} .'’-]/gu, '')
+                    .replace(/^[^\p{L}]+/u, '')
+                    .replace(/ {2,}/g, ' ');
+
+                if (cleaned !== input.value) {
+                    input.value = cleaned;
+                    msg.textContent = 'Only letters, spaces, periods, apostrophes, and hyphens are allowed.';
+                } else {
+                    msg.textContent = '';
+                }
+            }
+
+            update();
+        });
+
+        update();
+    });
 
     loadCoaches();
 

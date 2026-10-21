@@ -44,6 +44,10 @@ class CoachController extends Controller
 
     public const STATUSES = ['Active', 'Held', 'Inactive'];
 
+    // Same name rule as registration and profile: letters (including ñ, é, etc.),
+    // spaces, periods, apostrophes, and hyphens. Must start with a letter.
+    public const NAME_REGEX = '/^\p{L}[\p{L} .\'’-]*$/u';
+
     public static function userIsAdmin($user): bool
     {
         return $user && (int) ($user->{self::ROLE_COL} ?? 0) === self::ROLE_ADMIN;
@@ -120,8 +124,13 @@ class CoachController extends Controller
         }
 
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:' . self::NAME_REGEX],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:' . self::NAME_REGEX],
+        ], [
+            'first_name.regex' => 'First name can only contain letters, spaces, periods, apostrophes, and hyphens.',
+            'first_name.min' => 'First name must be at least 2 characters.',
+            'last_name.regex' => 'Last name can only contain letters, spaces, periods, apostrophes, and hyphens.',
+            'last_name.min' => 'Last name must be at least 2 characters.',
         ]);
 
         $username = $this->generateUsername($data['first_name'], $data['last_name']);
@@ -144,15 +153,15 @@ class CoachController extends Controller
     public function store(StoreCoachRequest $request): JsonResponse
     {
         $v = $request->validated();
+        $handlesAthletes = $request->boolean('handles_athletes') ? 1 : 0;
 
-        $userId = DB::transaction(function () use ($v) {
+        $userId = DB::transaction(function () use ($v, $handlesAthletes) {
             $userId = DB::table(self::USERS_TABLE)->insertGetId([
                 'username' => $v['username'],
                 'password' => Hash::make($v['password']),
                 'email_address' => $v['email_address'],
                 self::ROLE_COL => self::ROLE_COACH,
-                self::HANDLES_ATHLETES_COL => $request->boolean('handles_athletes') ? 1 : 0,
-                // status_id is left to the column default (1 = Active)
+                self::HANDLES_ATHLETES_COL => $handlesAthletes,
             ]);
 
             DB::table('tbl_user_profile')->insert([
@@ -161,12 +170,14 @@ class CoachController extends Controller
                 'middle_name' => $v['middle_name'] ?? null,
                 'last_name' => $v['last_name'],
                 'name_suffix' => ($v['name_suffix'] ?? '') !== '' ? $v['name_suffix'] : null,
-                'birthdate' => $v['birthdate'],
-                'sex' => $v['sex'],
-                'phone_number' => $v['phone_number'],
-                'parent_guardian_fullname' => $v['parent_guardian_fullname'],
-                'parent_guardian_relationship' => $v['parent_guardian_relationship'],
-                'parent_guardian_phone_number' => $v['parent_guardian_phone_number'],
+                'birthdate' => $v['birthdate'] ?? null,
+                'sex' => $v['sex'] ?? null,
+                'phone_number' => $v['phone_number'] ?? null,
+                'address' => $v['address'] ?? null,
+                'parent_guardian_fullname' => $v['parent_guardian_fullname'] ?? null,
+                'parent_guardian_relationship' => $v['parent_guardian_relationship'] ?? null,
+                'parent_guardian_phone_number' => $v['parent_guardian_phone_number'] ?? null,
+                'account_handler' => 'self',
             ]);
 
             DB::table(self::COACH_COURSES_TABLE)->insert(
