@@ -19,12 +19,20 @@ use Illuminate\Support\Facades\DB;
 trait HandlesAttendanceData
 {
     /* =========================================================
-     * Students: ACTIVE ENROLLMENTS (tbl_enrollments, not yet graduated)
-     * of Active users, with what was logged against each enrollment on
-     * the chosen date. One row per enrollment.
+     * Students: the enrollments (tbl_enrollments) that applied on the chosen
+     * date, with what was logged against each one that day. One row per
+     * enrollment. An enrollment is listed when:
      *
-     *  - Course is read live from the enrollment, so changing an
-     *    enrollment's course never requires touching the attendance logs.
+     *    - it was active that day: the student is Active, enrolled on or
+     *      before the date and not graduated before it (so today this is
+     *      exactly the current active enrollments); OR
+     *    - something was logged against it that day, even if the student has
+     *      since graduated from it or moved to a new course. Looking at a past
+     *      date therefore shows the attendance as it was, under the course the
+     *      student was in at the time.
+     *
+     *  - Course is read from each enrollment, so a student who moved to a new
+     *    course appears under the old course on old dates and the new one after.
      *  - "Sessions completed" = attended sessions (rows with a time_in)
      *    logged against the enrollment_id, out of the course's session count.
      *  - "Coach" is whoever logged the attendance (logged_by).
@@ -42,9 +50,22 @@ trait HandlesAttendanceData
             ->join("$users as u", "u.$pk", '=', 'e.user_id')
             ->join('tbl_user_profile as p', 'p.user_id', '=', 'e.user_id')
             ->join(CoachController::STATUS_TABLE . ' as st', 'st.' . CoachController::STATUS_ID_COL, '=', 'u.' . CoachController::STATUS_COL)
-            ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id')
-            ->whereNull('e.graduation_at')
-            ->where('st.' . CoachController::STATUS_NAME_COL, 'Active');
+            ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id');
+
+        $statusCol = 'st.' . CoachController::STATUS_NAME_COL;
+
+        // Enrollments that already have attendance logged on this date.
+        $loggedThatDay = Attendance::onDate($date)
+            ->whereNotNull('enrollment_id')
+            ->select('enrollment_id');
+
+        $query->where(function ($q) use ($date, $statusCol, $loggedThatDay) {
+            $q->where(function ($active) use ($date, $statusCol) {
+                $active->where($statusCol, 'Active')
+                    ->where(fn ($s) => $s->whereNull('e.enrollment_at')->orWhereDate('e.enrollment_at', '<=', $date))
+                    ->where(fn ($g) => $g->whereNull('e.graduation_at')->orWhereDate('e.graduation_at', '>', $date));
+            })->orWhereIn('e.enrollment_id', $loggedThatDay);
+        });
 
         if ($limitToCourseIds !== null) {
             $query->whereIn('e.course_id', $limitToCourseIds);
@@ -57,6 +78,8 @@ trait HandlesAttendanceData
         $enrollments = $query->orderBy('p.last_name')->orderBy('p.first_name')->get([
             'e.enrollment_id as id',
             'e.scheduled_time',
+            'e.graduation_at',
+            $statusCol . ' as user_status',
             'c.' . CoachController::COURSE_NAME_COL . ' as course_name',
             'c.course_session_count',
             'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix',
@@ -100,6 +123,9 @@ trait HandlesAttendanceData
                 'time_in' => $this->hhmm($log->time_in ?? null),
                 'time_out' => $this->hhmm($log->time_out ?? null),
                 'state' => $log->attendance_state ?? null,
+                // No longer an active enrollment (graduated / moved to a new course, or the
+                // student is not Active): shown for the record, view only for coaches.
+                'ended' => $e->graduation_at !== null || $e->user_status !== 'Active',
             ];
         })->values()->all();
     }

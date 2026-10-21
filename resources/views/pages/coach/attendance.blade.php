@@ -989,7 +989,8 @@
 
     function updateToolbarState() {
         const record = getSelectedRecord();
-        const open = canLog();
+        // A row from an enrollment that has ended (shown for the record) is view only.
+        const open = canLog() && !(record && record.ended);
 
         el.timeInButton.disabled = busy || !open || !record;
         el.timeOutButton.disabled = busy || !open || !record || !record.time_in;
