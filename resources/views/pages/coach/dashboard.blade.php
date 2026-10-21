@@ -103,10 +103,37 @@
 
 .coachDashRoster { display: grid; gap: .55rem; }
 
-.coachDashStudent { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.coachDashStudentMain { display: flex; align-items: center; gap: .5rem; min-width: 0; }
-.coachDashStudentName { color: #1f2937; font-size: .85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.coachDashStudentMeta { color: #667085; font-size: .75rem; white-space: nowrap; text-align: right; }
+.coachDashStudent {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    min-width: 0;
+}
+.coachDashStudentMain {
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.coachDashStudentMain .coachDashDot { margin-top: .35rem; }
+.coachDashStudentName {
+    color: #1f2937;
+    font-size: .85rem;
+    font-weight: 600;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+}
+.coachDashStudentMeta {
+    color: #667085;
+    font-size: .75rem;
+    white-space: normal;
+    text-align: right;
+    flex: 0 0 auto;
+    max-width: 48%;
+}
 
 .coachDashDot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #c4cad4; }
 .coachDashDot.isIn { background: var(--fbss-success, #1a7f3c); }
