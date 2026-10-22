@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Admin Registers page.
@@ -63,32 +64,13 @@ class RegistersController extends Controller
             ->orderByDesc('enrollment_at')
             ->get();
 
-        // enrollment id => true for enrollments that already have attendance
-        $withAttendance = $this->enrollmentIdsWithAttendance($enrollments->pluck('enrollment_id')->all());
+        // enrollment id => number of attendance rows logged for it
+        $attendanceCounts = $this->attendanceCountsByEnrollment($enrollments->pluck('enrollment_id')->all());
 
         return array_merge($this->lists(), [
-            'students' => $enrollments->map(function ($e) use ($graduatedCourseIds, $withAttendance) {
-                $totalPaid = $e->payments->sum('amount');
-                $balance = max($e->course_price_at_enrollment - $totalPaid, 0);
-
-                return [
-                    'id' => $e->enrollment_id,
-                    'lastName' => $e->user->profile->last_name ?? '',
-                    'firstName' => $e->user->profile->first_name ?? '',
-                    'middleName' => $e->user->profile->middle_name ?? '',
-                    'course' => $e->course->course_name ?? '',
-                    'schedule' => $e->scheduled_time ?? '',
-                    'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
-                    'notes' => $e->notes ?? '',
-                    'price' => $e->course_price_at_enrollment,
-                    'balance' => $balance,
-                    // courses this person can no longer take
-                    'graduatedCourseIds' => $graduatedCourseIds->get($e->user_id, []),
-                    'createdAt' => $e->enrollment_at ? Carbon::parse($e->enrollment_at)->toIso8601String() : null,
-                    // false when it has payments or attendance (cannot be cancelled)
-                    'canCancel' => $e->payments->isEmpty() && ! isset($withAttendance[$e->enrollment_id]),
-                ];
-            }),
+            'students' => $enrollments
+                ->map(fn ($e) => $this->studentRow($e, $graduatedCourseIds->get($e->user_id, []), $attendanceCounts))
+                ->values(),
             'courses' => $courses,
         ]);
     }
@@ -139,17 +121,17 @@ class RegistersController extends Controller
             return $enrollment;
         });
 
+        // Send the full row (same shape as data()) so the page can show the
+        // enrolled date/time, names, balance, etc. right away without a refresh.
+        $enrollment->load(['user.profile', 'course', 'payments']);
+
         return response()->json([
             'success' => true,
-            'student' => [
-                'id' => $enrollment->enrollment_id,
-                'course' => $course->course_name,
-                'schedule' => $enrollment->scheduled_time ?? '',
-                'paymentStatus' => 'Unpaid',
-                'notes' => $enrollment->notes ?? '',
-                'price' => $enrollment->course_price_at_enrollment,
-                'balance' => $enrollment->course_price_at_enrollment,
-            ],
+            'student' => $this->studentRow(
+                $enrollment,
+                $this->graduatedCourseIdsByUser((int) $validated['user_id'])->get((int) $validated['user_id'], []),
+                []
+            ),
         ]);
     }
 
@@ -224,7 +206,7 @@ class RegistersController extends Controller
             return response()->json(['success' => false, 'message' => 'This enrollment already has payment records, so it cannot be cancelled.'], 422);
         }
 
-        if ($this->enrollmentIdsWithAttendance([$enrollment->enrollment_id])) {
+        if (($this->attendanceCountsByEnrollment([$enrollment->enrollment_id])[$enrollment->enrollment_id] ?? 0) > 0) {
             return response()->json(['success' => false, 'message' => 'This enrollment already has attendance records, so it cannot be cancelled.'], 422);
         }
 
@@ -253,6 +235,54 @@ class RegistersController extends Controller
             'applicant' => $this->applicantRows($userId)->first(),
             'graduate' => $this->graduateRows($userId)->first(),
         ]);
+    }
+
+    /**
+     * DELETE /registers/applicants/{user}
+     * Called via fetch() from the Applicants tab's "Delete" button.
+     * PERMANENT (hard) delete of an applicant's account: the user row and the
+     * rows that only exist for that account. Nothing is soft-deleted. Only an
+     * applicant (role 5) with no enrollment can be deleted, and the action is
+     * written to tbl_system_log so there is still a record of who removed what.
+     */
+    public function destroyApplicant(User $user): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        if ((int) $user->role_id !== self::APPLICANT_ROLE_ID || $user->enrollments()->exists()) {
+            return response()->json(['success' => false, 'message' => 'Only applicants with no enrollment can be deleted.'], 422);
+        }
+
+        $userId = (int) $user->user_id;
+        $email = $user->email_address;
+        $label = $user->username . ' <' . $email . '>';
+
+        try {
+            DB::transaction(function () use ($userId, $email, $label) {
+                DB::table('tbl_emergency_contacts')->where('user_id', $userId)->delete();
+                DB::table('tbl_user_profile')->where('user_id', $userId)->delete();
+                DB::table('tbl_verification_codes')->where('email_address', $email)->delete();
+                DB::table('password_reset_tokens')->where('email', $email)->delete();
+                DB::table('sessions')->where('user_id', $userId)->delete();
+
+                // query builder on purpose: always a real DELETE, never a soft delete
+                DB::table('tbl_users')->where('user_id', $userId)->delete();
+
+                DB::table('tbl_system_log')->insert([
+                    'user_id' => Auth::id(),
+                    'role_id' => Auth::user()->role_id,
+                    'log_info' => 'Permanently deleted applicant account ' . $label,
+                    'log_timestamp' => now(),
+                ]);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // some other table still points at this user
+            return response()->json(['success' => false, 'message' => 'This account is linked to other records, so it cannot be deleted.'], 422);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     /* ---------------------------------------------------------
@@ -315,6 +345,10 @@ class RegistersController extends Controller
             $last = $mine->first();
             $profile = $user->profile;
 
+            // Enrollment that was graduated most recently
+            $enrolledAt = $last->enrollment_at ? Carbon::parse($last->enrollment_at) : null;
+            $graduatedAt = Carbon::parse($last->graduation_at);
+
             return array_merge([
                 'id' => $user->user_id,
                 'lastName' => $profile->last_name ?? '',
@@ -322,21 +356,86 @@ class RegistersController extends Controller
                 'middleName' => $profile->middle_name ?? '',
                 'email' => $user->email_address ?? '',
                 'lastCourse' => $last->course->course_name ?? '',
-                'graduatedAt' => Carbon::parse($last->graduation_at)->format('M-d-Y'),
-                'createdAt' => $last->enrollment_at ? Carbon::parse($last->enrollment_at)->toIso8601String() : null,
+                'enrolledAt' => $enrolledAt?->toIso8601String(),
+                'graduatedAt' => $graduatedAt->toIso8601String(),
+                // how long that last course took, e.g. "3 months"
+                'duration' => $enrolledAt ? $enrolledAt->diffForHumans($graduatedAt, true) : '',
+                'coursesFinished' => $mine->pluck('course_id')->unique()->count(),
                 'graduatedCourseIds' => $mine->pluck('course_id')->unique()->values()->all(),
                 'graduatedCourses' => $mine->map(fn ($e) => $e->course->course_name ?? '')->filter()->unique()->values()->all(),
             ], $this->birthFields($profile));
-        })->sortByDesc('createdAt')->values();
+        })->sortByDesc('graduatedAt')->values();
     }
 
     /** user id => ids of the courses that person already graduated from. */
-    private function graduatedCourseIdsByUser(): Collection
+    private function graduatedCourseIdsByUser(?int $onlyUserId = null): Collection
     {
         return Enrollment::whereNotNull('graduation_at')
+            ->when($onlyUserId, fn ($q) => $q->where('user_id', $onlyUserId))
             ->get(['user_id', 'course_id'])
             ->groupBy('user_id')
             ->map(fn ($rows) => $rows->pluck('course_id')->unique()->values()->all());
+    }
+
+    /**
+     * One Students-tab row. Used by data() AND enroll(), so a newly enrolled
+     * student has exactly the same fields as one loaded with the page.
+     * Needs the enrollment's user.profile, course and payments loaded.
+     */
+    private function studentRow(Enrollment $e, array $graduatedCourseIds, array $attendanceCounts): array
+    {
+        $totalPaid = $e->payments->sum('amount');
+        $balance = max($e->course_price_at_enrollment - $totalPaid, 0);
+
+        $paymentCount = $e->payments->count();
+        $attendanceCount = (int) ($attendanceCounts[$e->enrollment_id] ?? 0);
+
+        return [
+            'id' => $e->enrollment_id,
+            'lastName' => $e->user->profile->last_name ?? '',
+            'firstName' => $e->user->profile->first_name ?? '',
+            'middleName' => $e->user->profile->middle_name ?? '',
+            'course' => $e->course->course_name ?? '',
+            'schedule' => $e->scheduled_time ?? '',
+            'paymentStatus' => $balance <= 0 ? 'Paid' : ($totalPaid > 0 ? 'Partial' : 'Unpaid'),
+            'notes' => $e->notes ?? '',
+            'price' => $e->course_price_at_enrollment,
+            'balance' => $balance,
+            // courses this person can no longer take
+            'graduatedCourseIds' => $graduatedCourseIds,
+            // when the enrollment happened (date AND time)
+            'enrolledAt' => $e->enrollment_at ? Carbon::parse($e->enrollment_at)->toIso8601String() : null,
+            // sessions logged so far vs. the course's session count
+            'attendanceCount' => $attendanceCount,
+            'sessionTotal' => (int) ($e->course->course_session_count ?? 0),
+            // set once the person has been cleared for graduation
+            'clearedAt' => $e->cleared_for_graduation_at
+                ? Carbon::parse($e->cleared_for_graduation_at)->toIso8601String()
+                : null,
+            // Cancel button: enabled flag + the reason shown on the page when it is off
+            'canCancel' => $paymentCount === 0 && $attendanceCount === 0,
+            'cancelBlockReason' => $this->cancelBlockReason($paymentCount, $attendanceCount),
+        ];
+    }
+
+    /** Why an enrollment can't be cancelled, or null when it can. */
+    private function cancelBlockReason(int $paymentCount, int $attendanceCount): ?string
+    {
+        $parts = [];
+
+        if ($paymentCount > 0) {
+            $parts[] = $paymentCount . ' payment ' . Str::plural('record', $paymentCount);
+        }
+
+        if ($attendanceCount > 0) {
+            $parts[] = $attendanceCount . ' attendance ' . Str::plural('record', $attendanceCount);
+        }
+
+        if (! $parts) {
+            return null;
+        }
+
+        return 'Cannot cancel: this enrollment already has ' . implode(' and ', $parts) . '.';
     }
 
     private function birthFields(?UserProfile $profile): array
@@ -381,8 +480,8 @@ class RegistersController extends Controller
         return null;
     }
 
-    /** enrollment id => true, for the given enrollments that have any attendance row. */
-    private function enrollmentIdsWithAttendance(array $enrollmentIds): array
+    /** enrollment id => number of attendance rows, for the given enrollments (ids with none are left out). */
+    private function attendanceCountsByEnrollment(array $enrollmentIds): array
     {
         if (! $enrollmentIds) {
             return [];
@@ -390,9 +489,10 @@ class RegistersController extends Controller
 
         return DB::table(self::ATTENDANCE_TABLE)
             ->whereIn('enrollment_id', $enrollmentIds)
-            ->distinct()
-            ->pluck('enrollment_id')
-            ->mapWithKeys(fn ($id) => [(int) $id => true])
+            ->selectRaw('enrollment_id, COUNT(*) as total')
+            ->groupBy('enrollment_id')
+            ->pluck('total', 'enrollment_id')
+            ->mapWithKeys(fn ($total, $id) => [(int) $id => (int) $total])
             ->all();
     }
 

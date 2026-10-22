@@ -11,7 +11,10 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    overflow: hidden;
+    /* scrolls when tabs + toolbar + hint + table are taller than the screen (phones) */
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
 }
@@ -112,6 +115,7 @@
 
 .registersTableContainer.isCollapsing {
     flex: 0 0 0;
+    min-height: 0;
     max-height: 0;
     opacity: 0;
     overflow: hidden;
@@ -198,10 +202,26 @@
 }
 
 /* =========================================================
+   Action hint (explains why a toolbar button is disabled)
+========================================================= */
+
+.registersActionHint {
+    flex: 0 0 auto;
+    margin: -.25rem 0 1rem;
+    font-size: .875rem;
+    color: #6c757d;
+}
+
+.registersActionHint.isWarning {
+    color: #b26a00;
+}
+
+/* =========================================================
    Empty State
 ========================================================= */
 
 .registersEmptyState {
+    border-bottom: 0;
     padding: 2rem !important;
     color: #6c757d;
     text-align: center;
@@ -332,6 +352,30 @@
     line-height: 1.5;
 }
 
+/* Red warning box + type-to-confirm field, used for permanent deletes */
+.confirmModalWarning {
+    margin-top: 1rem;
+    padding: .75rem 1rem;
+    border: 1px solid #f1aeb5;
+    border-left: 4px solid #dc3545;
+    border-radius: 8px;
+    background: #fdebec;
+    color: #842029;
+    font-size: .875rem;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.confirmModalTypeGroup {
+    margin-top: 1rem;
+}
+
+.confirmModalTypeGroup label {
+    display: block;
+    margin-bottom: .35rem;
+    font-size: .85rem;
+}
+
 /* =========================================================
    Reusable Dropdown Component — lives in our_theme.css
    (.registerDropdown / .registerDropdownToggle /
@@ -372,6 +416,14 @@
    Responsive
 ========================================================= */
 
+/* On phones / short screens the toolbar can eat the whole height, so keep the
+   table from being squeezed to nothing (the page scrolls instead). */
+@media (max-width: 767.98px), (max-height: 700px) {
+    .registersTableContainer:not(.isCollapsing) {
+        min-height: 260px;
+    }
+}
+
 @media (max-width: 575.98px) {
     .registersContainer {
         height: 100vh;
@@ -410,7 +462,7 @@
 
     <header class="registersHeader">
         <div id="registersHeaderText">
-            <h2 class="mb-1" id="registersTitle">Registers</h2>
+            <h2 class="mb-1" id="registersTitle">Student Enrollments</h2>
             <p class="text-muted mb-0" id="registersDescription">
                 Manage new registrations, students, and graduates.
             </p>
@@ -520,6 +572,9 @@
         </div>
 
     </div>
+
+    <!-- Says why an action is off (nothing selected / cannot cancel) -->
+    <p class="registersActionHint" id="registersActionHint" role="status" aria-live="polite" hidden></p>
 
 
     <!-- =====================================================
@@ -661,6 +716,13 @@
 
         <p class="text-muted confirmModalMessage" id="confirmModalMessage"></p>
 
+        <div class="confirmModalWarning" id="confirmModalWarning" role="alert" hidden></div>
+
+        <div class="confirmModalTypeGroup" id="confirmModalTypeGroup" hidden>
+            <label for="confirmModalTypeInput" id="confirmModalTypeLabel"></label>
+            <input class="form-control" id="confirmModalTypeInput" type="text" autocomplete="off" spellcheck="false">
+        </div>
+
         <div class="modalActions">
             <button class="btn btn-outline-danger" id="confirmModalCancelButton" type="button">Cancel</button>
             <button class="btn btn-primary" id="confirmModalConfirmButton" type="button">Confirm</button>
@@ -702,6 +764,7 @@
     const tabConfigs = {
         registrations: {
             getRows: () => registrations,
+            dateKey: 'createdAt',            // used by the date filter and the sort
             columns: [
                 { label: 'Last Name', key: 'lastName' },
                 { label: 'First Name', key: 'firstName' },
@@ -714,6 +777,7 @@
         },
         students: {
             getRows: () => students,
+            dateKey: 'enrolledAt',
             columns: [
                 { label: 'Last Name', key: 'lastName' },
                 { label: 'First Name', key: 'firstName' },
@@ -721,22 +785,28 @@
                 { label: 'Current Course', key: 'course' },
                 { label: 'Schedule', key: 'schedule' },
                 { label: 'Payment Status', key: 'paymentStatus' },
+                { label: 'Balance', key: 'balance' },
+                { label: 'Sessions', key: 'sessions' },
+                { label: 'Graduation', key: 'graduation' },
                 { label: 'Notes', key: 'notes' },
-                { label: 'Date Added', key: 'createdAt' }
+                { label: 'Enrolled On', key: 'enrolledAt' }
             ]
         },
         graduates: {
             getRows: () => graduates,
+            dateKey: 'graduatedAt',
             columns: [
                 { label: 'Last Name', key: 'lastName' },
                 { label: 'First Name', key: 'firstName' },
                 { label: 'Middle Name', key: 'middleName' },
                 { label: 'Email Address', key: 'email' },
                 { label: 'Last Course', key: 'lastCourse' },
+                { label: 'Courses Finished', key: 'coursesFinished' },
+                { label: 'Enrolled On', key: 'enrolledAt' },
                 { label: 'Graduated On', key: 'graduatedAt' },
+                { label: 'Took', key: 'duration' },
                 { label: 'Birthdate', key: 'birthdate' },
-                { label: 'Age', key: 'age' },
-                { label: 'Date Added', key: 'createdAt' }
+                { label: 'Age', key: 'age' }
             ]
         }
     };
@@ -779,6 +849,7 @@
         deleteApplicantButton: document.getElementById('deleteApplicantButton'),
         courseUpdateButton: document.getElementById('courseUpdateButton'),
         cancelEnrollmentButton: document.getElementById('cancelEnrollmentButton'),
+        actionHint: document.getElementById('registersActionHint'),
 
         notesModal: document.getElementById('notesModal'),
         notesModalStudentName: document.getElementById('notesModalStudentName'),
@@ -790,6 +861,10 @@
         confirmModalMessage: document.getElementById('confirmModalMessage'),
         confirmModalCancelButton: document.getElementById('confirmModalCancelButton'),
         confirmModalConfirmButton: document.getElementById('confirmModalConfirmButton'),
+        confirmModalWarning: document.getElementById('confirmModalWarning'),
+        confirmModalTypeGroup: document.getElementById('confirmModalTypeGroup'),
+        confirmModalTypeLabel: document.getElementById('confirmModalTypeLabel'),
+        confirmModalTypeInput: document.getElementById('confirmModalTypeInput'),
 
     };
 
@@ -801,6 +876,7 @@
     let selectedId = null;          // currently selected row on the active tab
     let modalContext = null;        // { mode: 'enroll' | 'course-update', ... }
     let pendingConfirmAction = null; // callback fired by the confirm modal's Confirm/OK button
+    let confirmRequiredText = '';    // word that must be typed before Confirm turns on (permanent deletes)
 
     /* =========================================================
        SMALL HELPERS
@@ -951,29 +1027,57 @@
        "Successfully ___" messages that used to be window.alert().
     ========================================================= */
 
-    function openConfirmModal({ title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm }) {
+    function openConfirmModal({
+        title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm,
+        danger = false,      // red Confirm button, neutral Cancel
+        warning = '',        // red warning box under the message
+        requireText = ''     // Confirm stays off until this exact text is typed
+    }) {
         elements.confirmModalTitle.textContent = title;
         elements.confirmModalMessage.textContent = message;
         elements.confirmModalConfirmButton.textContent = confirmLabel;
         elements.confirmModalCancelButton.textContent = cancelLabel;
         elements.confirmModalCancelButton.hidden = false;
-        elements.confirmModalConfirmButton.className = 'btn btn-primary';
+        elements.confirmModalConfirmButton.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        elements.confirmModalCancelButton.className = danger ? 'btn btn-outline-secondary' : 'btn btn-outline-danger';
+
+        elements.confirmModalWarning.textContent = warning;
+        elements.confirmModalWarning.hidden = !warning;
+
+        confirmRequiredText = requireText;
+        elements.confirmModalTypeInput.value = '';
+        elements.confirmModalTypeGroup.hidden = !requireText;
+        elements.confirmModalTypeLabel.textContent = requireText ? `Type ${requireText} to confirm` : '';
+        elements.confirmModalConfirmButton.disabled = !!requireText;
 
         pendingConfirmAction = typeof onConfirm === 'function' ? onConfirm : null;
 
         openModal(elements.confirmModal);
+
+        if (requireText) elements.confirmModalTypeInput.focus();
     }
 
     function openInfoModal({ title, message, okLabel = 'OK' }) {
         elements.confirmModalTitle.textContent = title;
         elements.confirmModalMessage.textContent = message;
         elements.confirmModalConfirmButton.textContent = okLabel;
+        elements.confirmModalConfirmButton.className = 'btn btn-primary';
+        elements.confirmModalConfirmButton.disabled = false;
         elements.confirmModalCancelButton.hidden = true;
+        elements.confirmModalWarning.hidden = true;
+        elements.confirmModalTypeGroup.hidden = true;
+        confirmRequiredText = '';
 
         pendingConfirmAction = null;
 
         openModal(elements.confirmModal);
     }
+
+    // Permanent deletes: Confirm only turns on when the exact word is typed.
+    elements.confirmModalTypeInput.addEventListener('input', () => {
+        elements.confirmModalConfirmButton.disabled =
+            elements.confirmModalTypeInput.value.trim() !== confirmRequiredText;
+    });
 
     function closeConfirmModal() {
         pendingConfirmAction = null;
@@ -995,14 +1099,40 @@
        RENDER CELL
     ========================================================= */
 
+    // Keys that hold a date. Date-and-time for enrollments, date only for the rest.
+    const DATE_TIME_KEYS = ['enrolledAt'];
+    const DATE_KEYS = ['createdAt', 'graduatedAt'];
+
+    // What a cell shows as plain text (also what the search box matches against).
+    function getCellText(key, person) {
+        const value = person[key] ?? '';
+
+        if (DATE_TIME_KEYS.includes(key)) return formatDateTime(value);
+        if (DATE_KEYS.includes(key)) return formatAddedDate(value);
+        if (key === 'balance') return value === '' ? '' : formatCurrency(value);
+        if (key === 'sessions') return person.sessionTotal ? `${person.attendanceCount} / ${person.sessionTotal}` : String(person.attendanceCount ?? 0);
+        if (key === 'graduation') return person.clearedAt ? 'Cleared' : '';
+
+        return String(value);
+    }
+
     function renderCell(key, person) {
         const value = person[key] ?? '';
 
         if (key === 'paymentStatus') return renderPaymentStatus(value);
         if (key === 'notes') return renderNotesCell(person, value);
-        if (key === 'createdAt') return document.createTextNode(formatAddedDate(value));
 
-        return document.createTextNode(value);
+        if (key === 'graduation') {
+            if (!person.clearedAt) return createElement('span', { className: 'notesEmpty', text: '—' });
+
+            return createElement('span', {
+                className: 'paymentBadge paid',
+                text: 'Cleared',
+                attributes: { title: `Cleared for graduation on ${formatAddedDate(person.clearedAt)}` }
+            });
+        }
+
+        return document.createTextNode(getCellText(key, person));
     }
 
     /* =========================================================
@@ -1014,6 +1144,15 @@
     function formatAddedDate(value) {
         if (!value) return '';
         return new Date(value).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
+    // e.g. "Oct 22, 2026, 3:45 PM"
+    function formatDateTime(value) {
+        if (!value) return '';
+        return new Date(value).toLocaleString('en-US', {
+            month: 'short', day: '2-digit', year: 'numeric',
+            hour: 'numeric', minute: '2-digit'
+        });
     }
 
     // Start of the chosen "Added" range, or null for any time.
@@ -1058,8 +1197,45 @@
         const canCancel = hasSelection && person.canCancel !== false;
         elements.cancelEnrollmentButton.disabled = !canCancel;
         elements.cancelEnrollmentButton.title = hasSelection && !canCancel
-            ? 'This enrollment has payment or attendance records, so it cannot be cancelled.'
+            ? (person.cancelBlockReason || 'This enrollment has payment or attendance records, so it cannot be cancelled.')
             : 'Cancel this enrollment';
+
+        updateActionHint(person);
+    }
+
+    // The line under the toolbar. Always visible: says what to do when nothing is
+    // selected, what the selected row can do, or why an action is unavailable.
+    function updateActionHint(person) {
+        let text = '';
+        let warning = false;
+
+        if (!person) {
+            text = activeTab === 'registrations'
+                ? 'Select an applicant to enroll them or permanently delete their account.'
+                : activeTab === 'students'
+                    ? 'Select a student to update their course or cancel their enrollment.'
+                    : 'Select a graduate to enroll them in another course.';
+        } else {
+            const name = getPersonName(person);
+
+            if (activeTab === 'students') {
+                text = person.canCancel === false
+                    ? `${name}: course can be updated, but the enrollment can't be cancelled. ${(person.cancelBlockReason || 'It has payment or attendance records.').replace(/^Cannot cancel:\s*/, 'Reason: ')}`
+                    : `${name}: course can be updated, and the enrollment can still be cancelled (no payments or attendance yet).`;
+                warning = person.canCancel === false;
+            } else if (availableCoursesFor(person).length === 0) {
+                text = `${name} has already graduated from every available course, so they can't be enrolled again.`;
+                warning = true;
+            } else if (activeTab === 'registrations') {
+                text = `${name}: can be enrolled in a course, or permanently deleted.`;
+            } else {
+                text = `${name}: can be enrolled in another course (courses already graduated from are hidden).`;
+            }
+        }
+
+        elements.actionHint.textContent = text;
+        elements.actionHint.hidden = false;
+        elements.actionHint.classList.toggle('isWarning', warning);
     }
 
     /* =========================================================
@@ -1075,9 +1251,10 @@
         const paymentFilter = elements.paymentFilterInput.value.trim().toLowerCase();
         const addedCutoff = getAddedCutoff(elements.addedFilterInput.value);
         const direction = elements.sortFilterInput.value === 'asc' ? 1 : -1;
+        const dateKey = config.dateKey || 'createdAt';   // enrolled / graduated / registered date
 
         const rows = config.getRows().filter(person => {
-            const haystack = config.columns.map(col => person[col.key] ?? '').join(' ').toLowerCase();
+            const haystack = config.columns.map(col => getCellText(col.key, person)).join(' ').toLowerCase();
             if (!haystack.includes(searchTerm)) return false;
 
             if (courseFilter) {
@@ -1094,12 +1271,12 @@
                 return false;
             }
 
-            if (addedCutoff && !(person.createdAt && new Date(person.createdAt) >= addedCutoff)) {
+            if (addedCutoff && !(person[dateKey] && new Date(person[dateKey]) >= addedCutoff)) {
                 return false;
             }
 
             return true;
-        }).sort((a, b) => direction * (new Date(a.createdAt || 0) - new Date(b.createdAt || 0)));
+        }).sort((a, b) => direction * (new Date(a[dateKey] || 0) - new Date(b[dateKey] || 0)));
 
         // A selected row that got filtered out or removed is no longer selected.
         if (selectedId !== null && !rows.some(p => p.id === selectedId)) {
@@ -1346,17 +1523,46 @@
         if (!person || activeTab !== 'registrations') return;
 
         openConfirmModal({
-            title: 'Remove registrant?',
-            message: `Remove ${getPersonName(person)} from New Registers?`,
-            confirmLabel: 'Remove',
-            onConfirm: () => {
+            title: 'Permanently delete this account?',
+            message: `You are about to delete the applicant account of ${getPersonName(person)} (${person.email}).`,
+            warning:
+                'THIS CANNOT BE UNDONE.\n' +
+                'The account, profile and verification codes are erased for good. It is NOT archived or soft-deleted, and it cannot be restored.\n' +
+                'They will have to register again from scratch to come back.',
+            confirmLabel: 'Delete permanently',
+            cancelLabel: 'Keep account',
+            danger: true,
+            requireText: 'DELETE',
+            onConfirm: () => submitDeleteApplicant(person)
+        });
+    });
+
+    async function submitDeleteApplicant(person) {
+        try {
+            const response = await fetch(`{{ url('/registers/applicants') }}/${person.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
                 registrations = registrations.filter(p => p.id !== person.id);
                 selectedId = null;
                 updateToolbarState();
                 renderTable(activeTab);
+                showToast(`Permanently deleted the account of ${getPersonName(person)}.`, 'success');
+            } else {
+                showToast(data.message || 'Something went wrong while deleting the account.', 'danger');
             }
-        });
-    });
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while deleting the account.', 'danger');
+        }
+    }
 
     elements.cancelEnrollmentButton.addEventListener('click', () => {
         const student = getSelectedPerson();
@@ -1448,19 +1654,9 @@
                     registrations = registrations.filter(p => p.id !== person.id);
                 }
 
-                students.push({
-                    id: data.student.id,
-                    lastName: person.lastName,
-                    firstName: person.firstName,
-                    middleName: person.middleName,
-                    course: data.student.course,
-                    schedule: data.student.schedule,
-                    paymentStatus: data.student.paymentStatus,
-                    notes: data.student.notes,
-                    balance: data.student.balance,
-                    price: data.student.price,
-                    graduatedCourseIds: person.graduatedCourseIds || []
-                });
+                // The server sends the complete row (names, enrolled date/time, balance...),
+                // so the new student shows correctly right away.
+                students.push(data.student);
 
                 modalContext = null;
                 closeModal(elements.studentModal);

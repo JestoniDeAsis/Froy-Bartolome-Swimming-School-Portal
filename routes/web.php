@@ -172,6 +172,7 @@ Route::put('/registers/students/{enrollment}', [RegistersController::class, 'upd
 Route::post('/registers/athletes', [RegistersController::class, 'addAthletes'])->middleware('auth');
 Route::post('/registers/athletes/{user}/revoke', [RegistersController::class, 'revokeAthlete'])->middleware('auth')->whereNumber('user');
 Route::delete('/registers/students/{enrollment}', [RegistersController::class, 'destroy']);
+Route::delete('/registers/applicants/{user}', [RegistersController::class, 'destroyApplicant']);
 
 
 
