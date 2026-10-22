@@ -23,6 +23,48 @@
     margin-bottom: 1rem;
 }
 
+/* Tabs */
+.attendanceTabsContainer {
+    flex: 0 0 auto;
+    display: flex;
+    gap: .5rem;
+    margin-bottom: .75rem;
+}
+
+.attendanceTab { min-width: 150px; }
+
+/* Each tab's content. display:flex would override [hidden], so it is restated. */
+.attendancePanel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.attendancePanel[hidden] { display: none; }
+
+/* My Attendance tab */
+.attendanceMonthInput { height: 40px; min-width: 190px; }
+
+.attendanceStats {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: .5rem;
+}
+
+.attendanceStat {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 150px;
+    padding: .6rem .9rem;
+    background: #fff;
+    border: 1px solid #e7ebef;
+    border-radius: 10px;
+}
+
+.attendanceStat strong { font-size: 1.15rem; color: #101828; }
+
 /* Toolbar */
 .attendanceToolbar {
     display: flex;
@@ -338,10 +380,24 @@
     <header class="attendanceHeader">
         <h2 class="mb-1" id="attendanceTitle">Attendance</h2>
         <p class="text-muted mb-0" id="attendanceDescription"></p>
-        <p class="text-muted small mb-0" id="attendanceHint">
-            Time In first (My Time In, below), then select a student to record their Time In or Time Out.
-        </p>
     </header>
+
+    <!-- TABS -->
+    <nav class="attendanceTabsContainer" id="attendanceTabs" aria-label="Attendance sections">
+        <button class="btn btn-primary attendanceTab active" type="button" data-attendance-tab="log" aria-selected="true">
+            Log Attendance
+        </button>
+        <button class="btn btn-outline-primary attendanceTab" type="button" data-attendance-tab="mine" aria-selected="false">
+            My Attendance
+        </button>
+    </nav>
+
+    <!-- TAB 1: Log Attendance (students and athletes) -->
+    <div class="attendancePanel" id="loggingPanel">
+
+    <p class="text-muted small mb-2" id="attendanceHint">
+        Time In first (My Time In, below), then select a student to record their Time In or Time Out.
+    </p>
 
     <!-- The coach's own Time In / Time Out. The server records its own current time; nothing can be typed in. -->
     <div class="attendanceSessionBanner isWait" id="sessionBanner">
@@ -447,6 +503,48 @@
             <tbody id="attendanceTableBody"></tbody>
         </table>
     </div>
+
+    </div><!-- /loggingPanel -->
+
+    <!-- TAB 2: My Attendance (the coach's own, view only) -->
+    <div class="attendancePanel" id="myPanel" hidden>
+
+        <p class="text-muted small mb-2">
+            Your own Time In and Time Out. You time in and out from the Log Attendance tab; only the admin can edit these.
+        </p>
+
+        <div class="attendanceToolbar">
+            <div class="attendanceFilterGroup">
+                <label class="attendanceFilterLabel" for="myMonthInput">Month</label>
+                <input class="form-control attendanceMonthInput" id="myMonthInput" type="month" aria-label="Attendance month">
+            </div>
+        </div>
+
+        <div class="attendanceStats">
+            <div class="attendanceStat">
+                <span class="attendanceFilterLabel">Days Present</span>
+                <strong id="myStatDays">--</strong>
+            </div>
+            <div class="attendanceStat">
+                <span class="attendanceFilterLabel">Hours Worked</span>
+                <strong id="myStatHours">--</strong>
+            </div>
+            <div class="attendanceStat">
+                <span class="attendanceFilterLabel">Missing Time Out</span>
+                <strong id="myStatMissing">--</strong>
+            </div>
+        </div>
+
+        <div class="attendanceLastUpdated" id="myUpdated" aria-hidden="true"></div>
+
+        <div class="attendanceTableContainer">
+            <table class="table attendanceTable" id="myTable">
+                <thead id="myTableHead"></thead>
+                <tbody id="myTableBody"></tbody>
+            </table>
+        </div>
+
+    </div><!-- /myPanel -->
 
 </section>
 
@@ -570,7 +668,8 @@
         selfTimeIn: '/coach/attendance/self/time-in',
         selfTimeOut: '/coach/attendance/self/time-out',
         selfCancelIn: '/coach/attendance/self/cancel-time-in',
-        selfCancelOut: '/coach/attendance/self/cancel-time-out'
+        selfCancelOut: '/coach/attendance/self/cancel-time-out',
+        myLogs: '/coach/attendance/my-logs'
     };
 
     // "key" matches the field names the server returns.
@@ -601,6 +700,17 @@
 
     const el = {
         description: $('attendanceDescription'),
+
+        tabs: $('attendanceTabs'),
+        loggingPanel: $('loggingPanel'),
+        myPanel: $('myPanel'),
+        myMonth: $('myMonthInput'),
+        myStatDays: $('myStatDays'),
+        myStatHours: $('myStatHours'),
+        myStatMissing: $('myStatMissing'),
+        myUpdated: $('myUpdated'),
+        myTableHead: $('myTableHead'),
+        myTableBody: $('myTableBody'),
 
         banner: $('sessionBanner'),
         bannerIcon: $('sessionBannerIcon'),
@@ -676,6 +786,11 @@
     let logsAnchorRecord = null; // the row it was opened from (an athlete has no enrollment)
     let logsSeq = 0;            // ignores out-of-order log responses
     let logFilterBuilt = false;
+
+    let activeTab = 'log';     // 'log' = Log Attendance, 'mine' = My Attendance
+    let myData = { logs: [], summary: null };
+    let myLoading = false;
+    let mySeq = 0;             // ignores out-of-order responses
 
     /* =========================================================
        HELPERS
@@ -1099,7 +1214,11 @@
 
         refreshing = true;
         try {
-            await loadRows({ keepSelection: true, silent: true });
+            if (activeTab === 'mine') {
+                await loadMyLogs({ silent: true });
+            } else {
+                await loadRows({ keepSelection: true, silent: true });
+            }
         } finally {
             refreshing = false;
         }
@@ -1529,11 +1648,159 @@
     el.logFilter.addEventListener('dropdown:change', loadStudentLogs);
 
     /* =========================================================
+       MY ATTENDANCE TAB (the coach's own, view only)
+    ========================================================= */
+
+    function monthLabel(value) {
+        const [y, m] = value.split('-').map(Number);
+        return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function renderMyLogs() {
+        const headers = ['Date', 'Time In', 'Time Out', 'Hours Worked', 'Status', 'Recorded By'];
+        const logs = myData.logs;
+        const summary = myData.summary;
+
+        el.myTableHead.replaceChildren();
+        el.myTableBody.replaceChildren();
+
+        const headerRow = make('tr');
+        headers.forEach(h => headerRow.append(make('th', { text: h, attributes: { scope: 'col' } })));
+        el.myTableHead.append(headerRow);
+
+        el.myStatDays.textContent = summary ? String(summary.days) : '--';
+        el.myStatHours.textContent = summary ? summary.hours_label : '--';
+        el.myStatMissing.textContent = summary ? String(summary.incomplete) : '--';
+
+        if (myLoading || !logs.length) {
+            const emptyRow = make('tr');
+            emptyRow.append(make('td', {
+                className: 'attendanceEmptyState',
+                text: myLoading ? 'Loading...' : `No attendance recorded for ${monthLabel(el.myMonth.value)}.`,
+                attributes: { colSpan: headers.length }
+            }));
+            el.myTableBody.append(emptyRow);
+            return;
+        }
+
+        logs.forEach(log => {
+            const row = make('tr', { className: 'attendanceRow' });
+
+            const dateCell = make('td');
+            const wrapper = make('span', { className: 'attendanceNameCell' });
+            wrapper.append(
+                make('span', { className: `attendanceStatusDot ${log.time_in ? 'present' : 'absent'}` }),
+                document.createTextNode(formatShortDate(parseISODate(log.date)))
+            );
+            dateCell.append(wrapper);
+            row.append(dateCell);
+
+            [
+                logCell(formatTimeLabel(log.time_in), '-'),
+                logCell(formatTimeLabel(log.time_out), '-'),
+                logCell(log.worked, '-'),
+                logCell(stateLabel(log.state)),
+                logCell(log.logged_by)
+            ].forEach(content => {
+                const cell = make('td');
+                cell.append(content);
+                row.append(cell);
+            });
+
+            el.myTableBody.append(row);
+        });
+    }
+
+    async function loadMyLogs({ silent = false } = {}) {
+        const seq = ++mySeq;
+
+        if (!el.myMonth.value) el.myMonth.value = el.myMonth.max;
+
+        if (!silent) {
+            myLoading = true;
+            renderMyLogs();
+        }
+
+        try {
+            const result = await api(`${URLS.myLogs}?${new URLSearchParams({ month: el.myMonth.value })}`);
+            if (seq !== mySeq) return;   // a newer request replaced this one
+
+            myLoading = false;
+
+            if (!result.ok) {
+                if (!silent) {
+                    myData = { logs: [], summary: null };
+                    toastServerErrors(result, 'Unable to load your attendance.');
+                }
+            } else {
+                myData = { logs: result.data.logs || [], summary: result.data.summary || null };
+                el.myUpdated.textContent = `Auto-refreshes every ${REFRESH_MS / 1000}s. Updated ${new Date().toLocaleTimeString('en-US')}`;
+            }
+        } catch (error) {
+            if (seq !== mySeq) return;
+            console.error(error);
+            myLoading = false;
+            if (!silent) {
+                myData = { logs: [], summary: null };
+                showToast('Something went wrong while loading your attendance.', 'danger');
+            }
+        }
+
+        renderMyLogs();
+    }
+
+    function setTab(tab) {
+        if (tab === activeTab) return;
+
+        activeTab = tab;
+        const isMine = tab === 'mine';
+
+        el.loggingPanel.hidden = isMine;
+        el.myPanel.hidden = !isMine;
+
+        el.tabs.querySelectorAll('[data-attendance-tab]').forEach(button => {
+            const on = button.dataset.attendanceTab === tab;
+            button.classList.toggle('active', on);
+            button.classList.toggle('btn-primary', on);
+            button.classList.toggle('btn-outline-primary', !on);
+            button.setAttribute('aria-selected', String(on));
+        });
+
+        window.FBSSDropdown.close();
+
+        if (isMine) {
+            loadMyLogs();
+        } else {
+            // Show the current session / rows again after being away.
+            loadRows({ keepSelection: true, silent: true });
+        }
+    }
+
+    function initMyAttendance() {
+        const thisMonth = toLocalISODate(new Date()).slice(0, 7);
+        el.myMonth.max = thisMonth;        // no future months
+        el.myMonth.value = thisMonth;
+
+        el.myMonth.addEventListener('change', () => {
+            if (!el.myMonth.value || el.myMonth.value > el.myMonth.max) {
+                el.myMonth.value = el.myMonth.max;
+            }
+            loadMyLogs();
+        });
+
+        el.tabs.addEventListener('click', event => {
+            const button = event.target.closest('[data-attendance-tab]');
+            if (button) setTab(button.dataset.attendanceTab);
+        });
+    }
+
+    /* =========================================================
        INIT
     ========================================================= */
 
     renderCurrentDateLine();
     initDatePicker();
+    initMyAttendance();
     renderBanner();
     updateToolbarState();
     loadRows();

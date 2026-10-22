@@ -437,6 +437,106 @@ class CoachAttendanceController extends Controller
     }
 
     /* =========================================================
+     * GET /coach/attendance/my-logs?month=YYYY-MM
+     * The coach's OWN attendance (view only) for one month, newest first,
+     * with the month's totals. Defaults to the current month.
+     * ========================================================= */
+    public function myLogs(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessCoach($request)) {
+            return $denied;
+        }
+
+        $v = $request->validate([
+            'month' => ['nullable', 'date_format:Y-m'],
+        ]);
+
+        $coachId = (int) Auth::id();
+        $month = $v['month'] ?? Carbon::now()->format('Y-m');
+        $start = Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfMonth();
+
+        $logs = Attendance::ofRole(CoachController::ROLE_COACH)
+            ->forUser($coachId)
+            ->whereBetween('attendance_at', [
+                $start->toDateTimeString(),
+                $start->copy()->endOfMonth()->toDateTimeString(),
+            ])
+            ->orderByDesc('attendance_at')
+            ->orderByDesc('time_in')
+            ->get(['attendance_at', 'time_in', 'time_out', 'attendance_state', 'logged_by']);
+
+        $loggers = $this->loggerNames($logs->pluck('logged_by'));
+
+        return response()->json([
+            'success' => true,
+            'logs' => $logs->map(fn ($log) => [
+                'date' => Carbon::parse($log->attendance_at)->toDateString(),
+                'time_in' => $this->hhmm($log->time_in),
+                'time_out' => $this->hhmm($log->time_out),
+                'state' => $log->attendance_state ?: ($log->time_in ? Attendance::STATE_PRESENT : 'Absent'),
+                // Time Out minus Time In, when both exist.
+                'worked' => $log->time_in && $log->time_out
+                    ? $this->myHoursLabel($this->myMinutesBetween($log->time_in, $log->time_out))
+                    : null,
+                // The coach timing themselves in is "You"; otherwise the admin's name.
+                'logged_by' => (int) $log->logged_by === $coachId
+                    ? 'You'
+                    : ($loggers->get((int) $log->logged_by) ?? '--'),
+            ])->values(),
+            'summary' => $this->myMonthTotals($logs),
+        ]);
+    }
+
+    /** Days present, worked time and days missing a Time Out for a set of the coach's own logs. */
+    private function myMonthTotals($logs): array
+    {
+        $days = [];
+        $minutes = 0;
+        $incomplete = 0;
+
+        foreach ($logs as $log) {
+            if (!$log->time_in) {
+                continue;
+            }
+
+            $days[Carbon::parse($log->attendance_at)->toDateString()] = true;
+
+            if ($log->time_out) {
+                $minutes += $this->myMinutesBetween($log->time_in, $log->time_out);
+            } else {
+                $incomplete++;
+            }
+        }
+
+        return [
+            'days' => count($days),
+            'hours_label' => $this->myHoursLabel($minutes),
+            'incomplete' => $incomplete,
+        ];
+    }
+
+    private function myMinutesBetween($timeIn, $timeOut): int
+    {
+        $in = $this->hhmm($timeIn);
+        $out = $this->hhmm($timeOut);
+
+        if (!$in || !$out) {
+            return 0;
+        }
+
+        [$ih, $im] = array_map('intval', explode(':', $in));
+        [$oh, $om] = array_map('intval', explode(':', $out));
+
+        return max(0, ($oh * 60 + $om) - ($ih * 60 + $im));
+    }
+
+    /** 135 -> "2 h 15 m" */
+    private function myHoursLabel(int $minutes): string
+    {
+        return intdiv($minutes, 60) . ' h ' . str_pad((string) ($minutes % 60), 2, '0', STR_PAD_LEFT) . ' m';
+    }
+
+    /* =========================================================
      * GET /coach/attendance/data?date=YYYY-MM-DD&course_id=
      * Students in the coach's classes + the coach's own session state.
      * ========================================================= */

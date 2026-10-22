@@ -106,17 +106,22 @@ Route::post('/admin/attendance/records', [AdminAttendanceController::class, 'rec
 
 use App\Http\Controllers\CoachAttendanceController;
 
-Route::get('/coach/attendance/data', [CoachAttendanceController::class, 'data'])->middleware('auth');
-Route::get('/coach/attendance/student-logs', [CoachAttendanceController::class, 'studentLogs'])->middleware('auth');
-Route::post('/coach/attendance/students/time-in', [CoachAttendanceController::class, 'studentTimeIn'])->middleware('auth');
-Route::post('/coach/attendance/students/time-out', [CoachAttendanceController::class, 'studentTimeOut'])->middleware('auth');
-Route::post('/coach/attendance/students/expecting', [CoachAttendanceController::class, 'studentExpecting']);
-Route::post('/coach/attendance/students/time-in-late', [CoachAttendanceController::class, 'studentTimeInLate']);
-Route::post('/coach/attendance/students/absent',[CoachAttendanceController::class, 'studentAbsent'])->middleware('auth');
-Route::post('/coach/attendance/self/time-in', [CoachAttendanceController::class, 'selfTimeIn']);
-Route::post('/coach/attendance/self/time-out', [CoachAttendanceController::class, 'selfTimeOut']);
-Route::post('/coach/attendance/self/cancel-time-in', [CoachAttendanceController::class, 'selfCancelTimeIn']);
-Route::post('/coach/attendance/self/cancel-time-out', [CoachAttendanceController::class, 'selfCancelTimeOut']);
+Route::middleware('auth')->prefix('coach/attendance')->group(function () {
+    Route::get('/data', [CoachAttendanceController::class, 'data']);
+    Route::get('/student-logs', [CoachAttendanceController::class, 'studentLogs']);
+    Route::get('/my-logs', [CoachAttendanceController::class, 'myLogs']);
+
+    Route::post('/students/time-in', [CoachAttendanceController::class, 'studentTimeIn']);
+    Route::post('/students/time-out', [CoachAttendanceController::class, 'studentTimeOut']);
+    Route::post('/students/expecting', [CoachAttendanceController::class, 'studentExpecting']);
+    Route::post('/students/time-in-late', [CoachAttendanceController::class, 'studentTimeInLate']);
+    Route::post('/students/absent', [CoachAttendanceController::class, 'studentAbsent']);
+
+    Route::post('/self/time-in', [CoachAttendanceController::class, 'selfTimeIn']);
+    Route::post('/self/time-out', [CoachAttendanceController::class, 'selfTimeOut']);
+    Route::post('/self/cancel-time-in', [CoachAttendanceController::class, 'selfCancelTimeIn']);
+    Route::post('/self/cancel-time-out', [CoachAttendanceController::class, 'selfCancelTimeOut']);
+});
 
 use App\Http\Controllers\AdminAthleteController;
 
