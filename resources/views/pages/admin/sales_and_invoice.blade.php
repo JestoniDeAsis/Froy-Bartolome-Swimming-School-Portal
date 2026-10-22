@@ -224,6 +224,23 @@
     background: #ECEEF1;
 }
 
+.sales-reason {
+    display: block;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--sales-muted);
+    font-size: .72rem;
+}
+
+.sales-receipt-notice {
+    margin: .5rem 0 0;
+    text-align: center;
+    color: var(--sales-muted);
+    font-size: .66rem;
+}
+
 .sales-empty {
     padding: 2rem !important;
     color: var(--sales-muted);
@@ -300,14 +317,11 @@
     width: min(465px, calc(100vw - 1.25rem));
 }
 
-.sales-receipt-toolbar {
+.sales-receipt-actions {
     display: flex;
-    align-items: center;
     justify-content: flex-end;
-    gap: .5rem;
-    padding: .6rem .75rem;
+    padding: .6rem 1.1rem 1rem;
     background: #fff;
-    border-bottom: 1px solid var(--sales-line);
 }
 
 .sales-receipt {
@@ -525,38 +539,13 @@
     }
 
 }
-
-@media print {
-    body * {
-        visibility: hidden !important;
-    }
-
-    .sales-receipt-dialog[open], .sales-receipt-dialog[open] * {
-        visibility: visible !important;
-    }
-
-    .sales-receipt-dialog[open] {
-        position: fixed;
-        inset: 0 auto auto 0;
-        width: 100%;
-        max-width: 465px;
-        max-height: none;
-        overflow: visible;
-        box-shadow: none;
-    }
-
-    .sales-receipt-toolbar {
-        display: none !important;
-    }
-
-}
 </style>
 
 <section class="sales-page" id="salesPage" aria-labelledby="salesTitle">
     <header class="sales-heading">
         <div>
-            <h2 class="mb-1" id="salesTitle">Billing &amp; Receipts</h2>
-            <p class="text-muted mb-0">Course payments, item sales, and receipts in one place</p>
+            <h2 class="mb-1" id="salesTitle">Billing &amp; Invoices</h2>
+            <p class="text-muted mb-0">Course payments, item sales, and invoices in one place</p>
         </div>
         <button class="btn btn-primary btn-icon-label" id="salesAddButton" type="button"><i class="bi bi-plus-lg" aria-hidden="true"></i><span>Add New Purchase</span></button>
     </header>
@@ -608,19 +597,19 @@
     </div>
 
     <section class="sales-panel" id="salesPanelAll" role="tabpanel" aria-labelledby="salesTabAll" data-sales-panel="all" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Type</th><th>Name</th><th>Client</th><th>Total</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Receipt</th></tr></thead><tbody id="allRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Type</th><th>Name</th><th>Client</th><th>Total</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Invoice</th></tr></thead><tbody id="allRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelCourse" role="tabpanel" aria-labelledby="salesTabCourse" data-sales-panel="course">
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Invoice</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelAthletes" role="tabpanel" aria-labelledby="salesTabAthletes" data-sales-panel="athletes" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee</th><th>Athlete</th><th>Period</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="athletePaymentRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee</th><th>Athlete</th><th>Period</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Invoice</th></tr></thead><tbody id="athletePaymentRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelFees" role="tabpanel" aria-labelledby="salesTabFees" data-sales-panel="fees" hidden>
         <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee name</th><th>Description</th><th>Amount</th><th>Billing</th><th>Status</th><th>Actions</th></tr></thead><tbody id="athleteFeeRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelLogs" role="tabpanel" aria-labelledby="salesTabLogs" data-sales-panel="logs" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Receipt</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Invoice</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelItems" role="tabpanel" aria-labelledby="salesTabItems" data-sales-panel="items" hidden>
         <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="itemCatalogRows"></tbody></table></div>
@@ -645,6 +634,7 @@
                     <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
                 </div><input id="coursePaymentMethod" name="method" type="hidden" value=""></div></div>
             <div class="sales-field"><label for="coursePaymentReference">Reference Number</label><input class="form-control" id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
+            <div class="sales-field" id="coursePaymentReasonGroup" hidden><label for="coursePaymentReason">Reason for change <span class="sales-required">*</span></label><input class="form-control" id="coursePaymentReason" name="reason" type="text" maxlength="255" placeholder="e.g. Wrong amount typed"><small>Saving archives the original entry (it stays on file) and records a corrected one.</small></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="coursePaymentStatus"></span></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="coursePaymentSubmit">Update</button></div>
         </form>
@@ -705,6 +695,7 @@
                     <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
                 </div><input id="athletePaymentMethod" name="method" type="hidden" value=""></div></div>
             <div class="sales-field"><label for="athletePaymentReference">Reference Number</label><input class="form-control" id="athletePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
+            <div class="sales-field" id="athletePaymentReasonGroup" hidden><label for="athletePaymentReason">Reason for change <span class="sales-required">*</span></label><input class="form-control" id="athletePaymentReason" name="reason" type="text" maxlength="255" placeholder="e.g. Wrong amount typed"><small>Saving archives the original entry (it stays on file) and records a corrected one.</small></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="athletePaymentStatus"></span></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="athletePaymentSubmit">Record</button></div>
         </form>
@@ -733,13 +724,13 @@
     </div>
 </dialog>
 
-<dialog class="sales-dialog sales-receipt-dialog" id="receiptDialog" aria-label="Receipt">
-    <div class="sales-receipt-toolbar"><button class="btn btn-primary btn-sm btn-icon-label" type="button" id="printReceipt"><i class="bi bi-printer" aria-hidden="true"></i> Print</button><button class="btn btn-icon btn-icon-ghost btn-icon-sm" type="button" data-dialog-close aria-label="Close receipt"><i class="bi bi-x-lg"></i></button></div>
+<dialog class="sales-dialog sales-receipt-dialog" id="receiptDialog" aria-label="Invoice">
     <article class="sales-receipt" id="receiptContent"></article>
+    <div class="sales-receipt-actions"><button class="btn btn-outline-secondary btn-sm" type="button" data-dialog-close>Close</button></div>
 </dialog>
 
 <dialog class="sales-dialog" id="confirmDialog" aria-labelledby="confirmTitle">
-    <div class="sales-dialog-inner"><h2 id="confirmTitle">Remove this record?</h2><p class="sales-dialog-subtitle" id="confirmMessage">This action only changes this preview until the page is reloaded.</p><div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-danger" type="button" id="confirmDelete">Remove</button></div></div>
+    <div class="sales-dialog-inner"><h2 id="confirmTitle">Remove this record?</h2><p class="sales-dialog-subtitle" id="confirmMessage">This action only changes this preview until the page is reloaded.</p><div class="sales-field" id="confirmReasonGroup" hidden><label for="confirmReason">Reason <span class="sales-required">*</span></label><input class="form-control" id="confirmReason" type="text" maxlength="255" placeholder="Why is this being archived?"></div><div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-danger" type="button" id="confirmDelete">Remove</button></div></div>
 </dialog>
 
 <script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
@@ -758,6 +749,7 @@
     let athleteFees = [];
     let activeTab = 'course';
     let pendingRemoval = null;
+    let pendingOptions = {};
     const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
     const nowStamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
     const dateLabel = () => {
@@ -767,7 +759,8 @@
     };
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
     const statusFor = (paid, total) => Number(paid) <= 0 ? 'unpaid' : Number(paid) >= Number(total) ? 'paid' : 'partial';
-    const statusLabel = status => ({ paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial' }[status] || 'Unpaid');
+    const statusLabel = status => ({ paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', archived: 'Archived' }[status] || 'Unpaid');
+    const archivedNote = row => `Archived ${escapeHtml(row.archivedAt || '--')}${row.archivedBy ? ` by ${escapeHtml(row.archivedBy)}` : ''}${row.archiveReason ? `<span class="sales-reason" title="${escapeHtml(row.archiveReason)}">${escapeHtml(row.archiveReason)}</span>` : ''}`;
     const badge = status => `<span class="sales-badge sales-badge--${status}">${statusLabel(status)}</span>`;
     const byId = (list, id) => list.find(row => Number(row.id) === Number(id));
     const search = document.getElementById('salesSearch');
@@ -865,7 +858,7 @@
         const visible = archivedCourseRows.filter(row =>
             !text || `${row.course} ${row.name} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>Archived ${escapeHtml(row.archivedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span></td><td>--</td></tr>`
+            `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>${archivedNote(row)}</td><td>${row.replaced ? '<span class="sales-reason">Replaced by a newer entry</span>' : `<span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span>`}</td><td>--</td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="11">No archived course payments.</td></tr>';
     }
 
@@ -879,7 +872,7 @@
         });
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row => {
             const balance = Number(row.balance);
-            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
+            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="${Number(row.id) > 0 ? 'Edit payment' : 'Record payment'}"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td class="sales-empty" colspan="11">No course payments match your search.</td></tr>';
     }
 
@@ -894,7 +887,7 @@
         document.getElementById('itemLogRows').innerHTML = visible.length ? visible.map(row => {
             const total = Number(row.price) * Number(row.quantity);
             const balance = Math.max(total - Number(row.paid), 0);
-            return `<tr><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-edit="${row.id}" aria-label="Edit ${escapeHtml(row.item)} sale" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-log-delete="${row.id}" aria-label="Remove ${escapeHtml(row.item)} sale" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.item)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`;
+            return `<tr><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-edit="${row.id}" aria-label="Edit ${escapeHtml(row.item)} sale" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-log-delete="${row.id}" aria-label="Remove ${escapeHtml(row.item)} sale" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.item)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td class="sales-empty" colspan="12">No item logs match your search.</td></tr>';
     }
 
@@ -929,7 +922,7 @@
             return (!status || status === row.status) && (!text || haystack.includes(text));
         });
         document.getElementById('allRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td>${row.type}</td><td class="sales-name">${escapeHtml(row.name)}</td><td>${escapeHtml(row.client)}</td><td>${money(row.total)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-all-receipt="${row.id}" data-all-kind="${row.kind}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`
+            `<tr><td>${row.type}</td><td class="sales-name">${escapeHtml(row.name)}</td><td>${escapeHtml(row.client)}</td><td>${money(row.total)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-all-receipt="${row.id}" data-all-kind="${row.kind}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="10">No records match your search.</td></tr>';
     }
 
@@ -975,6 +968,8 @@
         document.getElementById('coursePaymentSubmit').textContent = paymentSubmitLabel;
         form.elements.id.value = row.enrollmentId;
         form.elements.paymentId.value = editing ? row.id : '';
+        document.getElementById('coursePaymentReasonGroup').hidden = !editing;
+        form.elements.reason.value = '';
         form.elements.amount.value = editing ? row.paid : '';
         setDropdown(document.getElementById('coursePaymentMethodDropdown'), editing ? (row.method || '') : '');
         document.getElementById('coursePaymentMethodDropdown').classList.remove('isInvalid');
@@ -1015,6 +1010,7 @@
         document.getElementById('coursePaymentMethodDropdown').classList.remove('isInvalid');
         form.elements.reference.value = row.reference || '';
 
+        document.getElementById('coursePaymentReasonGroup').hidden = true;
         document.getElementById('coursePaymentTitle').textContent = 'Re-logging course payment';
         document.getElementById('coursePaymentStudent').textContent = `Student name: ${row.name}`;
         document.getElementById('coursePaymentLimit').textContent = `Up to ${money(available)} (course price minus the payments currently counted).`;
@@ -1070,6 +1066,7 @@
             ''
         );
 
+        document.getElementById('coursePaymentReasonGroup').hidden = true;
         document.getElementById('coursePaymentTitle').textContent = 'Recording course payment';
         document.getElementById('coursePaymentStudent').textContent = 'Choose the student who is paying.';
         document.getElementById('coursePaymentLimit').textContent = '';
@@ -1170,35 +1167,44 @@
         const isCourse = type === 'course';
         const isAthlete = type === 'athlete';
         const isPlan = isCourse || isAthlete;   // one payment toward a bigger amount due
+        const noPaymentYet = isPlan && Number(row.id) < 0;   // an unpaid bill: nothing recorded yet
         const total = isPlan ? Number(row.toPay) : Number(row.price) * Number(row.quantity);
         const paid = Number(row.paid);
         const balance = isPlan ? Number(row.balance) : Math.max(total - paid, 0);
         const status = isPlan ? row.status : statusFor(paid, total);
         const client = isPlan ? row.name : (row.client || 'Walk-in customer');
         const description = isCourse ? row.course : isAthlete ? row.fee : row.item;
-        const quantityLine = isCourse ? 'Course enrollment' : isAthlete ? `${cycleLabel(row.cycle)} fee - ${row.period}` : `${row.quantity} \u00d7 ${money(row.price)}`;
-        const invoice = row.receipt || `${isCourse ? 'INV' : isAthlete ? 'AR' : 'ITEM'}-${new Date().getFullYear()}-${String(row.id).padStart(4, '0')}`;
-        const labels = isCourse ? ['Course price', 'This payment', 'Balance due']
-            : isAthlete ? ['Fee amount', 'This payment', 'Balance due']
+        const quantityLine = isCourse ? 'Course enrollment' : isAthlete ? `${cycleLabel(row.cycle)} fee - ${row.period}` : `${row.quantity} × ${money(row.price)}`;
+        const prefix = isCourse ? 'INV-C' : isAthlete ? 'INV-A' : 'INV-I';
+        const invoice = row.receipt || `${prefix}-${new Date().getFullYear()}-${String(row.id).padStart(4, '0')}`;
+        const labels = isCourse ? ['Course price', noPaymentYet ? 'Paid so far' : 'This payment', 'Balance due']
+            : isAthlete ? ['Fee amount', noPaymentYet ? 'Paid so far' : 'This payment', 'Balance due']
             : ['To pay', 'Amount paid', 'Balance due'];
 
-        const metaRows = [['Receipt #', invoice], ['Date', row.date], ['Client', client]];
+        const metaRows = [['Invoice #', invoice], [noPaymentYet ? 'Date issued' : 'Date paid', row.date || '--'], ['Client', client]];
+        if (!isPlan && row.description) metaRows.push(['Description', row.description]);
         if (isPlan && row.reference) metaRows.push(['Reference #', row.reference]);
+        if (isPlan && row.receivedBy) metaRows.push(['Recorded by', row.receivedBy]);
+        if (isPlan && row.replacesReceipt) metaRows.push(['Corrects', row.replacesReceipt]);
         const meta = metaRows.map(([label, value]) => `<span>${label}</span><strong>${escapeHtml(value)}</strong>`).join('');
 
-        const paidToDate = isPlan
+        const paidToDate = isPlan && !noPaymentYet
             ? `<div class="sales-receipt-line"><span>Total paid to date</span><strong>${money(row.paidToDate)}</strong></div>`
             : '';
 
+        const thanks = status === 'paid' ? 'Thank you for your payment! This invoice is fully settled.'
+            : status === 'partial' ? `Thank you for your payment. Remaining balance: ${money(balance)}`
+            : `Amount due: ${money(balance)}. Please settle it at the school.`;
+
         document.getElementById('receiptContent').innerHTML =
-            `<header class="sales-receipt-head"><div class="sales-receipt-brand"><span class="sales-receipt-brand-mark">FB</span> FBSS SwimOS ${badge(status)}</div><strong>Froy Bartolome Swimming School</strong><small>R3M+2Q9, Del Monte - Norzagaray Rd, SJDM, Bulacan<br>(+63) 966 203 1918</small></header>` +
+            `<header class="sales-receipt-head"><div class="sales-receipt-brand"><img src="{{ asset('assets/images/icon_fbss.png') }}" alt="" width="22" height="22" style="border-radius:50%"> FBSS SwimOS ${badge(status)}</div><strong>Froy Bartolome Swimming School</strong><small>R3MG+2X9, Del Monte - Norzagaray Rd, SJDM, Bulacan<br>(+63) 966 203 1918</small></header>` +
             `<div class="sales-receipt-body"><div class="sales-receipt-meta">${meta}</div>` +
-            `<p class="sales-receipt-section">${isCourse ? 'Course purchased' : isAthlete ? 'Athlete fee' : 'Items purchased'}</p>` +
+            `<p class="sales-receipt-section">${isCourse ? 'Course' : isAthlete ? 'Athlete fee' : 'Items'}</p>` +
             `<div class="sales-receipt-line"><span>${escapeHtml(description)}<small>${escapeHtml(quantityLine)}</small></span><strong>${money(total)}</strong></div>` +
             paidToDate +
-            `<div class="sales-receipt-amounts"><div class="sales-receipt-amount"><small>${labels[0]}</small><strong>${money(total)}</strong></div><div class="sales-receipt-amount"><small>${labels[1]}</small><strong>${money(paid)}</strong></div><div class="sales-receipt-amount"><small>${labels[2]}</small><strong>${money(balance)}</strong></div></div>` +
+            `<div class="sales-receipt-amounts"><div class="sales-receipt-amount"><small>${labels[0]}</small><strong>${money(total)}</strong></div><div class="sales-receipt-amount"><small>${labels[1]}</small><strong>${money(noPaymentYet ? 0 : paid)}</strong></div><div class="sales-receipt-amount"><small>${labels[2]}</small><strong>${money(balance)}</strong></div></div>` +
             `<div class="sales-receipt-method">Payment Method: <strong>${escapeHtml(row.method || '--')}</strong></div>` +
-            `<p class="sales-receipt-thanks">Thank You for Your Payment!</p><p class="sales-receipt-footer">We look forward to seeing you at the pool</p></div>`;
+            `<p class="sales-receipt-thanks">${escapeHtml(thanks)}</p><p class="sales-receipt-footer">We look forward to seeing you at the pool</p><p class="sales-receipt-notice">This is a billing invoice, not an official receipt.</p></div>`;
         document.getElementById('receiptDialog').showModal();
     }
 
@@ -1226,7 +1232,7 @@
         const visible = archivedAthleteRows.filter(row =>
             !text || `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>Archived ${escapeHtml(row.archivedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span></td><td>--</td></tr>`
+            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>${archivedNote(row)}</td><td>${row.replaced ? '<span class="sales-reason">Replaced by a newer entry</span>' : `<span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span>`}</td><td>--</td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="12">No archived athlete payments.</td></tr>';
     }
 
@@ -1238,7 +1244,7 @@
             return (!status || status === row.status) && (!text || haystack.includes(text));
         });
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="Record payment"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-athlete-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View receipt for ${escapeHtml(row.name)}" title="View receipt"><i class="bi bi-eye"></i></button></td></tr>`
+            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="${Number(row.id) > 0 ? 'Edit payment' : 'Record payment'}"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-athlete-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="12">No athlete payments match your search.</td></tr>';
     }
 
@@ -1271,6 +1277,8 @@
         form.elements.userId.value = row.userId;
         form.elements.feeId.value = row.feeId;
         form.elements.periodKey.value = row.periodKey;
+        document.getElementById('athletePaymentReasonGroup').hidden = !editing;
+        form.elements.reason.value = '';
         form.elements.amount.value = editing ? row.paid : '';
         setDropdown(document.getElementById('athletePaymentMethodDropdown'), editing ? (row.method || '') : '');
         document.getElementById('athletePaymentMethodDropdown').classList.remove('isInvalid');
@@ -1313,6 +1321,7 @@
         document.getElementById('athletePaymentMethodDropdown').classList.remove('isInvalid');
         form.elements.reference.value = row.reference || '';
 
+        document.getElementById('athletePaymentReasonGroup').hidden = true;
         document.getElementById('athletePaymentTitle').textContent = 'Re-logging athlete payment';
         document.getElementById('athletePaymentSubtitle').textContent = `Athlete: ${row.name} - ${row.fee} (${row.period})`;
         document.getElementById('athletePaymentLimit').textContent = `Up to ${money(available)} (fee amount minus the payments currently counted).`;
@@ -1358,6 +1367,7 @@
             ''
         );
 
+        document.getElementById('athletePaymentReasonGroup').hidden = true;
         document.getElementById('athletePaymentTitle').textContent = 'Recording athlete payment';
         document.getElementById('athletePaymentSubtitle').textContent = 'Choose the athlete who is paying.';
         document.getElementById('athletePaymentLimit').textContent = '';
@@ -1421,6 +1431,9 @@
 
     function askRemove(message, callback, options = {}) {
         pendingRemoval = callback;
+        pendingOptions = options;
+        document.getElementById('confirmReasonGroup').hidden = !options.requireReason;
+        document.getElementById('confirmReason').value = '';
         document.getElementById('confirmTitle').textContent = options.title || 'Remove this record?';
         document.getElementById('confirmDelete').textContent = options.label || 'Remove';
         document.getElementById('confirmMessage').textContent = message;
@@ -1453,9 +1466,9 @@
         if (target.matches('[data-course-receipt]')) showReceipt(byId(courseRows, target.dataset.courseReceipt), 'course');
         if (target.matches('[data-course-archive]')) {
             const row = byId(courseRows, target.dataset.courseArchive);
-            askRemove(`Archive the ${money(row.paid)} payment (${row.receipt}) from ${row.name}? It will stop counting toward their balance, but it stays on file and can be re-logged from the Archived filter.`, async () => {
+            askRemove(`Archive the ${money(row.paid)} payment (${row.receipt}) from ${row.name}? It will stop counting toward their balance, but it stays on file and can be re-logged from the Archived filter.`, async reason => {
                 try {
-                    const result = await sendJson(`{{ url('/sales/payments') }}/${row.id}/archive`, 'POST');
+                    const result = await sendJson(`{{ url('/sales/payments') }}/${row.id}/archive`, 'POST', { reason });
                     if (!result.ok) { notify(errorText(result, 'Could not archive the payment'), 'danger'); return false; }
                     await loadData();
                     return `Archived ${row.receipt} for ${row.name}.`;
@@ -1464,7 +1477,7 @@
                     notify('Something went wrong while archiving the payment.', 'danger');
                     return false;
                 }
-            }, { title: 'Archive this payment?', label: 'Archive' });
+            }, { title: 'Archive this payment?', label: 'Archive', requireReason: true });
         }
         if (target.matches('[data-course-relog]')) showRelogPayment(byId(archivedCourseRows, target.dataset.courseRelog));
         if (target.matches('[data-log-edit]')) showPurchase(byId(logs, target.dataset.logEdit));
@@ -1481,9 +1494,9 @@
         if (target.matches('[data-athlete-edit]')) showAthletePayment(byId(athleteRows, target.dataset.athleteEdit));
         if (target.matches('[data-athlete-archive]')) {
             const row = byId(athleteRows, target.dataset.athleteArchive);
-            askRemove(`Archive the ${money(row.paid)} payment (${row.receipt}) from ${row.name} for ${row.fee} (${row.period})? It will stop counting toward that fee, but it stays on file and can be re-logged from the Archived filter.`, async () => {
+            askRemove(`Archive the ${money(row.paid)} payment (${row.receipt}) from ${row.name} for ${row.fee} (${row.period})? It will stop counting toward that fee, but it stays on file and can be re-logged from the Archived filter.`, async reason => {
                 try {
-                    const result = await sendJson(`{{ url('/sales/athlete-payments') }}/${row.id}/archive`, 'POST');
+                    const result = await sendJson(`{{ url('/sales/athlete-payments') }}/${row.id}/archive`, 'POST', { reason });
                     if (!result.ok) { notify(errorText(result, 'Could not archive the payment'), 'danger'); return false; }
                     await loadData();
                     return `Archived ${row.receipt} for ${row.name}.`;
@@ -1492,7 +1505,7 @@
                     notify('Something went wrong while archiving the payment.', 'danger');
                     return false;
                 }
-            }, { title: 'Archive this payment?', label: 'Archive' });
+            }, { title: 'Archive this payment?', label: 'Archive', requireReason: true });
         }
         if (target.matches('[data-athlete-relog]')) showRelogAthletePayment(byId(archivedAthleteRows, target.dataset.athleteRelog));
         if (target.matches('[data-athlete-receipt]')) showReceipt(byId(athleteRows, target.dataset.athleteReceipt), 'athlete');
@@ -1521,6 +1534,13 @@
         const enrollmentId = Number(form.elements.id.value);
         const paymentId = Number(form.elements.paymentId.value) || null;
         const relog = form.elements.relog.value === '1';
+        const reason = form.elements.reason.value.trim();
+
+        if (paymentId && !relog && reason.length < 3) {
+            document.getElementById('coursePaymentReason').focus();
+            notify('Enter the reason for this change.', 'danger');
+            return;
+        }
 
         if (!enrollmentId) {
             document.getElementById('coursePaymentEnrollmentDropdown').classList.add('isInvalid');
@@ -1565,7 +1585,8 @@
                 body: JSON.stringify({
                     amount: amount,
                     payment_method: form.elements.method.value || null,
-                    reference_number: form.elements.reference.value.trim() || null
+                    reference_number: form.elements.reference.value.trim() || null,
+                    reason: paymentId && !relog ? reason : undefined
                 })
             });
             const data = await response.json().catch(() => ({}));
@@ -1635,7 +1656,14 @@
         const submitButton = document.getElementById('athletePaymentSubmit');
         const paymentId = Number(form.elements.paymentId.value) || null;
         const relog = form.elements.relog.value === '1';
+        const reason = form.elements.reason.value.trim();
         const userId = Number(form.elements.userId.value);
+
+        if (paymentId && !relog && reason.length < 3) {
+            document.getElementById('athletePaymentReason').focus();
+            notify('Enter the reason for this change.', 'danger');
+            return;
+        }
         const feeId = Number(form.elements.feeId.value);
 
         if (!userId || !feeId) {
@@ -1661,6 +1689,7 @@
             payment_method: form.elements.method.value,
             reference_number: form.elements.reference.value.trim() || null
         };
+        if (paymentId && !relog) body.reason = reason;
         if (!paymentId) {
             body.user_id = userId;
             body.athlete_fee_id = feeId;
@@ -1739,14 +1768,20 @@
     // The callback may be async (real server action). It returns the toast text,
     // or false when it already showed its own error. Preview-only callbacks return nothing.
     document.getElementById('confirmDelete').addEventListener('click', async () => {
+        const reasonInput = document.getElementById('confirmReason');
+        const reason = reasonInput.value.trim();
+        if (pendingOptions.requireReason && reason.length < 3) {
+            notify('Enter a reason (at least 3 characters).', 'danger');
+            reasonInput.focus();
+            return;
+        }
         const action = pendingRemoval;
         pendingRemoval = null;
         document.getElementById('confirmDialog').close();
-        const message = await action?.();
+        const message = await action?.(reason);
         if (message === false) return;
         notify(message || 'Removed from this preview.');
     });
-    document.getElementById('printReceipt').addEventListener('click', () => window.print());
     document.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
     document.addEventListener('keydown', event => { if (event.key === 'Escape') pendingRemoval = null; });
     async function loadData() {

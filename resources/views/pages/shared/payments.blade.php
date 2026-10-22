@@ -18,7 +18,7 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
@@ -138,87 +138,228 @@
 .paymentsPill.is-partial { background: #fff4e0; color: #b26a00; }
 .paymentsPill.is-unpaid  { background: var(--fbss-danger-tint, #fdebec); color: var(--fbss-danger, #c22b3a); }
 
+/* Change history (archived / edited entries) */
+.paymentsHistory { flex: 0 0 auto; margin-top: 1rem; }
+.paymentsHistory summary { cursor: pointer; font-weight: 600; color: #344054; }
+.paymentsHistory .paymentsTableContainer { --payments-visible-rows: 4; margin-top: .6rem; }
+.paymentsHistoryNote { margin: .4rem 0 0; font-size: .8rem; color: #667085; }
+.paymentsHistory .paymentsRow td { color: #667085; }
+.paymentsHistory .paymentsAmount { color: #667085; text-decoration: line-through; }
+
 @media (max-width: 575.98px) {
     .paymentsContainer { padding: 1rem; }
     .paymentsResultCount { margin-left: 0; width: 100%; }
 }
 
-/* ---------- Receipt popup (backdrop = shared .modalOverlay) ---------- */
+/* ---------- Invoice popup: same design as the admin Billing page ---------- */
 
 .paymentsReceipt {
-    width: 100%;
-    max-width: 480px;
+    --sales-blue: var(--fbss-blue, #0D6EFD);
+    --sales-ink: #16202c;
+    --sales-muted: #64748b;
+    --sales-line: #dce5ed;
+
+    width: min(465px, calc(100vw - 1.25rem));
     max-height: 92vh;
-    display: flex;
-    flex-direction: column;
+    overflow-y: auto;
     background: #fff;
+    color: var(--sales-ink);
     border-radius: 12px;
     box-shadow: 0 20px 40px rgba(16, 24, 40, .18);
-    overflow: hidden;
 }
 
-.paymentsReceiptHead {
-    padding: 1.1rem 1.4rem;
-    background: var(--fbss-blue, #0d6efd);
+.sales-badge {
+    display: inline-flex;
+    min-width: 42px;
+    justify-content: center;
+    border-radius: 999px;
+    padding: .2rem .45rem;
+    font-size: .7rem;
+    font-weight: 600;
+}
+
+.sales-badge--paid {
+    color: var(--fbss-success, #198754);
+    background: var(--fbss-success-tint, #E9F5EF);
+}
+
+.sales-badge--unpaid {
+    color: var(--fbss-danger, #DC3545);
+    background: var(--fbss-danger-tint, #FBEAEC);
+}
+
+.sales-badge--partial {
+    color: var(--fbss-warning-text, #6A4E00);
+    background: #FFF7E0;
+}
+
+.sales-badge--archived {
+    color: #5B6470;
+    background: #ECEEF1;
+}
+
+.sales-receipt-notice {
+    margin: .5rem 0 0;
+    text-align: center;
+    color: var(--sales-muted);
+    font-size: .66rem;
+}
+
+.sales-receipt-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: .6rem 1.1rem 1rem;
+    background: #fff;
+}
+
+.sales-receipt {
+    overflow: hidden;
+    background: #fff;
+    color: var(--sales-ink);
+    border-radius: 12px;
+}
+
+.sales-receipt-head {
+    padding: 1rem 1.1rem;
+    background: var(--sales-blue);
     color: #fff;
 }
 
-.paymentsReceiptHeadTop {
+.sales-receipt-brand {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    margin-bottom: .9rem;
-}
-
-.paymentsReceiptBrand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; }
-.paymentsReceiptBrand img { border-radius: 50%; }
-.paymentsReceiptHead h5 { margin: 0 0 .25rem; font-size: 1rem; font-weight: 700; }
-.paymentsReceiptHead p { margin: .1rem 0 0; font-size: .75rem; color: #e6f1f8; }
-
-.paymentsReceiptBody { padding: 1.1rem 1.4rem; overflow-y: auto; }
-
-.paymentsReceiptLine {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: .5rem 0;
-    border-bottom: 1px solid #eef1f4;
-    font-size: .85rem;
-}
-
-.paymentsReceiptLine span { color: #667085; }
-.paymentsReceiptLine strong { text-align: right; color: #1f2937; }
-
-.paymentsReceiptTotal {
-    display: flex;
-    justify-content: space-between;
-    padding: .7rem 0;
-    color: var(--fbss-blue, #0d6efd);
-    font-size: 1rem;
+    gap: .55rem;
+    margin-bottom: .6rem;
+    font-size: .9rem;
     font-weight: 700;
 }
 
-.paymentsReceiptAmounts {
+.sales-receipt-brand-mark {
+    width: 22px;
+    height: 22px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: .6rem;
-    margin: .25rem 0 .75rem;
-    padding: .75rem 0;
-    border-block: 1px solid #eef1f4;
+    place-items: center;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--sales-blue);
+    font-size: .6rem;
 }
 
-.paymentsReceiptAmounts small { display: block; color: #667085; font-size: .72rem; }
-.paymentsReceiptAmounts strong { font-size: .95rem; }
+.sales-receipt-head strong {
+    display: block;
+    font-size: .93rem;
+}
 
-.paymentsReceiptThanks { margin: .9rem 0 0; text-align: center; color: var(--fbss-blue, #0d6efd); font-weight: 700; }
-.paymentsReceiptSub { margin: 0; text-align: center; color: #667085; font-size: .78rem; }
+.sales-receipt-head small {
+    display: block;
+    margin-top: .2rem;
+    color: rgba(255, 255, 255, .85);
+    font-size: .68rem;
+}
 
-.paymentsReceiptActions {
+.sales-receipt-body {
+    padding: .9rem 1.1rem 1.15rem;
+}
+
+.sales-receipt-meta {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .45rem;
+    padding-bottom: .55rem;
+    border-bottom: 1px solid #e6edf2;
+    font-size: .75rem;
+}
+
+.sales-receipt-meta span:nth-child(odd) {
+    color: var(--sales-muted);
+}
+
+.sales-receipt-section {
+    margin: .75rem 0 .4rem;
+    color: var(--sales-blue);
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.sales-receipt-line {
     display: flex;
-    justify-content: flex-end;
-    gap: .5rem;
-    padding: .75rem 1.4rem 1.1rem;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .35rem 0;
+    font-size: .8rem;
+}
+
+.sales-receipt-line small {
+    display: block;
+    color: var(--sales-muted);
+}
+
+.sales-receipt-total {
+    border-top: 1px solid #dfe7ee;
+    padding-top: .5rem;
+    font-weight: 700;
+}
+
+.sales-receipt-amounts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .4rem;
+    margin: .8rem 0;
+}
+
+.sales-receipt-amount {
+    padding: .55rem;
+    border: 1px solid #b6d4fe;
+    border-radius: var(--fbss-radius, .5rem);
+    background: var(--fbss-blue-tint, #E7F1FF);
+    color: var(--fbss-blue-active, #0A58CA);
+}
+
+.sales-receipt-amount:nth-child(2) {
+    background: var(--fbss-success-tint, #E9F5EF);
+    border-color: #a3cfbb;
+    color: var(--fbss-success, #198754);
+}
+
+.sales-receipt-amount:nth-child(3) {
+    background: var(--fbss-danger-tint, #FBEAEC);
+    border-color: #f1aeb5;
+    color: var(--fbss-danger, #DC3545);
+}
+
+.sales-receipt-amount small {
+    display: block;
+    font-size: .6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.sales-receipt-amount strong {
+    font-size: 1rem;
+}
+
+.sales-receipt-method {
+    padding: .55rem .7rem;
+    border: 1px solid #e2eaf0;
+    border-radius: var(--fbss-radius, .5rem);
+    background: #f7f9fb;
+    font-size: .72rem;
+}
+
+.sales-receipt-thanks {
+    margin: .85rem 0 0;
+    text-align: center;
+    color: var(--sales-blue);
+    font-size: .83rem;
+    font-weight: 700;
+}
+
+.sales-receipt-footer {
+    margin: .2rem 0 0;
+    text-align: center;
+    color: var(--sales-muted);
+    font-size: .68rem;
 }
 </style>
 
@@ -226,9 +367,9 @@
 <section class="paymentsContainer" id="paymentsContainer" aria-labelledby="paymentsTitle">
 
     <header class="paymentsHeader">
-        <h2 class="mb-1" id="paymentsTitle">My Payments</h2>
+        <h2 class="mb-1" id="paymentsTitle">My Payments &amp; Invoices</h2>
         <p class="text-muted mb-0" id="paymentsDescription"></p>
-        <p class="text-muted small mb-0">View only. Payments are recorded by the school when you pay.</p>
+        <p class="text-muted small mb-0">View only. Payments are recorded by the school when you pay. If a payment is corrected, the old entry is kept in the change history below.</p>
     </header>
 
     <!-- SUMMARY (course totals: not shown to athletes) -->
@@ -289,56 +430,26 @@
         </table>
     </div>
 
+    <!-- CHANGE HISTORY: archived / edited entries (never counted in balances) -->
+    <details class="paymentsHistory" id="paymentsHistory" hidden>
+        <summary>Change history (<span id="historyCount">0</span>)</summary>
+        <p class="paymentsHistoryNote">These entries were corrected or removed by the school. They no longer count toward your balance.</p>
+        <div class="paymentsTableContainer">
+            <table class="table paymentsTable">
+                <thead id="historyHead"></thead>
+                <tbody id="historyBody"></tbody>
+            </table>
+        </div>
+    </details>
+
 </section>
 
 
-<!-- RECEIPT -->
+<!-- INVOICE (same layout as the admin Billing page) -->
 <div class="modalOverlay" id="receiptOverlay" hidden>
-    <div class="paymentsReceipt" id="receiptCard" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
-
-        <div class="paymentsReceiptHead">
-            <div class="paymentsReceiptHeadTop">
-                <span class="paymentsReceiptBrand">
-                    <img src="{{ asset('assets/images/icon_fbss.png') }}" alt="" width="28" height="28">
-                    FBSS SwimOS
-                </span>
-                <span class="paymentsPill" id="receiptStatus">Paid</span>
-            </div>
-            <h5 id="receiptTitle">Froy Bartolome Swimming School</h5>
-            <p>R3MG+2X9, Del Monte - Norzagaray Rd, SJDM, Bulacan</p>
-            <p>(+63) 966 203 1918</p>
-        </div>
-
-        <div class="paymentsReceiptBody">
-            <div class="paymentsReceiptLine"><span>Receipt #</span><strong id="receiptNumber">--</strong></div>
-            <div class="paymentsReceiptLine"><span>Date</span><strong id="receiptDate">--</strong></div>
-            <div class="paymentsReceiptLine"><span>Client</span><strong id="receiptClient">--</strong></div>
-            <div class="paymentsReceiptLine"><span id="receiptCourseLabel">Course</span><strong id="receiptCourse">--</strong></div>
-            <div class="paymentsReceiptLine"><span>Received by</span><strong id="receiptReceivedBy">--</strong></div>
-
-            <div class="paymentsReceiptTotal"><span id="receiptFeeLabel">Course Fee</span><span id="receiptFee">--</span></div>
-
-            <div class="paymentsReceiptAmounts">
-                <div><small>This Payment</small><strong id="receiptAmount">--</strong></div>
-                <div><small>Paid To Date</small><strong id="receiptPaidToDate">--</strong></div>
-                <div><small>Balance Due</small><strong id="receiptBalance">--</strong></div>
-            </div>
-
-            <div class="paymentsReceiptLine">
-                <span>Payment Method</span><strong id="receiptMethod">--</strong>
-            </div>
-            <div class="paymentsReceiptLine">
-                <span>Reference #</span><strong id="receiptReference">--</strong>
-            </div>
-
-            <p class="paymentsReceiptThanks">Thank You for Your Payment!</p>
-            <p class="paymentsReceiptSub">We look forward to seeing you at the pool!</p>
-        </div>
-
-        <div class="paymentsReceiptActions" id="receiptActions">
-            <button class="btn btn-outline-secondary btn-sm" id="receiptCloseButton" type="button">Close</button>
-        </div>
-
+    <div class="paymentsReceipt" id="receiptCard" role="dialog" aria-modal="true" aria-label="Invoice">
+        <article class="sales-receipt" id="receiptContent"></article>
+        <div class="sales-receipt-actions"><button class="btn btn-outline-secondary btn-sm" type="button" id="receiptCloseButton">Close</button></div>
     </div>
 </div>
 
@@ -359,8 +470,10 @@
 
     // Athletes pay fees, not courses: the third column shows the fee instead.
     const HEADERS = IS_ATHLETE
-        ? ['Date', 'Receipt No.', 'Fee', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt']
-        : ['Date', 'Receipt No.', 'Course', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Receipt'];
+        ? ['Date', 'Invoice No.', 'Fee', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Invoice']
+        : ['Date', 'Invoice No.', 'Course', 'Amount', 'Method', 'Reference No.', 'Balance After', 'Status', 'Invoice'];
+
+    const HISTORY_HEADERS = ['Invoice No.', 'Date paid', IS_ATHLETE ? 'Fee' : 'Course', 'Amount', 'Method', 'Reference No.', 'Archived on', 'Archived by', 'Reason', 'Replaced by'];
 
     const $ = id => document.getElementById(id);
 
@@ -375,11 +488,16 @@
         sPaid: $('summaryPaid'),
         sBalance: $('summaryBalance'),
         sStatus: $('summaryStatus'),
-        overlay: $('receiptOverlay')
+        overlay: $('receiptOverlay'),
+        history: $('paymentsHistory'),
+        historyCount: $('historyCount'),
+        historyHead: $('historyHead'),
+        historyBody: $('historyBody')
     };
 
     let enrollments = [];
     let payments = [];
+    let history = [];
     let client = '';
     let loading = true;
 
@@ -511,7 +629,7 @@
 
             const view = make('button', {
                 className: 'btn btn-icon btn-icon-square btn-outline-primary btn-icon-sm',
-                attributes: { type: 'button', 'aria-label': `View receipt ${payment.receipt}` }
+                attributes: { type: 'button', 'aria-label': `View invoice ${payment.receipt}` }
             });
             view.append(make('i', { className: 'bi bi-eye', attributes: { 'aria-hidden': 'true' } }));
             view.addEventListener('click', () => openReceipt(payment));
@@ -541,43 +659,93 @@
         el.count.textContent = `${list.length} payment${list.length === 1 ? '' : 's'} · ${peso(total)} paid`;
     }
 
+    function visibleHistory() {
+        const value = dropdownValue(el.courseFilter);
+        return value === 'all' || value === ''
+            ? history
+            : history.filter(h => String(h.enrollment_id) === value);
+    }
+
+    function renderHistory() {
+        const list = visibleHistory();
+
+        el.history.hidden = !list.length;
+        el.historyCount.textContent = String(list.length);
+        el.historyHead.replaceChildren();
+        el.historyBody.replaceChildren();
+        if (!list.length) return;
+
+        const headerRow = make('tr');
+        HISTORY_HEADERS.forEach(h => headerRow.append(make('th', { text: h, attributes: { scope: 'col' } })));
+        el.historyHead.append(headerRow);
+
+        list.forEach(entry => {
+            const row = make('tr', { className: 'paymentsRow' });
+            const cells = [
+                cell(entry.receipt),
+                cell(dateLabel(entry.date)),
+                cell(entry.course),
+                make('span', { className: 'paymentsAmount', text: peso(entry.amount) }),
+                cell(entry.method),
+                cell(entry.reference, '-'),
+                cell(entry.archived_at),
+                cell(entry.archived_by),
+                cell(entry.reason),
+                cell(entry.replaced_by, 'None')
+            ];
+            cells.forEach(content => {
+                const td = make('td');
+                td.append(content);
+                row.append(td);
+            });
+            el.historyBody.append(row);
+        });
+    }
+
     function render() {
         renderSummary();
         renderTable();
+        renderHistory();
     }
 
     /* ---------- receipt ---------- */
 
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c]);
+
     function openReceipt(payment) {
-        const info = STATUS[payment.status] || STATUS.unpaid;
+        const status = payment.status;
+        const balance = Number(payment.balance);
+        const kind = IS_ATHLETE ? 'Athlete fee' : 'Course';
+        const quantityLine = IS_ATHLETE ? 'Athlete fee' : 'Course enrollment';
 
-        $('receiptStatus').className = `paymentsPill ${info.cls}`;
-        $('receiptStatus').textContent = info.text;
+        const metaRows = [
+            ['Invoice #', payment.receipt],
+            ['Date paid', dateLabel(payment.date) || '--'],
+            ['Client', client || '--']
+        ];
+        if (payment.reference) metaRows.push(['Reference #', payment.reference]);
+        if (payment.received_by) metaRows.push(['Recorded by', payment.received_by]);
+        if (payment.corrects) metaRows.push(['Corrects', payment.corrects]);
+        const meta = metaRows.map(([label, value]) => `<span>${label}</span><strong>${escapeHtml(value)}</strong>`).join('');
 
-        $('receiptNumber').textContent = payment.receipt;
-        $('receiptDate').textContent = dateLabel(payment.date) || '--';
-        $('receiptClient').textContent = client || '--';
-        $('receiptCourse').textContent = payment.course || '--';
-        $('receiptReceivedBy').textContent = payment.received_by || '--';
+        const thanks = status === 'paid' ? 'Thank you for your payment! This invoice is fully settled.'
+            : `Thank you for your payment. Remaining balance: ${peso(balance)}`;
 
-        $('receiptFee').textContent = peso(payment.price);
-        $('receiptAmount').textContent = peso(payment.amount);
-        $('receiptPaidToDate').textContent = peso(payment.paid_to_date);
-        $('receiptBalance').textContent = peso(payment.balance);
-
-        $('receiptMethod').textContent = payment.method || '--';
-        $('receiptReference').textContent = payment.reference || '--';
+        $('receiptContent').innerHTML =
+            `<header class="sales-receipt-head"><div class="sales-receipt-brand"><img src="{{ asset('assets/images/icon_fbss.png') }}" alt="" width="22" height="22" style="border-radius:50%"> FBSS SwimOS <span class="sales-badge sales-badge--${status}">${(STATUS[status] || STATUS.unpaid).text}</span></div><strong>Froy Bartolome Swimming School</strong><small>R3MG+2X9, Del Monte - Norzagaray Rd, SJDM, Bulacan<br>(+63) 966 203 1918</small></header>` +
+            `<div class="sales-receipt-body"><div class="sales-receipt-meta">${meta}</div>` +
+            `<p class="sales-receipt-section">${kind}</p>` +
+            `<div class="sales-receipt-line"><span>${escapeHtml(payment.course || '--')}<small>${quantityLine}</small></span><strong>${peso(payment.price)}</strong></div>` +
+            `<div class="sales-receipt-line"><span>Total paid to date</span><strong>${peso(payment.paid_to_date)}</strong></div>` +
+            `<div class="sales-receipt-amounts"><div class="sales-receipt-amount"><small>${IS_ATHLETE ? 'Fee amount' : 'Course price'}</small><strong>${peso(payment.price)}</strong></div><div class="sales-receipt-amount"><small>This payment</small><strong>${peso(payment.amount)}</strong></div><div class="sales-receipt-amount"><small>Balance due</small><strong>${peso(balance)}</strong></div></div>` +
+            `<div class="sales-receipt-method">Payment Method: <strong>${escapeHtml(payment.method || '--')}</strong></div>` +
+            `<p class="sales-receipt-thanks">${escapeHtml(thanks)}</p><p class="sales-receipt-footer">We look forward to seeing you at the pool</p><p class="sales-receipt-notice">This is a billing invoice, not an official receipt.</p></div>`;
 
         el.overlay.hidden = false;
     }
 
     function closeReceipt() {
         el.overlay.hidden = true;
-    }
-
-    if (IS_ATHLETE) {
-        $('receiptCourseLabel').textContent = 'Fee';
-        $('receiptFeeLabel').textContent = 'Fee Amount';
     }
 
     $('receiptCloseButton').addEventListener('click', closeReceipt);
@@ -605,6 +773,7 @@
 
             enrollments = data.enrollments || [];
             payments = data.payments || [];
+            history = data.history || [];
             client = data.client || '';
 
             buildCourseOptions(data.default_enrollment_id);

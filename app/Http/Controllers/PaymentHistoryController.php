@@ -13,13 +13,15 @@ use Illuminate\Support\Facades\DB;
 /**
  * Payment history for the logged-in swimmer (student, applicant or athlete).
  * View only: it lists the payments that belong to THIS user's enrollments.
- * Archived payments (archived_at set by the admin) are never listed or counted.
+ * Archived payments (archived_at set by the admin, e.g. after an edit) are never
+ * counted in balances, but they are listed separately as "history" so every
+ * change stays visible to the payer.
  *
  * Same rules as the admin Sales & Invoice page (SalesInvoiceController):
  *  - a payment belongs to its enrollment_id (foreign key to tbl_enrollments)
  *  - the price is course_price_at_enrollment (falls back to the course price)
  *  - each payment's balance/status is the enrollment's balance right AFTER it
- *  - the receipt number is derived: OR-<year of paid_at>-<payment id, 4 digits>
+ *  - the invoice number is derived: INV-C-<year of paid_at>-<payment id, 4 digits>
  *
  * GET /payments/data
  */
@@ -89,12 +91,15 @@ class PaymentHistoryController extends Controller
                 'method'        => $payment->payment_method ?? '',
                 'reference'     => $payment->reference_number ?? '',
                 'date'          => $payment->paid_at?->format('Y-m-d'),
-                'receipt'       => 'OR-' . $year . '-' . str_pad((string) $payment->course_payment_id, 4, '0', STR_PAD_LEFT),
+                'receipt'       => 'INV-C-' . $year . '-' . str_pad((string) $payment->course_payment_id, 4, '0', STR_PAD_LEFT),
                 'price'         => $price,
                 'paid_to_date'  => $running[$enrollmentId],
                 'balance'       => $balance,
                 'status'        => $balance <= 0 ? 'paid' : 'partial',
                 'received_by'   => $payment->receivedBy ? $this->fullName($payment->receivedBy) : '',
+                'corrects'      => $payment->replaces_payment_id
+                    ? 'INV-C-' . $year . '-' . str_pad((string) $payment->replaces_payment_id, 4, '0', STR_PAD_LEFT)
+                    : '',
                 'sort_at'       => (string) $payment->paid_at,
             ];
         });
@@ -129,11 +134,46 @@ class PaymentHistoryController extends Controller
 
         $default = $enrollments->first(fn ($e) => $e->graduation_at === null) ?? $enrollments->first();
 
+        // Archived / edited entries: shown for transparency, never counted.
+        $history = $enrollmentIds->isEmpty()
+            ? collect()
+            : DB::table('tbl_course_payments as cp')
+                ->leftJoin('tbl_user_profile as ab', 'ab.user_id', '=', 'cp.archived_by')
+                ->whereNotNull('cp.archived_at')
+                ->whereIn('cp.enrollment_id', $enrollmentIds)
+                ->select('cp.course_payment_id as id', 'cp.enrollment_id', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at', 'cp.archived_at', 'cp.archive_reason')
+                ->selectRaw("TRIM(CONCAT_WS(' ', ab.first_name, ab.last_name)) as archivedBy")
+                ->selectRaw('(SELECT x.course_payment_id FROM tbl_course_payments x WHERE x.replaces_payment_id = cp.course_payment_id LIMIT 1) as replacedById')
+                ->orderByDesc('cp.archived_at')
+                ->get()
+                ->map(function ($r) use ($courseNames) {
+                    $paidAt = Carbon::parse($r->paid_at);
+
+                    return [
+                        'id'              => (int) $r->id,
+                        'enrollment_id'   => (int) $r->enrollment_id,
+                        'course'          => $courseNames[(int) $r->enrollment_id] ?? 'Course',
+                        'amount'          => (float) $r->amount,
+                        'method'          => $r->method ?? '',
+                        'reference'       => $r->reference ?? '',
+                        'date'            => $paidAt->format('Y-m-d'),
+                        'receipt'         => 'INV-C-' . $paidAt->format('Y') . '-' . str_pad((string) $r->id, 4, '0', STR_PAD_LEFT),
+                        'archived_at'     => Carbon::parse($r->archived_at)->format('M d, Y h:i A'),
+                        'archived_by'     => $r->archivedBy ?: '',
+                        'reason'          => $r->archive_reason ?? '',
+                        'replaced_by'     => $r->replacedById
+                            ? 'INV-C-' . $paidAt->format('Y') . '-' . str_pad((string) $r->replacedById, 4, '0', STR_PAD_LEFT)
+                            : '',
+                    ];
+                })
+                ->values();
+
         return response()->json([
             'success'               => true,
             'client'                => $this->fullName($user),
             'enrollments'           => $summaries,
             'payments'              => $rows,
+            'history'               => $history,
             'default_enrollment_id' => $default?->enrollment_id,
         ]);
     }
@@ -143,7 +183,7 @@ class PaymentHistoryController extends Controller
      * tbl_athlete_payments (same row shape as the course rows, so the page
      * renders them the same way). "course" holds the fee name + billing period.
      * balance/status = the due's balance right AFTER that payment; the receipt
-     * number matches the admin page: AR-<year of paid_at>-<payment id, 4 digits>.
+     * number matches the admin page: INV-A-<year of paid_at>-<payment id, 4 digits>.
      */
     private function athleteData(User $user): JsonResponse
     {
@@ -156,7 +196,7 @@ class PaymentHistoryController extends Controller
             ->leftJoin('tbl_user_profile as rp', 'rp.user_id', '=', 'rb.user_id')
             ->where('ap.user_id', $user->getKey())
             ->whereNull('ap.archived_at')   // archived payments are hidden from the athlete
-            ->select('ap.athlete_payment_id as id', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as paidAt')
+            ->select('ap.athlete_payment_id as id', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as paidAt', 'ap.replaces_payment_id as replacesId')
             ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', rp.first_name, rp.middle_name, rp.last_name, rp.name_suffix)), ''), rb.username, '') as receivedBy")
             ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')
             ->orderByDesc('ap.paid_at')
@@ -176,12 +216,48 @@ class PaymentHistoryController extends Controller
                     'method'        => $r->method ?? '',
                     'reference'     => $r->reference ?? '',
                     'date'          => $paidAt->format('Y-m-d'),
-                    'receipt'       => 'AR-' . $paidAt->format('Y') . '-' . str_pad((string) $r->id, 4, '0', STR_PAD_LEFT),
+                    'receipt'       => 'INV-A-' . $paidAt->format('Y') . '-' . str_pad((string) $r->id, 4, '0', STR_PAD_LEFT),
                     'price'         => $due,
                     'paid_to_date'  => round((float) $r->runningPaid, 2),
                     'balance'       => $balance,
                     'status'        => $balance <= 0 ? 'paid' : 'partial',
                     'received_by'   => $r->receivedBy ?? '',
+                    'corrects'      => $r->replacesId
+                        ? 'INV-A-' . $paidAt->format('Y') . '-' . str_pad((string) $r->replacesId, 4, '0', STR_PAD_LEFT)
+                        : '',
+                ];
+            })
+            ->values();
+
+        $history = DB::table('tbl_athlete_payments as ap')
+            ->join('tbl_athlete_fees as f', 'f.athlete_fee_id', '=', 'ap.athlete_fee_id')
+            ->leftJoin('tbl_user_profile as ab', 'ab.user_id', '=', 'ap.archived_by')
+            ->where('ap.user_id', $user->getKey())
+            ->whereNotNull('ap.archived_at')
+            ->select('ap.athlete_payment_id as id', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at', 'ap.archived_at', 'ap.archive_reason')
+            ->selectRaw("TRIM(CONCAT_WS(' ', ab.first_name, ab.last_name)) as archivedBy")
+            ->selectRaw('(SELECT x.athlete_payment_id FROM tbl_athlete_payments x WHERE x.replaces_payment_id = ap.athlete_payment_id LIMIT 1) as replacedById')
+            ->orderByDesc('ap.archived_at')
+            ->get()
+            ->map(function ($r) {
+                $paidAt = Carbon::parse($r->paid_at);
+                $period = $this->periodLabel($r->cycle, (string) $r->periodKey);
+
+                return [
+                    'id'            => (int) $r->id,
+                    'enrollment_id' => null,
+                    'course'        => $period === 'One-time' ? $r->fee : $r->fee . ' (' . $period . ')',
+                    'amount'        => (float) $r->amount,
+                    'method'        => $r->method ?? '',
+                    'reference'     => $r->reference ?? '',
+                    'date'          => $paidAt->format('Y-m-d'),
+                    'receipt'       => 'INV-A-' . $paidAt->format('Y') . '-' . str_pad((string) $r->id, 4, '0', STR_PAD_LEFT),
+                    'archived_at'   => Carbon::parse($r->archived_at)->format('M d, Y h:i A'),
+                    'archived_by'   => $r->archivedBy ?: '',
+                    'reason'        => $r->archive_reason ?? '',
+                    'replaced_by'   => $r->replacedById
+                        ? 'INV-A-' . $paidAt->format('Y') . '-' . str_pad((string) $r->replacedById, 4, '0', STR_PAD_LEFT)
+                        : '',
                 ];
             })
             ->values();
@@ -191,6 +267,7 @@ class PaymentHistoryController extends Controller
             'client'                => $this->fullName($user),
             'enrollments'           => [],
             'payments'              => $rows,
+            'history'               => $history,
             'default_enrollment_id' => null,
         ]);
     }

@@ -24,7 +24,7 @@ class SalesInvoiceController extends Controller
 
     /**
      * GET /sales/data
-     * The Billing & Receipts page loads its three datasets from here with
+     * The Billing & Invoices page loads its three datasets from here with
      * fetch(), so the page works no matter how the blade gets included.
      */
     public function data(): JsonResponse
@@ -137,11 +137,15 @@ class SalesInvoiceController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
         ]);
 
         $amount = round((float) $validated['amount'], 2);
         $enrollmentId = $payment->enrollment_id;
 
+        // Edits are never done in place. The original row is archived (kept on
+        // file, with the reason) and a replacement row is inserted, so every
+        // change stays visible in the history.
         DB::transaction(function () use ($payment, $validated, $amount, $enrollmentId) {
             // Lock the enrollment so concurrent edits can't overpay together.
             $enrollment = Enrollment::whereKey($enrollmentId)->lockForUpdate()->firstOrFail();
@@ -161,11 +165,33 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            $payment->update([
+            // 1) Archive the original (only if nobody archived it meanwhile).
+            $archived = DB::table('tbl_course_payments')
+                ->where('course_payment_id', $payment->getKey())
+                ->whereNull('archived_at')
+                ->update([
+                    'archived_at' => now(),
+                    'archived_by' => Auth::id(),
+                    'archive_reason' => 'Edited: ' . trim($validated['reason']),
+                    'updated_at' => now(),
+                ]);
+
+            if (! $archived) {
+                throw ValidationException::withMessages(['payment' => ['This payment was already archived.']]);
+            }
+
+            // 2) Insert the corrected payment. It keeps the original payment
+            //    date and points back to the row it replaces.
+            DB::table('tbl_course_payments')->insert([
                 'enrollment_id' => $enrollmentId,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
                 'reference_number' => $validated['reference_number'] ?? null,
+                'paid_at' => $payment->paid_at,
+                'received_by' => Auth::id(),
+                'replaces_payment_id' => $payment->getKey(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         });
 
@@ -179,15 +205,19 @@ class SalesInvoiceController extends Controller
      * enrollment's paid total / balance / status and leaves the main log.
      * Admin only.
      */
-    public function archivePayment(CoursePayment $payment): JsonResponse
+    public function archivePayment(Request $request, CoursePayment $payment): JsonResponse
     {
         if ($denied = $this->denyUnlessAdmin()) {
             return $denied;
         }
 
+        $reason = 'Archived: ' . trim($request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ])['reason']);
+
         $enrollmentId = $payment->enrollment_id;
 
-        $archived = DB::transaction(function () use ($payment, $enrollmentId) {
+        $archived = DB::transaction(function () use ($payment, $enrollmentId, $reason) {
             // Same lock the other payment endpoints take, so a payment being
             // recorded at the same moment sees a consistent total.
             Enrollment::whereKey($enrollmentId)->lockForUpdate()->first();
@@ -198,6 +228,7 @@ class SalesInvoiceController extends Controller
                 ->update([
                     'archived_at' => now(),
                     'archived_by' => Auth::id(),
+                    'archive_reason' => $reason,
                     'updated_at' => now(),
                 ]) > 0;
         });
@@ -218,7 +249,8 @@ class SalesInvoiceController extends Controller
      *   - amount > 0, method required, reference optional
      *   - the enrollment can't already be fully paid
      *   - amount can't exceed  course price - active payments of that enrollment
-     * The original paid_at and receipt number are kept.
+     * The archived row is left untouched as history; the re-logged payment is a
+     * NEW row (same paid_at) pointing back to it through replaces_payment_id.
      */
     public function restorePayment(Request $request, CoursePayment $payment): JsonResponse
     {
@@ -267,18 +299,23 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            DB::table('tbl_course_payments')
-                ->where('course_payment_id', $payment->getKey())
-                ->update([
-                    'enrollment_id' => $enrollmentId,
-                    'amount' => $amount,
-                    'payment_method' => $validated['payment_method'],
-                    'reference_number' => $validated['reference_number'] ?? null,
-                    'archived_at' => null,
-                    'archived_by' => null,
-                    'received_by' => Auth::id(),
-                    'updated_at' => now(),
-                ]);
+            if (DB::table('tbl_course_payments')->where('replaces_payment_id', $payment->getKey())->exists()) {
+                throw ValidationException::withMessages(['payment' => ['This payment was already replaced by a newer entry.']]);
+            }
+
+            // The archived row stays untouched as history; the re-logged
+            // payment is a new row that points back to it.
+            DB::table('tbl_course_payments')->insert([
+                'enrollment_id' => $enrollmentId,
+                'amount' => $amount,
+                'payment_method' => $validated['payment_method'],
+                'reference_number' => $validated['reference_number'] ?? null,
+                'paid_at' => $row->paid_at,
+                'received_by' => Auth::id(),
+                'replaces_payment_id' => $payment->getKey(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             return max(round($remaining - $amount, 2), 0);
         });
@@ -305,7 +342,7 @@ class SalesInvoiceController extends Controller
      * A payment is matched to its enrollment with tbl_course_payments.enrollment_id.
      *
      * There's no stored receipt number: each payment's receipt is derived as
-     * OR-<year>-<payment id>; unpaid enrollments show ENR-<enrollment id>.
+     * INV-C-<year>-<payment id>; unpaid enrollments show ENR-<enrollment id>.
      */
     private function courseLog(): Collection
     {
@@ -313,13 +350,16 @@ class SalesInvoiceController extends Controller
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNull('cp.archived_at')
+                ->leftJoin('tbl_user_profile as rb_p', 'rb_p.user_id', '=', 'cp.received_by')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
+            ->selectRaw("TRIM(CONCAT_WS(' ', rb_p.first_name, rb_p.last_name)) as receivedBy")
+            ->selectRaw("CASE WHEN cp.replaces_payment_id IS NULL THEN NULL ELSE CONCAT('INV-C-', YEAR(cp.paid_at), '-', LPAD(cp.replaces_payment_id, 4, '0')) END as replacesReceipt")
             ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL AND x.course_payment_id <= cp.course_payment_id) as runningPaid')
             ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL) as totalPaid')
             ->selectRaw("DATE_FORMAT(cp.paid_at, '%b-%d-%Y') as date")
             ->selectRaw("DATE_FORMAT(cp.updated_at, '%b-%d-%Y') as updatedAt")
-            ->selectRaw("CONCAT('OR-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
+            ->selectRaw("CONCAT('INV-C-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
             ->get()
             ->map(function ($r) {
                 $price = (float) $r->price;
@@ -341,6 +381,8 @@ class SalesInvoiceController extends Controller
                     'method' => $r->method ?? '',
                     'date' => $r->date ?? '',
                     'updatedAt' => $r->updatedAt ?? '',
+                    'receivedBy' => $r->receivedBy ?: '',
+                    'replacesReceipt' => $r->replacesReceipt,
                     'receipt' => $r->receipt,
                     'sortAt' => (string) $r->sortAt,
                 ];
@@ -395,12 +437,17 @@ class SalesInvoiceController extends Controller
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNotNull('cp.archived_at')
+                ->leftJoin('tbl_user_profile as ab_p', 'ab_p.user_id', '=', 'cp.archived_by')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
             ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0) FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL) as activePaid')
+            ->selectRaw('cp.archive_reason as archiveReason')
+            ->selectRaw('cp.replaces_payment_id as replacesId')
+            ->selectRaw('EXISTS (SELECT 1 FROM tbl_course_payments x WHERE x.replaces_payment_id = cp.course_payment_id) as replaced')
+            ->selectRaw("TRIM(CONCAT_WS(' ', ab_p.first_name, ab_p.last_name)) as archivedBy")
             ->selectRaw("DATE_FORMAT(cp.paid_at, '%b-%d-%Y') as date")
-            ->selectRaw("DATE_FORMAT(cp.archived_at, '%b-%d-%Y') as archivedAt")
-            ->selectRaw("CONCAT('OR-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
+            ->selectRaw("DATE_FORMAT(cp.archived_at, '%b-%d-%Y %h:%i %p') as archivedAt")
+            ->selectRaw("CONCAT('INV-C-', YEAR(cp.paid_at), '-', LPAD(cp.course_payment_id, 4, '0')) as receipt")
             ->orderByDesc('cp.archived_at')
             ->orderByDesc('cp.course_payment_id')
             ->get()
@@ -417,6 +464,10 @@ class SalesInvoiceController extends Controller
                 'method' => $r->method ?? '',
                 'date' => $r->date ?? '',
                 'archivedAt' => $r->archivedAt ?? '',
+                'archivedBy' => $r->archivedBy ?: '',
+                'archiveReason' => $r->archiveReason ?? '',
+                'replacesId' => $r->replacesId ? (int) $r->replacesId : null,
+                'replaced' => (bool) $r->replaced,
                 'receipt' => $r->receipt,
                 'status' => 'archived',
                 'sortAt' => (string) $r->sortAt,
@@ -718,6 +769,7 @@ class SalesInvoiceController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
         ]);
 
         $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
@@ -732,6 +784,8 @@ class SalesInvoiceController extends Controller
 
         $amount = round((float) $validated['amount'], 2);
 
+        // Edits are never done in place: the original row is archived (kept on
+        // file with the reason) and a replacement row is inserted.
         DB::transaction(function () use ($row, $validated, $amount, $payment) {
             DB::table('tbl_users')->where('user_id', $row->user_id)->lockForUpdate()->first();
 
@@ -753,10 +807,32 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->update([
+            $archived = DB::table('tbl_athlete_payments')
+                ->where('athlete_payment_id', $payment)
+                ->whereNull('archived_at')
+                ->update([
+                    'archived_at' => now(),
+                    'archived_by' => Auth::id(),
+                    'archive_reason' => 'Edited: ' . trim($validated['reason']),
+                    'updated_at' => now(),
+                ]);
+
+            if (! $archived) {
+                throw ValidationException::withMessages(['payment' => ['This payment was already archived.']]);
+            }
+
+            DB::table('tbl_athlete_payments')->insert([
+                'user_id' => $row->user_id,
+                'athlete_fee_id' => $row->athlete_fee_id,
+                'period_key' => $row->period_key,
+                'amount_due' => $row->amount_due,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
                 'reference_number' => $validated['reference_number'] ?? null,
+                'paid_at' => $row->paid_at,
+                'received_by' => Auth::id(),
+                'replaces_payment_id' => $payment,
+                'created_at' => now(),
                 'updated_at' => now(),
             ]);
         });
@@ -770,11 +846,15 @@ class SalesInvoiceController extends Controller
      * tbl_athlete_payments with archived_at set, stops counting toward its
      * due (athlete + fee + period) and leaves the main log. Admin only.
      */
-    public function archiveAthletePayment(int $payment): JsonResponse
+    public function archiveAthletePayment(Request $request, int $payment): JsonResponse
     {
         if ($denied = $this->denyUnlessAdmin()) {
             return $denied;
         }
+
+        $reason = 'Archived: ' . trim($request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ])['reason']);
 
         $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
 
@@ -782,7 +862,7 @@ class SalesInvoiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Payment not found.'], 404);
         }
 
-        $archived = DB::transaction(function () use ($row, $payment) {
+        $archived = DB::transaction(function () use ($row, $payment, $reason) {
             // Same lock the other athlete payment endpoints take.
             DB::table('tbl_users')->where('user_id', $row->user_id)->lockForUpdate()->first();
 
@@ -792,6 +872,7 @@ class SalesInvoiceController extends Controller
                 ->update([
                     'archived_at' => now(),
                     'archived_by' => Auth::id(),
+                    'archive_reason' => $reason,
                     'updated_at' => now(),
                 ]) > 0;
         });
@@ -813,7 +894,8 @@ class SalesInvoiceController extends Controller
      *   - amount can't exceed  amount_due - active payments of that due
      * amount_due is the one the due's active payments are frozen with, or this
      * row's own frozen amount_due when the due has no active payment left.
-     * The original paid_at and receipt number are kept.
+     * The archived row is left untouched as history; the re-logged payment is a
+     * NEW row (same paid_at) pointing back to it through replaces_payment_id.
      */
     public function restoreAthletePayment(Request $request, int $payment): JsonResponse
     {
@@ -876,14 +958,24 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->update([
+            if (DB::table('tbl_athlete_payments')->where('replaces_payment_id', $payment)->exists()) {
+                throw ValidationException::withMessages(['payment' => ['This payment was already replaced by a newer entry.']]);
+            }
+
+            // The archived row stays untouched as history; the re-logged
+            // payment is a new row that points back to it.
+            DB::table('tbl_athlete_payments')->insert([
+                'user_id' => $current->user_id,
+                'athlete_fee_id' => $current->athlete_fee_id,
+                'period_key' => $current->period_key,
                 'amount_due' => $due,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
                 'reference_number' => $validated['reference_number'] ?? null,
-                'archived_at' => null,
-                'archived_by' => null,
+                'paid_at' => $current->paid_at,
                 'received_by' => Auth::id(),
+                'replaces_payment_id' => $payment,
+                'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
@@ -949,7 +1041,7 @@ class SalesInvoiceController extends Controller
      * Every athlete x every ACTIVE fee that has no payment yet for the
      * current period also gets one Unpaid row (negative id), so the admin sees
      * who still owes and can pay it.
-     * Receipt is derived: AR-<year>-<payment id>.
+     * Invoice number is derived: INV-A-<year>-<payment id>.
      */
     private function athleteLog(): Collection
     {
@@ -963,13 +1055,16 @@ class SalesInvoiceController extends Controller
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'ap.user_id')
             ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
             ->whereNull('ap.archived_at')
+            ->leftJoin('tbl_user_profile as rb_p', 'rb_p.user_id', '=', 'ap.received_by')
             ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
+            ->selectRaw("TRIM(CONCAT_WS(' ', rb_p.first_name, rb_p.last_name)) as receivedBy")
+            ->selectRaw("CASE WHEN ap.replaces_payment_id IS NULL THEN NULL ELSE CONCAT('INV-A-', YEAR(ap.paid_at), '-', LPAD(ap.replaces_payment_id, 4, '0')) END as replacesReceipt")
             ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')
             ->selectRaw('(' . $sumOfDue . ') as totalPaid')
             ->selectRaw("DATE_FORMAT(ap.paid_at, '%b-%d-%Y') as date")
             ->selectRaw("DATE_FORMAT(ap.updated_at, '%b-%d-%Y') as updatedAt")
-            ->selectRaw("CONCAT('AR-', YEAR(ap.paid_at), '-', LPAD(ap.athlete_payment_id, 4, '0')) as receipt")
+            ->selectRaw("CONCAT('INV-A-', YEAR(ap.paid_at), '-', LPAD(ap.athlete_payment_id, 4, '0')) as receipt")
             ->get()
             ->map(function ($r) {
                 $due = (float) $r->due;
@@ -995,6 +1090,8 @@ class SalesInvoiceController extends Controller
                     'method' => $r->method ?? '',
                     'date' => $r->date ?? '',
                     'updatedAt' => $r->updatedAt ?? '',
+                    'receivedBy' => $r->receivedBy ?: '',
+                    'replacesReceipt' => $r->replacesReceipt,
                     'receipt' => $r->receipt,
                     'sortAt' => (string) $r->sortAt,
                 ];
@@ -1063,13 +1160,18 @@ class SalesInvoiceController extends Controller
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'ap.user_id')
             ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.user_id')
             ->whereNotNull('ap.archived_at')
+            ->leftJoin('tbl_user_profile as ab_p', 'ab_p.user_id', '=', 'ap.archived_by')
             ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as ownDue', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
             ->selectRaw('(SELECT x.amount_due' . $activeOfDue . ' ORDER BY x.athlete_payment_id LIMIT 1) as activeDue')
             ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0)' . $activeOfDue . ') as duePaid')
             ->selectRaw("DATE_FORMAT(ap.paid_at, '%b-%d-%Y') as date")
-            ->selectRaw("DATE_FORMAT(ap.archived_at, '%b-%d-%Y') as archivedAt")
-            ->selectRaw("CONCAT('AR-', YEAR(ap.paid_at), '-', LPAD(ap.athlete_payment_id, 4, '0')) as receipt")
+            ->selectRaw('ap.archive_reason as archiveReason')
+            ->selectRaw('ap.replaces_payment_id as replacesId')
+            ->selectRaw('EXISTS (SELECT 1 FROM tbl_athlete_payments x WHERE x.replaces_payment_id = ap.athlete_payment_id) as replaced')
+            ->selectRaw("TRIM(CONCAT_WS(' ', ab_p.first_name, ab_p.last_name)) as archivedBy")
+            ->selectRaw("DATE_FORMAT(ap.archived_at, '%b-%d-%Y %h:%i %p') as archivedAt")
+            ->selectRaw("CONCAT('INV-A-', YEAR(ap.paid_at), '-', LPAD(ap.athlete_payment_id, 4, '0')) as receipt")
             ->orderByDesc('ap.archived_at')
             ->orderByDesc('ap.athlete_payment_id')
             ->get()
@@ -1089,6 +1191,10 @@ class SalesInvoiceController extends Controller
                 'method' => $r->method ?? '',
                 'date' => $r->date ?? '',
                 'archivedAt' => $r->archivedAt ?? '',
+                'archivedBy' => $r->archivedBy ?: '',
+                'archiveReason' => $r->archiveReason ?? '',
+                'replacesId' => $r->replacesId ? (int) $r->replacesId : null,
+                'replaced' => (bool) $r->replaced,
                 'receipt' => $r->receipt,
                 'status' => 'archived',
                 'sortAt' => (string) $r->sortAt,
