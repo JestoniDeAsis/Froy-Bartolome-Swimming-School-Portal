@@ -46,6 +46,11 @@
         width: 1.2em;
         text-align: center;
     }
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+        font-weight: 600;
+    }
     #waiverDialog {
         border: none;
         border-radius: 0.75rem;
@@ -107,7 +112,7 @@
                     <div class="signup-step" id="step1">
 
                         <h2 class="signup-title text-center mb-1">Create Account</h2>
-                        <p class="text-center text-muted mb-4">Who is this registration for?</p>
+                        <p class="text-center text-muted mb-4">Who is this registration for? <span class="text-danger">*</span></p>
 
                         <div class="form-check border rounded p-3 ps-5 mb-2">
                             <input class="form-check-input" type="radio" name="account_handler"
@@ -142,24 +147,25 @@
                     <div class="signup-step d-none" id="step2">
 
                         <h2 class="signup-title text-center mb-1">Account Details</h2>
-                        <p class="text-center text-muted mb-4">Set up the login for this account</p>
+                        <p class="text-center text-muted mb-3">Set up the login for this account</p>
+                        <p class="small text-muted text-center mb-3">Fields marked with a red <span class="text-danger fw-bold">*</span> are required.</p>
 
                         <div class="mb-3">
-                            <label class="form-label">Username</label>
+                            <label class="form-label required-field" for="username">Username</label>
                             <input type="text" class="form-control" id="username" name="username"
-                                   placeholder="Choose a username" minlength="3" maxlength="30" data-counter required>
+                                   placeholder="Choose a username" minlength="3" maxlength="30" autocomplete="username" data-counter data-username required>
                             <div class="form-text">3–30 characters. Letters, numbers, and underscores only.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Email Address</label>
+                            <label class="form-label required-field" for="emailAddress">Email Address</label>
                             <input type="email" class="form-control" id="emailAddress" name="email_address"
-                                   placeholder="Enter your email address" maxlength="100" data-counter required>
+                                   placeholder="Enter your email address" maxlength="100" autocomplete="email" data-counter data-email required>
                             <div class="form-text">We will send a verification code to this email at the last step.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Password</label>
+                            <label class="form-label required-field" for="password">Password</label>
                             <div class="input-group">
                                 <input type="password" class="form-control" id="password" name="password"
                                        placeholder="Create a password" maxlength="64" autocomplete="new-password" data-counter required>
@@ -175,11 +181,13 @@
                                 <li data-rule="lower" class="text-muted"><span class="rule-icon">○</span> At least one lowercase letter</li>
                                 <li data-rule="number" class="text-muted"><span class="rule-icon">○</span> At least one number</li>
                                 <li data-rule="special" class="text-muted"><span class="rule-icon">○</span> At least one special character</li>
+                                <li data-rule="nospace" class="text-muted"><span class="rule-icon">○</span> No spaces</li>
+                                <li data-rule="nouser" class="text-muted"><span class="rule-icon">○</span> Does not contain your username</li>
                             </ul>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Confirm Password</label>
+                            <label class="form-label required-field" for="confirmPassword">Confirm Password</label>
                             <div class="input-group">
                                 <input type="password" class="form-control" id="confirmPassword" name="confirm_password"
                                        placeholder="Confirm your password" maxlength="64" autocomplete="new-password" required>
@@ -189,6 +197,7 @@
                                     <svg class="icon-eye-off d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 </button>
                             </div>
+                            <div class="form-text">Type it again. Copy and paste is turned off for password fields.</div>
                             <div class="form-text" id="passwordMatchText"></div>
                         </div>
 
@@ -204,31 +213,34 @@
 
                         <h2 class="signup-title text-center mb-1"
                             data-parent="Applicant Information" data-self="Personal Information">Personal Information</h2>
-                        <p class="text-center text-muted mb-4"
+                        <p class="text-center text-muted mb-3"
                            data-parent="Tell us about the person who will take the classes"
                            data-self="Tell us about yourself">Tell us about yourself</p>
+                        <p class="small text-muted text-center mb-3">Fields marked with a red <span class="text-danger fw-bold">*</span> are required.</p>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="First Name">First Name</label>
+                            <label class="form-label required-field" for="firstName" data-applicant="First Name">First Name</label>
                             <input type="text" class="form-control" id="firstName" name="first_name"
                                    data-applicant-ph="first name" placeholder="Enter your first name" maxlength="50" data-counter data-name required>
+                            <div class="form-text">At least 2 characters. Letters only, no numbers or symbols.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="Middle Name">Middle Name</label>
-                            <input type="text" class="form-control" name="middle_name"
+                            <label class="form-label" for="middleName" data-applicant="Middle Name">Middle Name</label>
+                            <input type="text" class="form-control" id="middleName" name="middle_name"
                                    data-applicant-ph="middle name" placeholder="Enter your middle name" maxlength="50" data-counter data-name>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="Last Name">Last Name</label>
+                            <label class="form-label required-field" for="lastName" data-applicant="Last Name">Last Name</label>
                             <input type="text" class="form-control" id="lastName" name="last_name"
                                    data-applicant-ph="last name" placeholder="Enter your last name" maxlength="50" data-counter data-name required>
+                            <div class="form-text">At least 2 characters. Letters only, no numbers or symbols.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="Name Suffix">Name Suffix</label>
-                            <select class="form-select" name="name_suffix">
+                            <label class="form-label" for="nameSuffix" data-applicant="Name Suffix">Name Suffix</label>
+                            <select class="form-select" id="nameSuffix" name="name_suffix">
                                 <option value="" selected>None</option>
                                 <option value="Jr.">Jr.</option>
                                 <option value="Sr.">Sr.</option>
@@ -240,20 +252,22 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="Date of Birth">Date of Birth</label>
+                            <label class="form-label required-field" for="birthdate" data-applicant="Date of Birth">Date of Birth</label>
                             <input type="date" class="form-control" id="birthdate" name="birthdate" required>
+                            <div class="form-text" data-parent="The applicant must be at least 5 years old." data-self="You must be at least 18 years old.">You must be at least 18 years old.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="Mobile Number">Mobile Number</label>
+                            <label class="form-label required-field" for="phoneNumber" data-applicant="Mobile Number">Mobile Number</label>
                             <input type="tel" class="form-control" id="phoneNumber" name="phone_number" data-counter data-digits
                                    placeholder="09XXXXXXXXX" pattern="09[0-9]{9}" maxlength="11"
                                    inputmode="numeric" required>
+                            <div class="form-text">11 digits, starting with 09 (for example, 09123456789).</div>
                             <div class="form-text" data-parent="No mobile number? You can use your own." data-self=""></div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label d-block" data-applicant="Sex">Sex</label>
+                            <label class="form-label required-field d-block" data-applicant="Sex">Sex</label>
                             <div class="d-flex gap-4">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="sex" id="male" value="Male" required>
@@ -267,9 +281,10 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" data-applicant="Home Address">Home Address</label>
-                            <textarea class="form-control" name="address" id="address" rows="2" maxlength="255" data-counter
+                            <label class="form-label required-field" for="address" data-applicant="Home Address">Home Address</label>
+                            <textarea class="form-control" name="address" id="address" rows="2" minlength="10" maxlength="255" data-counter data-address autocomplete="street-address"
                                       placeholder="House no., street, barangay, city, province" required></textarea>
+                            <div class="form-text">At least 10 characters. Include your house no., street, barangay, city, and province.</div>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -284,22 +299,24 @@
 
                         <h2 class="signup-title text-center mb-1"
                             data-parent="Parent / Guardian" data-self="Emergency Contact">Parent / Guardian</h2>
-                        <p class="text-center text-muted mb-4"
+                        <p class="text-center text-muted mb-3"
                            data-parent="Provide your information as the parent or guardian"
                            data-self="Someone we can call in case of an emergency">Provide parent or guardian information</p>
+                        <p class="small text-muted text-center mb-3">Fields marked with a red <span class="text-danger fw-bold">*</span> are required.</p>
 
                         <div class="mb-3">
-                            <label class="form-label"
+                            <label class="form-label required-field" for="parentFullName"
                                    data-parent="Your Full Name" data-self="Contact Person's Full Name">Full Name</label>
-                            <input type="text" class="form-control" name="parent_guardian_fullname"
+                            <input type="text" class="form-control" id="parentFullName" name="parent_guardian_fullname"
                                    placeholder="Enter full name" maxlength="100" data-counter data-name required>
+                            <div class="form-text">Enter first and last name. Letters only, no numbers or symbols.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label"
+                            <label class="form-label required-field" for="parentRelationship"
                                    data-parent="Your Relationship to the Applicant"
                                    data-self="Their Relationship to You">Relationship</label>
-                            <select class="form-select" name="parent_guardian_relationship" required>
+                            <select class="form-select" id="parentRelationship" name="parent_guardian_relationship" required>
                                 <option value="" selected disabled>Select relationship</option>
                                 <option value="Mother">Mother</option>
                                 <option value="Father">Father</option>
@@ -318,12 +335,13 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label"
+                            <label class="form-label required-field" for="parentPhone"
                                    data-parent="Your Mobile Number"
                                    data-self="Contact Person's Mobile Number">Mobile Number</label>
-                            <input type="tel" class="form-control" name="parent_guardian_phone_number" data-counter data-digits
+                            <input type="tel" class="form-control" id="parentPhone" name="parent_guardian_phone_number" data-counter data-digits
                                    placeholder="09XXXXXXXXX" pattern="09[0-9]{9}" maxlength="11"
                                    inputmode="numeric" required>
+                            <div class="form-text">11 digits, starting with 09 (for example, 09123456789).</div>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -346,7 +364,7 @@
 
                         <div class="form-check mb-4">
                             <input class="form-check-input" type="checkbox" id="waiverCheck">
-                            <label class="form-check-label" for="waiverCheck">
+                            <label class="form-check-label required-field" for="waiverCheck">
                                 I have read and agree to the waiver and agreement terms.
                             </label>
                         </div>
@@ -364,10 +382,10 @@
                     <div class="signup-step d-none" id="step6">
 
                         <h2 class="signup-title text-center mb-1">Verify Email</h2>
-                        <p class="text-center text-muted mb-4">Last step. Enter the verification code sent to your email.</p>
+                        <p class="text-center text-muted mb-4">Last step. We sent a 6-digit verification code to your email to confirm that this address belongs to you. Enter it below to finish creating your account.</p>
 
                         <div class="mb-3">
-                            <label class="form-label">Email Address</label>
+                            <label class="form-label" for="emailStep6">Email Address</label>
                             <div class="input-group">
                                 <input type="email" class="form-control" id="emailStep6" readonly>
                                 <span class="input-group-text text-muted resend-text" id="resendCodeText">
@@ -377,10 +395,11 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Verification Code</label>
-                            <input type="text" class="form-control" id="verificationCode"
+                            <label class="form-label required-field" for="verificationCode">Verification Code</label>
+                            <input type="text" class="form-control" id="verificationCode" autocomplete="one-time-code"
                                    placeholder="Enter 6-digit verification code" maxlength="6"
                                    inputmode="numeric" pattern="[0-9]{6}" required>
+                            <div class="form-text">The code expires in 10 minutes. Did not get it? Check your spam folder, or use Resend Code above once the timer ends.</div>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -529,6 +548,8 @@
     });
 
     const NAME_PATTERN = /^\p{L}[\p{L} .'’-]*$/u;
+    const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+    const MOBILE_PATTERN = /^09\d{9}$/;
 
     function validateName(fieldName, label, required) {
         const input = document.querySelector('[name="' + fieldName + '"]');
@@ -570,12 +591,33 @@
                 return false;
             }
 
+            const emailInput = document.getElementById("emailAddress");
+            emailInput.value = emailInput.value.trim().toLowerCase();
+
+            if (!EMAIL_PATTERN.test(emailInput.value)) {
+                showToast("Please enter a valid email address, like name@example.com.", "danger");
+                emailInput.focus();
+                return false;
+            }
+
             const password = document.getElementById("password").value;
             const confirmPassword = document.getElementById("confirmPassword").value;
             const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
             if (!passwordPattern.test(password)) {
                 showToast("Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.", "danger");
+                document.getElementById("password").focus();
+                return false;
+            }
+
+            if (/\s/.test(password)) {
+                showToast("Password cannot contain spaces.", "danger");
+                document.getElementById("password").focus();
+                return false;
+            }
+
+            if (password.toLowerCase().includes(val("username").toLowerCase())) {
+                showToast("Password must not contain your username.", "danger");
                 document.getElementById("password").focus();
                 return false;
             }
@@ -608,6 +650,13 @@
                 return false;
             }
 
+            const oldestBirthdate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+
+            if (selectedDate < oldestBirthdate) {
+                showToast("Please enter a valid date of birth.", "danger");
+                return false;
+            }
+
             const isSelf = getHandler() === "self";
             const minAge = isSelf ? 18 : 5;
             const minimumBirthdate = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
@@ -623,8 +672,41 @@
             }
         }
 
+        if (step === 3) {
+            const phoneInput = document.getElementById("phoneNumber");
+            if (!MOBILE_PATTERN.test(phoneInput.value.trim())) {
+                showToast("Mobile number must be 11 digits and start with 09.", "danger");
+                phoneInput.focus();
+                return false;
+            }
+
+            const addressInput = document.getElementById("address");
+            const address = addressInput.value.trim().replace(/\s+/g, " ");
+            addressInput.value = address;
+
+            if (address.length < 10 || !/\p{L}/u.test(address)) {
+                showToast("Please enter a complete home address (at least 10 characters) with your street, barangay, city, and province.", "danger");
+                addressInput.focus();
+                return false;
+            }
+        }
+
         if (step === 4) {
             if (!validateName("parent_guardian_fullname", "Full name", true)) return false;
+
+            const fullNameInput = document.getElementById("parentFullName");
+            if (fullNameInput.value.trim().split(/\s+/).length < 2) {
+                showToast("Please enter the full name (first and last name).", "danger");
+                fullNameInput.focus();
+                return false;
+            }
+
+            const parentPhone = document.getElementById("parentPhone");
+            if (!MOBILE_PATTERN.test(parentPhone.value.trim())) {
+                showToast("Mobile number must be 11 digits and start with 09.", "danger");
+                parentPhone.focus();
+                return false;
+            }
         }
 
         if (step === 5) {
@@ -809,6 +891,24 @@
                 message = "Numbers only.";
             }
 
+            if (input.hasAttribute("data-username")) {
+                cleaned = cleaned.replace(/[^A-Za-z0-9_]/g, "");
+                message = "Only letters, numbers, and underscores are allowed.";
+            }
+
+            if (input.hasAttribute("data-email")) {
+                cleaned = cleaned.replace(/\s/g, "");
+                message = "Spaces are not allowed in an email address.";
+            }
+
+            if (input.hasAttribute("data-address")) {
+                cleaned = cleaned
+                    .replace(/[^\p{L}\p{N} .,#'’\/-]/gu, "")
+                    .replace(/^ +/, "")
+                    .replace(/ {2,}/g, " ");
+                message = "Only letters, numbers, spaces, and . , # ' / - are allowed.";
+            }
+
             if (cleaned !== original) {
                 input.value = cleaned;
                 msg.textContent = message;
@@ -836,13 +936,57 @@
         });
     });
 
+    // ---------- date of birth limits ----------
+    (function () {
+        const birth = document.getElementById("birthdate");
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const monthDay = "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+
+        birth.max = now.getFullYear() + monthDay;
+        birth.min = (now.getFullYear() - 100) + monthDay;
+    })();
+
+    // ---------- verification code: digits only ----------
+    document.getElementById("verificationCode").addEventListener("input", function () {
+        this.value = this.value.replace(/\D/g, "");
+    });
+
+    // ---------- no copy / paste on password fields ----------
+    let lastClipboardToast = 0;
+
+    ["password", "confirmPassword"].forEach(function (id) {
+        const field = document.getElementById(id);
+
+        ["paste", "copy", "cut", "drop", "dragstart", "contextmenu"].forEach(function (eventName) {
+            field.addEventListener(eventName, function (event) {
+                event.preventDefault();
+
+                if (eventName === "contextmenu") {
+                    return;
+                }
+
+                const now = Date.now();
+                if (now - lastClipboardToast > 2000) {
+                    lastClipboardToast = now;
+                    showToast("Copy and paste are disabled on password fields. Please type your password.", "danger");
+                }
+            });
+        });
+    });
+
     // ---------- live password checklist ----------
     const passwordRules = {
         length: function (v) { return v.length >= 8; },
         upper: function (v) { return /[A-Z]/.test(v); },
         lower: function (v) { return /[a-z]/.test(v); },
         number: function (v) { return /\d/.test(v); },
-        special: function (v) { return /[^A-Za-z0-9]/.test(v); }
+        special: function (v) { return /[^A-Za-z0-9]/.test(v); },
+        nospace: function (v) { return v !== "" && !/\s/.test(v); },
+        nouser: function (v) {
+            const u = document.getElementById("username").value.trim().toLowerCase();
+            return v !== "" && (u.length < 3 || !v.toLowerCase().includes(u));
+        }
     };
 
     function updatePasswordMatch() {
@@ -875,6 +1019,7 @@
     }
 
     document.getElementById("password").addEventListener("input", updatePasswordChecklist);
+    document.getElementById("username").addEventListener("input", updatePasswordChecklist);
     document.getElementById("confirmPassword").addEventListener("input", updatePasswordMatch);
 
     // ---------- waiver modal ----------

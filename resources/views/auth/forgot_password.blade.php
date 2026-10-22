@@ -19,6 +19,19 @@
         margin-left: auto;
         margin-right: auto;
     }
+    .toggle-password {
+        display: flex;
+        align-items: center;
+    }
+    .rule-icon {
+        display: inline-block;
+        width: 1.2em;
+        text-align: center;
+    }
+    .resend-text {
+        cursor: pointer;
+        white-space: nowrap;
+    }
     .forgot-password-card {
         box-shadow: none;
     }
@@ -47,18 +60,21 @@
                     <div class="forgot-step" id="step1">
 
                         <h2 class="forgot-password-title text-center mb-1">Forgot Password?</h2>
-                        <p class="text-center text-muted mb-4">Enter your email address to reset your password.</p>
+                        <p class="text-center text-muted mb-4">Enter the email address you used to register and we will send you a verification code.</p>
 
                         <div class="mb-3">
-                            <label class="form-label">Email Address</label>
+                            <label class="form-label" for="emailAddress">Email Address</label>
 
-                            <input type="email" 
-                                class="form-control" 
-                                id="emailAddress" 
-                                name="email_address" 
-                                placeholder="Enter your email address" 
-                                required 
+                            <input type="email"
+                                class="form-control"
+                                id="emailAddress"
+                                name="email_address"
+                                placeholder="Enter your email address"
+                                maxlength="100"
+                                autocomplete="email"
+                                required
                             >
+                            <div class="form-text">We will email a verification code to confirm it is you.</div>
                         </div>
 
                         <button type="button" class="btn btn-primary w-100" id="sendCodeButton" onclick="sendPasswordResetCode()">
@@ -77,12 +93,10 @@
                     <!-- ================= STEP 2 ================= -->
                     <div class="forgot-step d-none" id="step2">
                         <h2 class="forgot-password-title text-center mb-1">Verify Your Email</h2>
-                        <p class="text-center text-muted mb-4">Enter the verification code sent to your email.</p>
+                        <p class="text-center text-muted mb-4">We sent a 6-digit verification code to your email to confirm that you own this account. Enter it below to continue.</p>
 
                         <div class="mb-3">
-                            <label class="form-label">
-                                Email Address
-                            </label>
+                            <label class="form-label" for="emailStep2">Email Address</label>
                             
                             <div class="input-group">
 
@@ -96,21 +110,21 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">
-                                Verification Code
-                            </label>
+                            <label class="form-label" for="passwordResetCode">Verification Code</label>
 
                             <input
                                 type="text"
                                 class="form-control"
                                 id="passwordResetCode"
                                 name="verification_code"
+                                autocomplete="one-time-code"
                                 placeholder="Enter 6-digit verification code"
                                 maxlength="6"
                                 inputmode="numeric"
                                 pattern="[0-9]{6}"
                                 required
                             >
+                            <div class="form-text">The code expires in 10 minutes. Did not get it? Check your spam folder, or use Resend Code above once the timer ends.</div>
                         </div>
 
                         <button
@@ -130,48 +144,39 @@
                         <p class="text-center text-muted mb-4">Create a new password for your account.</p>
 
                         <div class="mb-3">
-                            <label class="form-label">New Password</label>
-                            <input
-                                type="password"
-                                class="form-control"
-                                id="newPassword"
-                                name="new_password"
-                                placeholder="Enter your new password"
-                                autocomplete="new-password"
-                                required
-                            >
-                            <div class="form-text mt-2">
-                                Password must contain:
-                                <ul class="mb-0 ps-3">
-                                    <li>At least 8 characters</li>
-                                    <li>At least one uppercase letter</li>
-                                    <li>At least one lowercase letter</li>
-                                    <li>At least one number</li>
-                                    <li>At least one special character</li>
-                                </ul>
+                            <label class="form-label" for="newPassword">New Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="newPassword" name="new_password"
+                                       placeholder="Enter your new password" maxlength="64" autocomplete="new-password" required>
+                                <button type="button" class="btn btn-outline-secondary toggle-password"
+                                    data-target="newPassword" aria-label="Show password" title="Show password">
+                                <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icon-eye-off d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
                             </div>
-                        </div>
-
-                        <div class="form-check mb-3">
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                id="showNewPassword"
-                            >
-                            <label class="form-check-label" for="showNewPassword">Show new password</label>
+                            <ul class="list-unstyled small mt-2 mb-0" id="passwordRules">
+                                <li data-rule="length" class="text-muted"><span class="rule-icon">○</span> At least 8 characters</li>
+                                <li data-rule="upper" class="text-muted"><span class="rule-icon">○</span> At least one uppercase letter</li>
+                                <li data-rule="lower" class="text-muted"><span class="rule-icon">○</span> At least one lowercase letter</li>
+                                <li data-rule="number" class="text-muted"><span class="rule-icon">○</span> At least one number</li>
+                                <li data-rule="special" class="text-muted"><span class="rule-icon">○</span> At least one special character</li>
+                                <li data-rule="nospace" class="text-muted"><span class="rule-icon">○</span> No spaces</li>
+                            </ul>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Confirm Password</label>
-                            <input
-                                type="password"
-                                class="form-control"
-                                id="confirmPassword"
-                                name="confirm_password"
-                                placeholder="Confirm your new password"
-                                autocomplete="new-password"
-                                required
-                            >
+                            <label class="form-label" for="confirmPassword">Confirm Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="confirmPassword" name="confirm_password"
+                                       placeholder="Confirm your new password" maxlength="64" autocomplete="new-password" required>
+                                <button type="button" class="btn btn-outline-secondary toggle-password"
+                                    data-target="confirmPassword" aria-label="Show password" title="Show password">
+                                <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icon-eye-off d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                            </div>
+                            <div class="form-text">Type it again. Copy and paste is turned off for password fields.</div>
+                            <div class="form-text" id="passwordMatchText"></div>
                         </div>
 
                         <button
@@ -202,6 +207,9 @@
     let resendSeconds = 60;
     let dailyLimitReached = false;
 
+    const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+    const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
     function validateStep(step) {
         const stepElement = document.getElementById("step" + step);
         const inputs = stepElement.querySelectorAll("input, select, textarea");
@@ -209,6 +217,17 @@
         for (const input of inputs) {
             if (!input.checkValidity()) {
                 input.reportValidity();
+                return false;
+            }
+        }
+
+        if (step === 1) {
+            const emailInput = document.getElementById("emailAddress");
+            emailInput.value = emailInput.value.trim().toLowerCase();
+
+            if (!EMAIL_PATTERN.test(emailInput.value)) {
+                showToast("Please enter a valid email address, like name@example.com.", "danger");
+                emailInput.focus();
                 return false;
             }
         }
@@ -403,8 +422,21 @@
         const newPassword = document.getElementById("newPassword").value;
         const confirmPassword = document.getElementById("confirmPassword").value;
 
+        if (!PASSWORD_PATTERN.test(newPassword)) {
+            showToast("Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.", "danger");
+            document.getElementById("newPassword").focus();
+            return;
+        }
+
+        if (/\s/.test(newPassword)) {
+            showToast("Password cannot contain spaces.", "danger");
+            document.getElementById("newPassword").focus();
+            return;
+        }
+
         if (newPassword !== confirmPassword) {
             showToast("Passwords do not match.", "danger");
+            document.getElementById("confirmPassword").focus();
             return;
         }
 
@@ -443,12 +475,92 @@
         }
     }
 
-    const checkbox = document.getElementById("showNewPassword");
-    const passwordInput = document.getElementById("newPassword");
+    // ---------- eye icons ----------
+    document.querySelectorAll(".toggle-password").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const input = document.getElementById(button.dataset.target);
+            const show = input.type === "password";
 
-    checkbox.addEventListener("change", function () {
-        const type = this.checked ? "text" : "password";
-        passwordInput.type = type;
+            input.type = show ? "text" : "password";
+            button.querySelector(".icon-eye").classList.toggle("d-none", show);
+            button.querySelector(".icon-eye-off").classList.toggle("d-none", !show);
+            button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+            button.title = show ? "Hide password" : "Show password";
+        });
+    });
+
+    // ---------- live password checklist ----------
+    const passwordRules = {
+        length: function (v) { return v.length >= 8; },
+        upper: function (v) { return /[A-Z]/.test(v); },
+        lower: function (v) { return /[a-z]/.test(v); },
+        number: function (v) { return /\d/.test(v); },
+        special: function (v) { return /[^A-Za-z0-9]/.test(v); },
+        nospace: function (v) { return v !== "" && !/\s/.test(v); }
+    };
+
+    function updatePasswordMatch() {
+        const password = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+        const matchText = document.getElementById("passwordMatchText");
+
+        if (confirmPassword === "") {
+            matchText.textContent = "";
+            matchText.className = "form-text";
+            return;
+        }
+
+        const same = password === confirmPassword;
+        matchText.textContent = same ? "Passwords match." : "Passwords do not match.";
+        matchText.className = "form-text " + (same ? "text-success" : "text-danger");
+    }
+
+    function updatePasswordChecklist() {
+        const value = document.getElementById("newPassword").value;
+
+        document.querySelectorAll("#passwordRules li").forEach(function (li) {
+            const ok = passwordRules[li.dataset.rule](value);
+            li.classList.toggle("text-success", ok);
+            li.classList.toggle("text-muted", !ok);
+            li.querySelector(".rule-icon").textContent = ok ? "✓" : "○";
+        });
+
+        updatePasswordMatch();
+    }
+
+    document.getElementById("newPassword").addEventListener("input", updatePasswordChecklist);
+    document.getElementById("confirmPassword").addEventListener("input", updatePasswordMatch);
+
+    // ---------- no copy / paste on password fields ----------
+    let lastClipboardToast = 0;
+
+    ["newPassword", "confirmPassword"].forEach(function (id) {
+        const field = document.getElementById(id);
+
+        ["paste", "copy", "cut", "drop", "dragstart", "contextmenu"].forEach(function (eventName) {
+            field.addEventListener(eventName, function (event) {
+                event.preventDefault();
+
+                if (eventName === "contextmenu") {
+                    return;
+                }
+
+                const now = Date.now();
+                if (now - lastClipboardToast > 2000) {
+                    lastClipboardToast = now;
+                    showToast("Copy and paste are disabled on password fields. Please type your password.", "danger");
+                }
+            });
+        });
+    });
+
+    // ---------- input filters ----------
+    document.getElementById("passwordResetCode").addEventListener("input", function () {
+        this.value = this.value.replace(/\D/g, "");
+    });
+
+    document.getElementById("emailAddress").addEventListener("input", function () {
+        this.value = this.value.replace(/\s/g, "");
     });
 
     @if ($errors->any())

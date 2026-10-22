@@ -38,9 +38,9 @@ return [
     ],
     5 => [ // applicant
         'dashboard'     => ['icon' => 'bi-speedometer2',    'label' => 'Dashboard',     'view' => 'pages.student.dashboard'],
-        'attendance'    => ['icon' => 'bi-calendar-check',  'label' => 'Attendance',    'view' => 'pages.student.attendance'],
-        'payments'      => ['icon' => 'bi-cash-coin',       'label' => 'Payments',      'view' => 'pages.shared.payments'],
-        'certificates'  => ['icon' => 'bi-award',           'label' => 'Certificates',  'view' => 'pages.student.certificates'],
+        // 'attendance'    => ['icon' => 'bi-calendar-check',  'label' => 'Attendance',    'view' => 'pages.student.attendance'],
+        // 'payments'      => ['icon' => 'bi-cash-coin',       'label' => 'Payments',      'view' => 'pages.shared.payments'],
+        // 'certificates'  => ['icon' => 'bi-award',           'label' => 'Certificates',  'view' => 'pages.student.certificates'],
         'announcements' => ['icon' => 'bi-megaphone',       'label' => 'Announcements', 'view' => 'pages.shared.announcements'],
         'profile'       => ['icon' => 'bi-person-circle',   'label' => 'Profile',       'view' => 'pages.shared.profile'],
     ],
