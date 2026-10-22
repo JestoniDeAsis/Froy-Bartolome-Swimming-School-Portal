@@ -26,6 +26,12 @@ class CoachSkillsAssessmentController extends Controller
 {
     private const COACH_ROLE_ID = 2;
 
+    // Passing grade: a student can only be marked eligible to graduate when at
+    // least this percent of ALL the course's active skills are passed. This is a
+    // temporary value until the real passing grade is known; change it here only
+    // (the page reads it from the data response).
+    public const PASSING_PERCENT = 80;
+
     // Column on the attendance table that holds the log's date.
     private const LOG_DATE_COLUMN = 'attendance_at';
 
@@ -151,6 +157,10 @@ class CoachSkillsAssessmentController extends Controller
                 $ready    = (bool) ($assessment->ready_to_graduate ?? false);
                 $eligible = $assessment && ($ready || ($totalSkills > 0 && $passedSkills === $totalSkills));
 
+                // The admin confirmed the graduation: this enrollment is closed (view only here).
+                $graduated   = $enrollment->graduation_at !== null;
+                $graduatedAt = $graduated ? Carbon::parse($enrollment->graduation_at)->toDateString() : null;
+
                 return [
                     'id'                => $enrollment->enrollment_id,
                     'name'              => $this->displayName($enrollment),
@@ -162,7 +172,11 @@ class CoachSkillsAssessmentController extends Controller
                     'state'             => $log->attendance_state ?: ($timeIn ? Attendance::STATE_PRESENT : null),
                     // Expecting + no Time In yet = can be timed in late.
                     'is_expecting'      => $log->attendance_state === CoachAttendanceController::STATE_EXPECTING && ! $timeIn,
-                    'assessment'        => ! $assessment ? 'Not yet assessed' : ($eligible ? 'Eligible to graduate' : ($markedSkills < $totalSkills ? 'In progress' : 'Assessed')),
+                    'assessment'        => $graduated
+                        ? 'Graduated'
+                        : (! $assessment ? 'Not yet assessed' : ($eligible ? 'Eligible to graduate' : ($markedSkills < $totalSkills ? 'In progress' : 'Assessed'))),
+                    'graduated'         => $graduated,
+                    'graduated_at'      => $graduatedAt,
                     'ready_to_graduate' => $ready,
                     'checklist'         => $checklist,
                 ];
@@ -174,6 +188,7 @@ class CoachSkillsAssessmentController extends Controller
             'success'      => true,
             'courses'      => $courses,
             'rows'         => $rows,
+            'passing_percent' => self::PASSING_PERCENT,
             'can_log'      => $blockReason === null,
             'block_reason' => $blockReason,
         ]);
@@ -202,6 +217,10 @@ class CoachSkillsAssessmentController extends Controller
 
         $date = $this->today($input['date']);
         $coachId = (int) $coach->getKey();
+
+        if ($closed = $this->graduatedResponse((int) $input['enrollment_id'])) {
+            return $closed;
+        }
 
         return DB::transaction(function () use ($input, $date, $coachId) {
             if ($reason = $this->sessionBlockReason($coachId, $date)) {
@@ -274,6 +293,10 @@ class CoachSkillsAssessmentController extends Controller
         $date    = $this->today($input['date']);
         $coachId = (int) $coach->getKey();
 
+        if ($closed = $this->graduatedResponse((int) $input['enrollment_id'])) {
+            return $closed;
+        }
+
         return DB::transaction(function () use ($input, $date, $coachId) {
             if ($reason = $this->sessionBlockReason($coachId, $date)) {
                 return response()->json(['success' => false, 'message' => $reason], 403);
@@ -312,7 +335,8 @@ class CoachSkillsAssessmentController extends Controller
      * Body: { results: { "<course_skill_id>": "pass" | "failed", ... }, ready_to_graduate: bool }
      *
      * Skills can be saved one at a time; saving again replaces the marks sent.
-     * Every active skill must have a remark only when ready_to_graduate is true.
+     * ready_to_graduate is only accepted when at least PASSING_PERCENT % of the
+     * course's active skills are passed (saved marks + the ones sent now).
      */
     public function save(Request $request, int $enrollment): JsonResponse
     {
@@ -326,6 +350,10 @@ class CoachSkillsAssessmentController extends Controller
 
         if (! $enrollmentRow) {
             return response()->json(['success' => false, 'message' => 'Enrollment not found.'], 404);
+        }
+
+        if ($enrollmentRow->graduation_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student has already graduated, so the assessment can no longer be changed.'], 422);
         }
 
         // A coach can only assess a student they have logged attendance for.
@@ -368,27 +396,31 @@ class CoachSkillsAssessmentController extends Controller
         $ready = (bool) ($input['ready_to_graduate'] ?? false);
 
         // Skills can be logged one by one. Only marking the student as eligible
-        // to graduate requires every skill to have a remark (already saved or
-        // submitted now).
+        // to graduate needs the passing grade: at least PASSING_PERCENT % of
+        // all active skills passed. Saved marks count together with the ones
+        // sent now (a mark sent now replaces the saved one); a skill with no
+        // mark counts as not passed.
         if ($ready) {
-            $alreadySaved = SkillAssessmentResult::query()
+            $saved = SkillAssessmentResult::query()
                 ->whereIn(
                     'skill_assessment_id',
                     SkillAssessment::query()->where('enrollment_id', $enrollmentRow->enrollment_id)->select('skill_assessment_id')
                 )
-                ->pluck('course_skill_id')
-                ->map(fn ($id) => (int) $id);
+                ->pluck('result', 'course_skill_id')
+                ->mapWithKeys(fn ($result, $skillId) => [(int) $skillId => $result]);
 
-            $marked  = $submitted->keys()->merge($alreadySaved)->unique();
-            $missing = $requiredSkills->filter(fn ($skill) => ! $marked->contains((int) $skill->course_skill_id));
+            $merged = $submitted->union($saved);
 
-            if ($missing->isNotEmpty()) {
-                $names = $missing->take(3)->pluck('course_skill_name')->implode(', ');
-                $more  = $missing->count() > 3 ? ' and ' . ($missing->count() - 3) . ' more' : '';
+            $total  = $requiredIds->count();
+            $passed = $requiredIds->filter(fn ($id) => $merged->get($id) === SkillAssessmentResult::PASS)->count();
+
+            if ($passed * 100 < self::PASSING_PERCENT * $total) {
+                $needed  = (int) ceil($total * self::PASSING_PERCENT / 100);
+                $percent = round($passed / $total * 100, 1);
 
                 return response()->json([
                     'success' => false,
-                    'message' => "To mark as eligible to graduate, every skill needs a Pass or Failed. Missing: {$names}{$more}.",
+                    'message' => 'To mark as eligible to graduate, at least ' . self::PASSING_PERCENT . "% of the skills must be passed ({$needed} of {$total}). This student has {$passed} ({$percent}%).",
                 ], 422);
             }
         }
@@ -417,6 +449,23 @@ class CoachSkillsAssessmentController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Skills assessment saved.']);
+    }
+
+    /**
+     * A graduated enrollment is closed (the admin confirmed the graduation), so
+     * nothing about it can be changed from the coach pages. Returns the error
+     * reply when it has graduated, null otherwise.
+     */
+    private function graduatedResponse(int $enrollmentId): ?JsonResponse
+    {
+        $graduated = Enrollment::query()
+            ->where('enrollment_id', $enrollmentId)
+            ->whereNotNull('graduation_at')
+            ->exists();
+
+        return $graduated
+            ? response()->json(['success' => false, 'message' => 'This student has already graduated, so this can no longer be changed.'], 422)
+            : null;
     }
 
     /**

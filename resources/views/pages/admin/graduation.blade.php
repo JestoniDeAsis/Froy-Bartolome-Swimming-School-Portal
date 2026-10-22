@@ -5,7 +5,7 @@
     // The fallback keeps the page working if it is ever rendered another way.
     $graduation = $graduation ?? app(\App\Http\Controllers\AdminGraduationController::class)->pageData();
 
-    $graduationStudents = collect($graduation['active']);       // Active Students tab
+    $graduationStudents = collect($graduation['active']);       // In Training tab
     $readyStudents      = collect($graduation['ready']);        // coach approved; the admin reviews (e.g. balance)
     $graduatingStudents = collect($graduation['graduating']);   // moved by the admin; certificate upload + final confirm
     $graduatedStudents  = collect($graduation['graduated']);
@@ -231,6 +231,9 @@
 .graduationBadge.is-inprogress { background: #e7f1ff; color: #0b5ed7; }
 .graduationBadge.is-notstarted { background: #f1f3f5; color: #667085; }
 
+/* Right side of an In Training card: status badge + View Progress button */
+.graduationCardSide { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; }
+
 .graduationEmpty {
     padding: 2rem;
     background: #fff;
@@ -416,12 +419,12 @@
 <section class="graduationContainer" id="graduationContainer" aria-labelledby="graduationTitle">
 
     <header class="graduationHeader">
-        <h2 class="mb-1" id="graduationTitle">Graduation</h2>
+        <h2 class="mb-1" id="graduationTitle">Graduation Progress</h2>
         <p class="text-muted mb-0">Follow students from active learning to graduation. Sessions come from attendance; the coach decides who is ready to graduate.</p>
     </header>
 
     <nav class="btn-tab-group graduationTabs" id="graduationTabs" role="tablist" aria-label="Graduation student groups">
-        <button class="btn btn-outline-primary btn-tab active" type="button" role="tab" data-graduation-tab="active" aria-selected="true">Active Students <span data-tab-count="active"></span></button>
+        <button class="btn btn-outline-primary btn-tab active" type="button" role="tab" data-graduation-tab="active" aria-selected="true">In Training <span data-tab-count="active"></span></button>
         <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="ready" aria-selected="false">Ready for Graduation <span data-tab-count="ready"></span></button>
         <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="graduating" aria-selected="false">Graduating <span data-tab-count="graduating"></span></button>
         <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="graduated" aria-selected="false">Graduates <span data-tab-count="graduated"></span></button>
@@ -678,6 +681,25 @@
     </div>
 </div>
 
+{{-- CONFIRM POPUP (replaces the browser's confirm box: Move to Graduating, Back to Ready) --}}
+<div class="modal fade assessment-modal" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionTitle" aria-describedby="confirmActionMessage" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="assessment-student-name" id="confirmActionTitle">Confirm</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="confirmActionMessage"></p>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="confirmActionOk">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
@@ -686,10 +708,11 @@
     const STALE_DAYS = 14;
     const ALMOST_LEFT = 2;
 
-    const students = @json($graduationStudents);
+    let students = @json($graduationStudents);   // replaced by the auto-refresh
     const COUNTS = { ready: {{ $readyStudents->count() }}, graduating: {{ $graduatingStudents->count() }}, graduated: {{ $graduatedStudents->count() }} };
     const TABS = ['active', 'ready', 'graduating', 'graduated'];
     const ASSESSMENTS = @json($assessments);   // keyed by enrollment id
+    let panelsStale = false;   // the Ready / Graduating / Graduates tabs changed on the server (see auto-refresh)
     // After an upload / graduation the page reloads; this brings the admin back to the right tab.
     let activeTab = sessionStorage.getItem('graduationTab');
     sessionStorage.removeItem('graduationTab');
@@ -882,7 +905,19 @@
 
         progress.append(make('div', `graduationLast${isStale(s) ? ' isStale' : ''}`, lastSessionText(s)));
 
-        card.append(info, progress, make('span', `graduationBadge is-${key}`, PROGRESS_LABELS[key]));
+        // Right side: status badge + View Progress (opens the same skills popup as the other tabs)
+        const side = make('div', 'graduationCardSide');
+        const viewButton = make('button', 'btn btn-outline-primary btn-sm', 'View Progress');
+        viewButton.type = 'button';
+        viewButton.setAttribute('data-bs-toggle', 'modal');
+        viewButton.setAttribute('data-bs-target', '#assessmentModal');
+        viewButton.dataset.enrollmentId = String(s.id);
+        viewButton.dataset.student = s.name;
+        viewButton.dataset.course = s.course;
+        viewButton.dataset.assessmentMode = 'view';
+        side.append(make('span', `graduationBadge is-${key}`, PROGRESS_LABELS[key]), viewButton);
+
+        card.append(info, progress, side);
         return card;
     }
 
@@ -929,12 +964,100 @@
         if (!button || button.dataset.graduationTab === activeTab) return;
 
         activeTab = button.dataset.graduationTab;
+
+        // Those tabs are built by the server, so a change is shown by reloading onto the tab picked.
+        if (panelsStale && activeTab !== 'active') {
+            reloadPage();
+            return;
+        }
+
         updateTabs();
     });
 
     renderStats();
     updateTabs();
     render();
+
+    /* =========================================================
+       AUTO-REFRESH every 10 seconds (GET /graduation/data)
+       - In Training tab: updated in place, so search / filters / scroll stay.
+       - Ready / Graduating / Graduates tabs are built by the server: when they
+         change, the page reloads onto the tab being viewed. While the In
+         Training tab is open it waits and reloads when one of those tabs is clicked.
+       - Paused while the tab is hidden, a popup is open, or an upload / move is running.
+    ========================================================= */
+
+    const REFRESH_MS = 10000;
+    const DATA_URL = '/graduation/data';
+
+    // What the server-rendered tabs show, so a change in them can be noticed.
+    function serverTabsSignature(data) {
+        const assessments = data.assessments || {};
+
+        return JSON.stringify(['ready', 'graduating', 'graduated'].map(key =>
+            (data[key] || []).map(s => [s, assessments[s.id]?.balance ?? 0, assessments[s.id]?.status ?? ''])
+        ));
+    }
+
+    const serverSignature = serverTabsSignature({
+        ready: @json($readyStudents->values()),
+        graduating: @json($graduatingStudents->values()),
+        graduated: @json($graduatedStudents->values()),
+        assessments: ASSESSMENTS
+    });
+
+    let refreshing = false;
+
+    function reloadPage() {
+        sessionStorage.setItem('graduationTab', activeTab);
+        window.location.reload();
+    }
+
+    async function refreshQuietly() {
+        if (document.hidden || refreshing) return;
+        if (document.querySelector('.modal.show, [data-certificate-input]:disabled, [data-move-back]:disabled')) return;
+
+        refreshing = true;
+
+        try {
+            const response = await fetch(DATA_URL, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+            if (!response.ok) return;   // e.g. the session expired: leave the page as it is
+
+            const data = await response.json();
+            if (!data.success) return;
+
+            const serverTabsChanged = serverTabsSignature(data) !== serverSignature;
+
+            if (serverTabsChanged && activeTab !== 'active') {
+                reloadPage();
+                return;
+            }
+
+            // View Progress should always show the latest results.
+            Object.keys(ASSESSMENTS).forEach(key => delete ASSESSMENTS[key]);
+            Object.assign(ASSESSMENTS, data.assessments || {});
+
+            COUNTS.ready = (data.ready || []).length;
+            COUNTS.graduating = (data.graduating || []).length;
+            COUNTS.graduated = (data.graduated || []).length;
+            if (serverTabsChanged) panelsStale = true;
+
+            if (JSON.stringify(data.active || []) !== JSON.stringify(students)) {
+                students = data.active || [];
+                renderStats();
+                render();
+            }
+
+            updateTabs();   // the counts on the tab buttons
+        } catch (error) {
+            console.error(error);
+        } finally {
+            refreshing = false;
+        }
+    }
+
+    document.addEventListener('visibilitychange', refreshQuietly);
+    setInterval(refreshQuietly, REFRESH_MS);
 
     /* =========================================================
        SEARCH / FILTER / SORT for the server-rendered tabs
@@ -1133,6 +1256,49 @@
             renderCategories(detail.categories || []);
         });
 
+        /* ---------- confirm popup (instead of the browser's confirm box) ---------- */
+
+        const confirmEl = $('confirmActionModal');
+        let confirmDone = null;   // resolves the pending askConfirm()
+
+        function settleConfirm(answer) {
+            if (!confirmDone) return;
+            const done = confirmDone;
+            confirmDone = null;
+            done(answer);
+        }
+
+        // Resolves true when the admin confirms, false when they cancel or close it.
+        function askConfirm({ title, message, confirmText }) {
+            const Modal = window.bootstrap && window.bootstrap.Modal;
+            if (!Modal) return Promise.resolve(window.confirm(message));   // Bootstrap missing: still ask
+
+            settleConfirm(false);
+
+            $('confirmActionTitle').textContent = title;
+            $('confirmActionMessage').textContent = message;
+            $('confirmActionOk').textContent = confirmText;
+
+            return new Promise(resolve => {
+                confirmDone = resolve;
+                Modal.getOrCreateInstance(confirmEl).show();
+            });
+        }
+
+        $('confirmActionOk').addEventListener('click', () => {
+            settleConfirm(true);
+            window.bootstrap.Modal.getOrCreateInstance(confirmEl).hide();
+        });
+
+        // Cancel, the X, Escape or a click outside all end up here.
+        confirmEl.addEventListener('hidden.bs.modal', () => settleConfirm(false));
+
+        // "Dela Cruz, Juan A." -> "Juan A. Dela Cruz"
+        function friendlyName(name) {
+            const parts = String(name || 'this student').split(', ');
+            return parts.length === 2 ? `${parts[1]} ${parts[0]}` : parts[0];
+        }
+
         /* ---------- saving (upload certificate / mark as graduated) ---------- */
 
         async function send(url, body) {
@@ -1183,7 +1349,11 @@
 
         document.querySelectorAll('[data-move-back]').forEach(button => {
             button.addEventListener('click', async () => {
-                if (!window.confirm(`Move ${button.dataset.student} back to Ready for Graduation? Their uploaded certificate is kept.`)) return;
+                if (!await askConfirm({
+                    title: 'Back to Ready',
+                    message: `Move ${friendlyName(button.dataset.student)} back to Ready for Graduation? Their uploaded certificate is kept.`,
+                    confirmText: 'Move Back'
+                })) return;
 
                 button.disabled = true;
 
@@ -1208,7 +1378,11 @@
 
         document.querySelectorAll('[data-mark-graduating]').forEach(button => {
             button.addEventListener('click', async () => {
-                if (!window.confirm(`Move ${button.dataset.student} to Graduating?`)) return;
+                if (!await askConfirm({
+                    title: 'Move to Graduating',
+                    message: `Move ${friendlyName(button.dataset.student)} to Graduating? Upload their certificate next to finish.`,
+                    confirmText: 'Move to Graduating'
+                })) return;
 
                 button.disabled = true;
 

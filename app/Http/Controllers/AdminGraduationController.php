@@ -44,7 +44,7 @@ class AdminGraduationController extends Controller
      *
      * - active / ready / graduating / graduated: lists of students, one tab each
      * - assessments: skills results + payment details keyed by enrollment id,
-     *   for the ready / graduating / graduated students (used by the popup)
+     *   for every student on the page (used by the popup)
      *
      * Sessions attended = attendance rows with a Time In (same rule as the
      * Attendance page).
@@ -171,16 +171,29 @@ class AdminGraduationController extends Controller
             }
         }
 
-        // The popup only opens from the Ready / Graduating / Graduates tabs.
-        $shownIds = collect($ready)->merge($graduating)->merge($graduated)->pluck('id')->all();
-
+        // The popup opens from every tab now (View Progress on the Active Students
+        // tab too), so it gets the details of every student on the page.
         return [
             'active'      => $stillActive,
             'ready'       => $ready,
             'graduating'  => $graduating,
             'graduated'   => $graduated->all(),
-            'assessments' => array_intersect_key($assessments, array_flip($shownIds)),
+            'assessments' => $assessments,
         ];
+    }
+
+    /**
+     * GET /graduation/data
+     * The same data the page is rendered with, as JSON. The page asks for it
+     * every few seconds to stay current (see the auto-refresh in graduation_blade).
+     */
+    public function data(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) {
+            return $denied;
+        }
+
+        return response()->json(['success' => true] + $this->pageData());
     }
 
     /**

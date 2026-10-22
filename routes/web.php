@@ -153,12 +153,14 @@ Route::post('/sales/athlete-payments/{payment}/archive', [SalesInvoiceController
 Route::post('/sales/athlete-payments/{payment}/restore', [SalesInvoiceController::class, 'restoreAthletePayment'])->middleware('auth')->whereNumber('payment');
 
 use App\Http\Controllers\AdminGraduationController;
-use App\Http\Controllers\CertificateController;
 
 Route::post('/graduation/{enrollment}/graduating', [AdminGraduationController::class, 'markGraduating'])->middleware('auth')->whereNumber('enrollment');
 Route::post('/graduation/{enrollment}/certificate', [AdminGraduationController::class, 'uploadCertificate'])->middleware('auth')->whereNumber('enrollment');
 Route::post('/graduation/{enrollment}/graduate', [AdminGraduationController::class, 'graduate'])->middleware('auth')->whereNumber('enrollment');
 Route::post('/graduation/{enrollment}/ready', [AdminGraduationController::class, 'moveBackToReady'])->middleware('auth')->whereNumber('enrollment');
+Route::get('/graduation/data', [AdminGraduationController::class, 'data'])->middleware('auth');
+
+use App\Http\Controllers\CertificateController;
 Route::get('/certificates/{enrollment}', [CertificateController::class, 'show'])->middleware('auth')->whereNumber('enrollment');
 
 use App\Http\Controllers\AnnouncementController;

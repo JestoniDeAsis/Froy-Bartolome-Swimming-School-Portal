@@ -738,6 +738,14 @@ class CoachAttendanceController extends Controller
             return $this->recordAthleteTime($v, $kind, $coachId);
         }
 
+        // A graduated enrollment is closed: say so instead of "not found".
+        if (DB::table(Attendance::ENROLLMENTS_TABLE)
+            ->where('enrollment_id', $v['enrollment_id'])
+            ->whereNotNull('graduation_at')
+            ->exists()) {
+            return $this->fail('This student has already graduated, so their attendance can no longer be changed.', 422);
+        }
+
         // The enrollment must be an active one, of an Active user, in one of
         // this coach's classes.
         $enrollment = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')

@@ -273,6 +273,19 @@
 
 .skillsChecklistEmpty { margin: 0; padding: 1.5rem 0; color: #6c757d; text-align: center; }
 
+/* Passing-grade bar (same idea as the admin Graduation popup) */
+.skillsProgress { padding: .75rem 1.25rem; border-bottom: 1px solid #e7ebef; }
+.skillsProgressSummary { display: flex; justify-content: space-between; gap: .5rem; margin-bottom: .3rem; font-size: .8rem; }
+.skillsProgressCount { font-weight: 600; color: #344054; }
+.skillsProgressPercent { color: #667085; }
+.skillsProgressTrack { position: relative; height: 8px; background: #e7ebf0; border-radius: 99px; overflow: hidden; }
+.skillsProgressFill { height: 100%; width: 0; background: var(--fbss-blue, #0d6efd); border-radius: 99px; transition: width .15s ease; }
+.skillsProgressTrack.isPassing .skillsProgressFill { background: #1a7f3c; }
+/* The passing-grade line: the bar has to reach it before "eligible" can be ticked. */
+.skillsProgressMark { position: absolute; top: 0; bottom: 0; width: 2px; background: #344054; }
+.skillsProgressBasis { margin-top: .35rem; font-size: .75rem; color: #667085; }
+.skillsProgressBasis.isPassing { color: #1a7f3c; font-weight: 600; }
+
 /* Small Time Out modal (same card as the checklist modal, narrower) */
 .skillsModal.isSmall { max-width: 360px; }
 .skillsModal.isSmall .skillsModalFooter { justify-content: flex-end; }
@@ -398,6 +411,30 @@
 </section>
 
 
+<!-- CONFIRM MODAL (Mark absent) -->
+<div class="modalOverlay" id="confirmModalOverlay" hidden>
+    <div class="skillsModal isSmall" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
+
+        <div class="skillsModalHeader">
+            <div>
+                <h5 id="confirmModalTitle">Confirm</h5>
+            </div>
+            <button class="skillsModalClose" id="confirmModalCloseButton" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="skillsModalBody">
+            <p class="skillsTimeName mb-0" id="confirmModalMessage"></p>
+        </div>
+
+        <div class="skillsModalFooter">
+            <button class="btn btn-outline-primary" id="confirmModalCancelButton" type="button">Cancel</button>
+            <button class="btn btn-primary" id="confirmModalOkButton" type="button">Confirm</button>
+        </div>
+
+    </div>
+</div>
+
+
 <!-- CHECKLIST MODAL (Pass / Failed for every skill, saved to the database) -->
 <div class="modalOverlay" id="checklistModalOverlay" hidden>
     <div class="skillsModal" id="checklistModal" role="dialog" aria-modal="true" aria-labelledby="checklistModalTitle">
@@ -410,6 +447,19 @@
             <button class="skillsModalClose" id="checklistModalCloseButton" type="button" aria-label="Close">&times;</button>
         </div>
 
+        <!-- Passing-grade bar: updates as Pass / Failed is picked -->
+        <div class="skillsProgress" id="checklistProgress">
+            <div class="skillsProgressSummary">
+                <span class="skillsProgressCount"><span id="checklistPassed">0</span> / <span id="checklistTotal">0</span> passed</span>
+                <span class="skillsProgressPercent" id="checklistPercent">0%</span>
+            </div>
+            <div class="skillsProgressTrack" id="checklistProgressTrack" role="progressbar" aria-label="Skills passed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="skillsProgressFill" id="checklistProgressFill"></div>
+                <div class="skillsProgressMark" id="checklistProgressMark"></div>
+            </div>
+            <div class="skillsProgressBasis" id="checklistBasis"></div>
+        </div>
+
         <div class="skillsModalBody" id="checklistModalBody"></div>
 
         <div class="skillsModalFooter">
@@ -418,7 +468,7 @@
                     <input class="form-check-input" id="readyToGraduateInput" type="checkbox">
                     <label class="form-check-label" for="readyToGraduateInput">Mark as eligible to graduate</label>
                 </div>
-                <p class="skillsModalNote">You can save skills one at a time. Every skill needs a Pass or Failed only when marking as eligible to graduate.</p>
+                <p class="skillsModalNote">You can save skills one at a time. A student can only be marked as eligible once the bar reaches the passing grade.</p>
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-primary" id="checklistModalDoneButton" type="button">Cancel</button>
@@ -518,6 +568,13 @@
         viewButton: $('viewChecklistButton'),
 
         timeOverlay: $('timeModalOverlay'),
+
+        confirmOverlay: $('confirmModalOverlay'),
+        confirmTitle: $('confirmModalTitle'),
+        confirmMessage: $('confirmModalMessage'),
+        confirmOk: $('confirmModalOkButton'),
+        confirmCancel: $('confirmModalCancelButton'),
+        confirmClose: $('confirmModalCloseButton'),
         timeName: $('timeModalRecordName'),
         timeMeta: $('timeModalMeta'),
         timeLabel: $('timeModalLabel'),
@@ -533,7 +590,15 @@
         modalClose: $('checklistModalCloseButton'),
         modalDone: $('checklistModalDoneButton'),
         modalSave: $('checklistModalSaveButton'),
-        readyInput: $('readyToGraduateInput')
+        readyInput: $('readyToGraduateInput'),
+
+        progressPassed: $('checklistPassed'),
+        progressTotal: $('checklistTotal'),
+        progressPercent: $('checklistPercent'),
+        progressTrack: $('checklistProgressTrack'),
+        progressFill: $('checklistProgressFill'),
+        progressMark: $('checklistProgressMark'),
+        progressBasis: $('checklistBasis')
     };
 
     let rows = [];
@@ -546,6 +611,7 @@
     let timeModalMode = 'late';
     let canLog = false;         // the coach has timed in (server decides)
     let blockReason = null;
+    let passingPercent = 80;    // the server sends the real value with every load
 
     /* =========================================================
        HELPERS
@@ -757,7 +823,9 @@
         const record = getSelectedRecord();
 
         // Attendance actions need the coach to be timed in; the checklist does not.
-        const open = canLog && !busy;
+        // A graduated student is closed: no attendance button works on that row.
+        const graduated = Boolean(record && record.graduated);
+        const open = canLog && !busy && !graduated;
         const mark = markLabelOf(record);
 
         el.viewButton.disabled = busy || !record;
@@ -808,6 +876,7 @@
                 rows = result.data.rows || [];
                 canLog = Boolean(result.data.can_log);
                 blockReason = result.data.block_reason || null;
+                passingPercent = Number(result.data.passing_percent) || passingPercent;
                 el.lastUpdated.textContent = `Auto-refreshes every ${REFRESH_MS / 1000}s. Updated ${new Date().toLocaleTimeString('en-US')}`;
 
                 // Rebuilt only when the list of today's classes changes.
@@ -843,7 +912,7 @@
 
     async function refreshQuietly() {
         if (document.hidden || busy || refreshing || loading
-            || !el.timeOverlay.hidden || !el.overlay.hidden) return;
+            || !el.timeOverlay.hidden || !el.overlay.hidden || !el.confirmOverlay.hidden) return;
 
         refreshing = true;
         try {
@@ -879,7 +948,10 @@
                 attributes: { type: 'radio', name: `skill_${skill.id}`, id: inputId, autocomplete: 'off' }
             });
             input.checked = skill.result === option.value;
-            input.addEventListener('change', () => row.classList.remove('isMissing'));
+            input.addEventListener('change', () => {
+                row.classList.remove('isMissing');
+                updateChecklistProgress();
+            });
 
             const label = make('label', {
                 className: `btn btn-outline-${option.variant}`,
@@ -925,16 +997,66 @@
         });
     }
 
+    let checklistReadOnly = false;   // a graduated student's checklist can only be viewed
+
+    // Passing-grade bar. Counts the radios as they are right now (not only what is
+    // saved), so it moves as the coach picks. Only when it reaches the passing grade
+    // can "Mark as eligible to graduate" be ticked; the server checks the same rule.
+    function updateChecklistProgress() {
+        const skillRows = el.modalBody.querySelectorAll('.skillsSkillRow');
+        const total = skillRows.length;
+        let passed = 0;
+
+        skillRows.forEach(row => {
+            if (row.querySelector('input[id$="_pass"]:checked')) passed++;
+        });
+
+        const percent = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
+        const meets = total > 0 && passed * 100 >= passingPercent * total;
+        const needed = Math.ceil((total * passingPercent) / 100);
+
+        el.progressPassed.textContent = String(passed);
+        el.progressTotal.textContent = String(total);
+        el.progressPercent.textContent = `${percent}%`;
+        el.progressFill.style.width = `${percent}%`;
+        el.progressMark.style.left = `${passingPercent}%`;
+        el.progressTrack.setAttribute('aria-valuenow', String(percent));
+        el.progressTrack.classList.toggle('isPassing', meets);
+
+        el.progressBasis.classList.toggle('isPassing', meets);
+        el.progressBasis.textContent = total === 0
+            ? 'No skills to assess yet.'
+            : (meets
+                ? `Passing grade (${passingPercent}%) reached. You can mark this student as eligible to graduate.`
+                : `Passing grade: ${passingPercent}%. Needs ${needed} of ${total} skills passed to be marked as eligible (${passed} now).`);
+
+        // Below the passing grade the box is locked and cleared.
+        if (checklistReadOnly) {
+            el.readyInput.disabled = true;   // graduated: shown as it was saved
+            return;
+        }
+
+        el.readyInput.disabled = !meets;
+        if (!meets) el.readyInput.checked = false;
+    }
+
     function openChecklistModal() {
         const record = getSelectedRecord();
         if (!record) return;
 
         el.modalTitle.textContent = record.name;
-        el.modalCourse.textContent = record.course ? `${record.course} · Core Skills Checklist` : 'Core Skills Checklist';
+        checklistReadOnly = Boolean(record.graduated);
+
+        const courseLine = record.course ? `${record.course} · Core Skills Checklist` : 'Core Skills Checklist';
+        el.modalCourse.textContent = checklistReadOnly
+            ? `${courseLine} · Graduated${record.graduated_at ? ' on ' + formatShortDate(parseISODate(record.graduated_at)) : ''} (view only)`
+            : courseLine;
         el.readyInput.checked = Boolean(record.ready_to_graduate);
-        el.modalSave.disabled = !(record.checklist || []).length;
+        el.modalSave.disabled = checklistReadOnly || !(record.checklist || []).length;
 
         renderChecklist(record);
+        el.modalBody.querySelectorAll('input.btn-check').forEach(input => { input.disabled = checklistReadOnly; });
+        updateChecklistProgress();
 
         el.overlay.hidden = false;
         el.modalBody.scrollTop = 0;
@@ -947,28 +1069,19 @@
 
     async function saveChecklist() {
         const record = getSelectedRecord();
-        if (!record || busy) return;
+        if (!record || busy || checklistReadOnly) return;
 
         // Read the picks straight from the radios.
         const results = {};
-        let missing = 0;
-        const needsAll = el.readyInput.checked;   // only "eligible to graduate" requires every skill
+        const needsAll = el.readyInput.checked;   // "eligible to graduate" (only possible at the passing grade)
 
         el.modalBody.querySelectorAll('.skillsSkillRow').forEach(row => {
             const picked = row.querySelector('input.btn-check:checked');
-            row.classList.toggle('isMissing', needsAll && !picked);
 
             if (picked) {
                 results[row.dataset.skillId] = picked.id.endsWith('_pass') ? 'pass' : 'failed';
-            } else {
-                missing++;
             }
         });
-
-        if (needsAll && missing > 0) {
-            showToast(`To mark as eligible to graduate, every skill needs a Pass or Failed. ${missing} still ${missing === 1 ? 'has' : 'have'} no remark.`, 'danger');
-            return;
-        }
 
         if (!needsAll && !Object.keys(results).length) {
             showToast('Mark at least one skill as Pass or Failed before saving.', 'danger');
@@ -1046,10 +1159,43 @@
         el.timeInput.focus();
     }
 
+    /* Confirm popup (instead of the browser's confirm box). Resolves true / false. */
+    let confirmResolve = null;
+
+    function askConfirm({ title, message, confirmText }) {
+        if (confirmResolve) closeConfirm(false);
+
+        el.confirmTitle.textContent = title;
+        el.confirmMessage.textContent = message;
+        el.confirmOk.textContent = confirmText;
+        el.confirmOverlay.hidden = false;
+        el.confirmOk.focus();
+
+        return new Promise(resolve => { confirmResolve = resolve; });
+    }
+
+    function closeConfirm(answer) {
+        el.confirmOverlay.hidden = true;
+
+        if (confirmResolve) {
+            confirmResolve(answer);
+            confirmResolve = null;
+        }
+    }
+
+    el.confirmOk.addEventListener('click', () => closeConfirm(true));
+    el.confirmCancel.addEventListener('click', () => closeConfirm(false));
+    el.confirmClose.addEventListener('click', () => closeConfirm(false));
+
     async function markSelectedAbsent() {
         const record = getSelectedRecord();
         if (busy || !record || record.time_in || record.state === 'Absent') return;
-        if (!window.confirm(`Mark ${record.name} as absent for today?`)) return;
+
+        if (!(await askConfirm({
+            title: 'Mark Absent',
+            message: `Mark ${record.name} as absent for today?`,
+            confirmText: 'Mark Absent'
+        }))) return;
 
         busy = true;
         updateToolbarState();
@@ -1174,6 +1320,7 @@
     el.timeInput.addEventListener('input', () => el.timeLabel.classList.add('isDimmed'));
 
     document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !el.confirmOverlay.hidden) closeConfirm(false);
         if (event.key === 'Escape' && !el.timeOverlay.hidden && !busy) closeTimeModal();
     });
 

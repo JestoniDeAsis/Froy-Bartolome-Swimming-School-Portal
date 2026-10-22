@@ -580,7 +580,7 @@
 </div>
 
 
-<!-- CONFIRM MODAL (Cancel Time In) -->
+<!-- CONFIRM MODAL (asks before one-click actions: My Time In / Out, cancels, Expected, Absent) -->
 <div class="modalOverlay" id="confirmModalOverlay" hidden>
     <div class="attendanceModal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
 
@@ -594,7 +594,7 @@
         </div>
 
         <div class="attendanceModalFooter">
-            <button class="btn btn-outline-primary" id="confirmModalCancelButton" type="button">Keep as is</button>
+            <button class="btn btn-outline-primary" id="confirmModalCancelButton" type="button">Cancel</button>
             <button class="btn btn-primary" id="confirmModalOkButton" type="button">Confirm</button>
         </div>
 
@@ -1234,12 +1234,13 @@
 
     let confirmResolve = null;
 
-    function askConfirm({ title, message, confirmText }) {
+    function askConfirm({ title, message, confirmText, cancelText = 'Cancel' }) {
         if (confirmResolve) closeConfirm(false);
 
         el.confirmTitle.textContent = title;
         el.confirmMessage.textContent = message;
         el.confirmOk.textContent = confirmText;
+        el.confirmCancel.textContent = cancelText;
         el.confirmOverlay.hidden = false;
         el.confirmOk.focus();
 
@@ -1256,15 +1257,38 @@
     }
 
     const SESSION_ACTIONS = {
-        in: { url: URLS.selfTimeIn },
-        out: { url: URLS.selfTimeOut },
-        cancelOut: { url: URLS.selfCancelOut },
+        in: {
+            url: URLS.selfTimeIn,
+            confirm: {
+                title: 'Time In',
+                message: 'Time in now? Your Time In uses the current time, and only the admin can edit it later.',
+                confirmText: 'Time In'
+            }
+        },
+        out: {
+            url: URLS.selfTimeOut,
+            confirm: {
+                title: 'Time Out',
+                message: 'Time out now? You can still log attendance today, and you can cancel your Time Out if you are not done.',
+                confirmText: 'Time Out'
+            }
+        },
+        cancelOut: {
+            url: URLS.selfCancelOut,
+            confirm: {
+                title: 'Cancel Time Out',
+                message: 'Cancel your Time Out? You will be timed in again and can time out later.',
+                confirmText: 'Cancel Time Out',
+                cancelText: 'Keep as is'
+            }
+        },
         cancel: {
             url: URLS.selfCancelIn,
             confirm: {
                 title: 'Cancel Time In',
                 message: 'Cancel your Time In? You will need to Time In again before you can log attendance.',
-                confirmText: 'Cancel Time In'
+                confirmText: 'Cancel Time In',
+                cancelText: 'Keep as is'
             }
         }
     };
@@ -1446,6 +1470,24 @@
         if (!mark || !record || busy || !canLog() || record.time_in) return;
 
         const removing = record.state === mark.state;
+
+        // Ask first. Nothing else can be clicked behind the popup, and auto-refresh waits while it is open.
+        const confirmed = await askConfirm(removing
+            ? {
+                title: `Remove ${mark.label}`,
+                message: `Remove the ${mark.label} mark from ${record.name}?`,
+                confirmText: 'Remove',
+                cancelText: 'Keep'
+            }
+            : {
+                title: `Mark as ${mark.label}`,
+                message: kind === 'absent'
+                    ? `Mark ${record.name} as Absent? This only works if they have not timed in.`
+                    : `Mark ${record.name} as ${mark.label}? No Time In or Time Out is recorded yet.`,
+                confirmText: `Mark ${mark.label}`
+            });
+
+        if (!confirmed) return;
 
         busy = true;
         updateToolbarState();
