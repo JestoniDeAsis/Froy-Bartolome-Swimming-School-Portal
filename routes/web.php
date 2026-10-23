@@ -38,6 +38,14 @@ Route::post('/forgot-password/verify-code', [ForgotPasswordController::class, 'v
 
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
+use App\Http\Controllers\Auth\ForgotUsernameController;
+
+Route::get('/forgot-username', [ForgotUsernameController::class, 'show'])->name('forgot-username.show');
+Route::post('/forgot-username/send', [ForgotUsernameController::class, 'send'])->name('forgot-username.send');
+
+
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
 use App\Http\Controllers\HomeController;
 
 // Route::get('/', [HomeController::class, 'index'])->name('home');

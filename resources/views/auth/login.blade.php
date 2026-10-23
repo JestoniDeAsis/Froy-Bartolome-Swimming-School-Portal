@@ -73,7 +73,8 @@
                         </div>
                     </div>
 
-                    <div class="text-end mb-3">
+                    <div class="d-flex justify-content-between mb-3">
+                        <a href="{{ url('forgot-username') }}" class="text-decoration-none">Forgot Username?</a>
                         <a href="{{ url('forgot-password') }}" class="text-decoration-none">Forgot Password?</a>
                     </div>
 
