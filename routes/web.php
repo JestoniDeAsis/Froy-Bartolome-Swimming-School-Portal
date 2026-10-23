@@ -141,6 +141,12 @@ use App\Http\Controllers\StudentAttendanceController;
  
 Route::get('/student/attendance/data', [StudentAttendanceController::class, 'data'])->middleware('auth');
 
+use App\Http\Controllers\ApplicantDashboardController;
+
+Route::get('/applicant/courses', [ApplicantDashboardController::class, 'courses'])
+    ->middleware('auth')
+    ->name('applicant.courses');
+
 use App\Http\Controllers\PaymentHistoryController;
 
 Route::get('/payments/data', [PaymentHistoryController::class, 'data'])->middleware('auth');

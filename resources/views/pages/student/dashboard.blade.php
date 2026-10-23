@@ -252,12 +252,34 @@
 
 .studentDashPastPills { display: flex; flex-wrap: wrap; gap: .4rem; }
 
+/* ---- Applicant courses carousel ---- */
+
+.applicantCourses { width: 100%; margin-top: 1rem; padding: 0 1.25rem 1.25rem; box-sizing: border-box; }
+.applicantCoursesCard { padding: 1.1rem 1.25rem; background: #fff; border: 1px solid #e7ebef; border-radius: 12px; }
+.applicantCoursesTitle { margin: 0; color: #1f2937; font-size: 1.1rem; font-weight: 700; }
+.applicantCoursesCopy { margin: .25rem 0 0; color: #667085; font-size: .875rem; }
+.applicantCoursesViewport { margin-top: 1rem; overflow: hidden; outline: none; }
+.applicantCoursesTrack { display: flex; transition: transform .35s ease; }
+.applicantCoursesSlide { flex: 0 0 100%; min-width: 0; }
+.applicantCoursesSlideInner { min-height: 180px; padding: 1.15rem; background: #f8fafb; border: 1px solid #e7ebef; border-radius: 10px; }
+.applicantCoursesName { margin: 0; color: #1f2937; font-size: 1.15rem; font-weight: 700; }
+.applicantCoursesMeta { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .9rem; }
+.applicantCoursesPill { padding: .2rem .6rem; background: #e7f1ff; border-radius: 999px; color: var(--fbss-blue, #0d6efd); font-size: .8rem; font-weight: 600; }
+.applicantCoursesDescription { margin: .9rem 0 0; color: #667085; font-size: .9rem; line-height: 1.6; }
+.applicantCoursesControls { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .9rem; }
+.applicantCoursesDots { display: flex; flex: 1; justify-content: center; gap: .45rem; }
+.applicantCoursesDot { width: .6rem; height: .6rem; padding: 0; border: 0; border-radius: 50%; background: #cbd5e1; }
+.applicantCoursesDot[aria-current="true"] { background: var(--fbss-blue, #0d6efd); transform: scale(1.15); }
+.applicantCoursesState { display: grid; min-height: 180px; place-items: center; color: #667085; text-align: center; }
+
 @media (max-width: 991.98px) {
     .studentDashGrid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 575.98px) {
     .studentDash { padding: 1rem; }
+    .applicantCourses { padding: 0 1rem 1rem; }
+    .applicantCoursesCard { padding: 1rem; }
 }
 </style>
 
@@ -463,3 +485,132 @@
     @endif
 
 </section>
+
+@if ((int) auth()->user()->role_id === 5)
+    <section class="applicantCourses" aria-labelledby="applicantCoursesTitle">
+        <article class="applicantCoursesCard">
+            <h3 class="applicantCoursesTitle" id="applicantCoursesTitle">Available Courses</h3>
+            <p class="applicantCoursesCopy">Explore the courses currently offered by FBSS Swim School.</p>
+
+            <div class="applicantCoursesViewport" id="applicantCoursesViewport" tabindex="0" aria-roledescription="carousel" aria-label="Available courses">
+                <div class="applicantCoursesTrack" id="applicantCoursesTrack" aria-live="polite">
+                    <div class="applicantCoursesSlide"><div class="applicantCoursesState">Loading courses&hellip;</div></div>
+                </div>
+            </div>
+
+            <div class="applicantCoursesControls" id="applicantCoursesControls" hidden>
+                <button class="btn btn-outline-primary btn-sm" id="applicantCoursesPrevious" type="button" aria-label="Previous course"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                <div class="applicantCoursesDots" id="applicantCoursesDots" aria-label="Choose a course"></div>
+                <button class="btn btn-outline-primary btn-sm" id="applicantCoursesNext" type="button" aria-label="Next course"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+            </div>
+        </article>
+    </section>
+
+    <script>
+    (() => {
+        const endpoint = @json(route('applicant.courses'));
+        const viewport = document.getElementById('applicantCoursesViewport');
+        const track = document.getElementById('applicantCoursesTrack');
+        const controls = document.getElementById('applicantCoursesControls');
+        const dots = document.getElementById('applicantCoursesDots');
+        let courses = [], active = 0, timer, touchStart;
+
+        const definitions = {
+            'Water Familiarization (2026)': 'A gentle start for first-timers. Students get comfortable in the water, learn to float, and build confidence before moving on to strokes.',
+            'Beginner (2026)': 'Builds the core swimming skills step by step, from breathing and kicking to your first strokes, with a coach guiding every session.',
+            'Advanced (2026)': 'Sharpens technique and endurance for swimmers who already know the basics, with focus on stroke efficiency and breathing control.',
+            '1 on 1 (2026)': 'Private sessions with a dedicated coach. The lessons follow your pace and goals, whether you are a beginner or fixing specific strokes.'
+        };
+
+        const element = (tag, className, text) => {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        };
+
+        function state(message) {
+            controls.hidden = true;
+            track.replaceChildren();
+            const slide = element('div', 'applicantCoursesSlide');
+            slide.append(element('div', 'applicantCoursesState', message));
+            track.append(slide);
+        }
+
+        function move(index) {
+            if (!courses.length) return;
+            active = (index + courses.length) % courses.length;
+            track.style.transform = `translateX(-${active * 100}%)`;
+            [...dots.children].forEach((dot, index) => dot.setAttribute('aria-current', String(index === active)));
+        }
+
+        function autoplay() {
+            clearInterval(timer);
+            if (courses.length > 1) timer = setInterval(() => move(active + 1), 6000);
+        }
+
+        function render() {
+            if (!courses.length) return state('No courses are available right now. Please check again later.');
+            track.replaceChildren();
+            dots.replaceChildren();
+            courses.forEach((course, index) => {
+                const slide = element('article', 'applicantCoursesSlide');
+                slide.setAttribute('role', 'group');
+                slide.setAttribute('aria-roledescription', 'slide');
+                slide.setAttribute('aria-label', `${index + 1} of ${courses.length}`);
+                const content = element('div', 'applicantCoursesSlideInner');
+                content.append(element('h4', 'applicantCoursesName', course.name || 'Unnamed course'));
+                const definition = definitions[course.name];
+                if (definition) content.append(element('p', 'applicantCoursesDescription', definition));
+                const meta = element('div', 'applicantCoursesMeta');
+                meta.append(
+                    element('span', 'applicantCoursesPill', `${course.sessionCount || 0} session${Number(course.sessionCount) === 1 ? '' : 's'}`),
+                    element('span', 'applicantCoursesPill', new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(course.price || 0)))
+                );
+                content.append(meta);
+                slide.append(content);
+                track.append(slide);
+                const dot = element('button', 'applicantCoursesDot');
+                dot.type = 'button';
+                dot.setAttribute('aria-label', `Show course ${index + 1} of ${courses.length}`);
+                dot.addEventListener('click', () => { move(index); autoplay(); });
+                dots.append(dot);
+            });
+            controls.hidden = courses.length < 2;
+            move(0);
+            autoplay();
+        }
+
+        document.getElementById('applicantCoursesPrevious').addEventListener('click', () => { move(active - 1); autoplay(); });
+        document.getElementById('applicantCoursesNext').addEventListener('click', () => { move(active + 1); autoplay(); });
+        viewport.addEventListener('mouseenter', () => clearInterval(timer));
+        viewport.addEventListener('mouseleave', autoplay);
+        viewport.addEventListener('focusin', () => clearInterval(timer));
+        viewport.addEventListener('focusout', autoplay);
+        viewport.addEventListener('keydown', event => {
+            if (event.key === 'ArrowLeft') { event.preventDefault(); move(active - 1); autoplay(); }
+            if (event.key === 'ArrowRight') { event.preventDefault(); move(active + 1); autoplay(); }
+        });
+        viewport.addEventListener('touchstart', event => { touchStart = event.changedTouches[0].clientX; }, { passive: true });
+        viewport.addEventListener('touchend', event => {
+            if (touchStart === undefined) return;
+            const distance = event.changedTouches[0].clientX - touchStart;
+            if (Math.abs(distance) > 40) { move(active + (distance > 0 ? -1 : 1)); autoplay(); }
+            touchStart = undefined;
+        }, { passive: true });
+
+        fetch(endpoint, { headers: { Accept: 'application/json' } })
+            .then(async response => {
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.message || 'Unable to load courses.');
+                courses = Array.isArray(data.courses) ? data.courses : [];
+                render();
+            })
+            .catch(error => {
+                console.error(error);
+                state('Unable to load courses. Please refresh and try again.');
+                if (typeof showToast === 'function') showToast('Unable to load available courses.', 'danger');
+            });
+    })();
+    </script>
+@endif
