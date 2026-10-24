@@ -229,7 +229,7 @@ class AdminGraduationController extends Controller
         }
 
         $request->validate([
-            'certificate' => ['required', 'file', 'mimes:pdf', 'max:5120'],   // PDF, up to 5 MB
+            'certificate' => ['required', 'file', 'mimes:pdf', 'max:92160'], // PDF, up to 90 MiB
         ]);
 
         $file = $incoming;
