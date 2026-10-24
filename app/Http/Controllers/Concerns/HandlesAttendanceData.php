@@ -53,15 +53,19 @@ trait HandlesAttendanceData
             ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id');
 
         $statusCol = 'st.' . CoachController::STATUS_NAME_COL;
+        $roleCol = 'u.' . CoachController::ROLE_COL;
+        $athleteRole = 4;
 
         // Enrollments that already have attendance logged on this date.
         $loggedThatDay = Attendance::onDate($date)
             ->whereNotNull('enrollment_id')
             ->select('enrollment_id');
 
-        $query->where(function ($q) use ($date, $statusCol, $loggedThatDay) {
-            $q->where(function ($active) use ($date, $statusCol) {
+        $query->where(function ($q) use ($date, $statusCol, $loggedThatDay, $roleCol, $athleteRole) {
+            $q->where(function ($active) use ($date, $statusCol, $roleCol, $athleteRole) {
                 $active->where($statusCol, 'Active')
+                    ->where(fn ($r) => $r->where($roleCol, '<>', $athleteRole)
+                        ->orWhereDate('u.athlete_since', '>', $date))
                     ->where(fn ($s) => $s->whereNull('e.enrollment_at')->orWhereDate('e.enrollment_at', '<=', $date))
                     ->where(fn ($g) => $g->whereNull('e.graduation_at')->orWhereDate('e.graduation_at', '>', $date));
             })->orWhereIn('e.enrollment_id', $loggedThatDay);
@@ -80,6 +84,8 @@ trait HandlesAttendanceData
             'e.scheduled_time',
             'e.graduation_at',
             $statusCol . ' as user_status',
+            $roleCol . ' as user_role_id',
+            'u.athlete_since',
             'c.' . CoachController::COURSE_NAME_COL . ' as course_name',
             'c.course_session_count',
             'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix',
@@ -109,7 +115,7 @@ trait HandlesAttendanceData
             $logs->flatten(1)->pluck('logged_by')->merge($logs->flatten(1)->pluck('last_edited_by'))
         );
 
-        return $enrollments->map(function ($e) use ($logs, $completed, $loggerNames) {
+        return $enrollments->map(function ($e) use ($logs, $completed, $loggerNames, $date) {
             $log = ($logs->get($e->id) ?? collect())->first();
 
             $done = (int) $completed->get($e->id, 0);
@@ -129,7 +135,9 @@ trait HandlesAttendanceData
                 'last_edited_at' => $log->last_edited_at ?? null,
                 // No longer an active enrollment (graduated / moved to a new course, or the
                 // student is not Active): shown for the record, view only for coaches.
-                'ended' => $e->graduation_at !== null || $e->user_status !== 'Active',
+                'ended' => $e->graduation_at !== null || $e->user_status !== 'Active'
+                    || ((int) $e->user_role_id === 4
+                        && ($e->athlete_since === null || substr((string) $e->athlete_since, 0, 10) <= $date)),
             ];
         })->values()->all();
     }

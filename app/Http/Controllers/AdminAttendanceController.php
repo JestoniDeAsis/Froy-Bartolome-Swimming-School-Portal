@@ -333,9 +333,36 @@ class AdminAttendanceController extends Controller
         $users = CoachController::USERS_TABLE;
         $pk = CoachController::USER_PK;
 
+        // Athletes who already have an athlete log on this date stay listed.
+        $loggedThatDay = Attendance::ofRole(self::ROLE_ATHLETE)
+            ->onDate($date)
+            ->select('user_id');
+
+        // Someone who already has a STUDENT log on this date (and no athlete log)
+        // stays on the Students tab only, so a person promoted on the same day
+        // they attended as a student does not show in both tabs.
+        $athleteLogged = Attendance::ofRole(self::ROLE_ATHLETE)
+            ->onDate($date)
+            ->pluck('user_id');
+
+        $studentOnlyIds = Attendance::onDate($date)
+            ->whereNotNull('enrollment_id')
+            ->pluck('user_id')
+            ->diff($athleteLogged)
+            ->unique()
+            ->values()
+            ->all();
+
+        // athlete_since NULL = promotion date unknown, so listed on every date.
         $athletes = DB::table("$users as u")
             ->join('tbl_user_profile as p', 'p.user_id', '=', "u.$pk")
             ->where('u.' . CoachController::ROLE_COL, self::ROLE_ATHLETE)
+            ->where(function ($q) use ($date, $pk, $loggedThatDay) {
+                $q->whereNull('u.athlete_since')
+                    ->orWhereDate('u.athlete_since', '<=', $date)
+                    ->orWhereIn("u.$pk", $loggedThatDay);
+            })
+            ->when($studentOnlyIds, fn ($q) => $q->whereNotIn("u.$pk", $studentOnlyIds))
             ->orderBy('p.last_name')
             ->orderBy('p.first_name')
             ->get([

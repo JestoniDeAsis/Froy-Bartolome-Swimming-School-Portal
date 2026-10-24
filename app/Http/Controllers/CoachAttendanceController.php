@@ -113,11 +113,38 @@ class CoachAttendanceController extends Controller
      */
     private function athleteRows(string $date): Collection
     {
+        // Athletes who already have an athlete log on this date stay listed.
+        $loggedThatDay = Attendance::ofRole(self::ATHLETE_ROLE_ID)
+            ->onDate($date)
+            ->select('user_id');
+
+        // Someone who already has a STUDENT log on this date (and no athlete log)
+        // stays on the student list only, so a person promoted on the same day
+        // they attended as a student does not show twice.
+        $athleteLogged = Attendance::ofRole(self::ATHLETE_ROLE_ID)
+            ->onDate($date)
+            ->pluck('user_id');
+
+        $studentOnlyIds = Attendance::onDate($date)
+            ->whereNotNull('enrollment_id')
+            ->pluck('user_id')
+            ->diff($athleteLogged)
+            ->unique()
+            ->values()
+            ->all();
+
         $athletes = DB::table(CoachController::USERS_TABLE . ' as u')
             ->join('tbl_user_profile as p', 'p.user_id', '=', 'u.' . CoachController::USER_PK)
             ->join(CoachController::STATUS_TABLE . ' as st', 'st.' . CoachController::STATUS_ID_COL, '=', 'u.' . CoachController::STATUS_COL)
             ->where('u.' . CoachController::ROLE_COL, self::ATHLETE_ROLE_ID)
             ->where('st.' . CoachController::STATUS_NAME_COL, 'Active')
+            // athlete_since NULL = promotion date unknown, so listed on every date.
+            ->where(function ($q) use ($date, $loggedThatDay) {
+                $q->whereNull('u.athlete_since')
+                    ->orWhereDate('u.athlete_since', '<=', $date)
+                    ->orWhereIn('u.' . CoachController::USER_PK, $loggedThatDay);
+            })
+            ->when($studentOnlyIds, fn ($q) => $q->whereNotIn('u.' . CoachController::USER_PK, $studentOnlyIds))
             ->orderBy('p.last_name')
             ->orderBy('p.first_name')
             ->get(['u.' . CoachController::USER_PK . ' as id', 'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix']);

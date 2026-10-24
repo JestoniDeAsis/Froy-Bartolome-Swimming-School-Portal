@@ -93,7 +93,12 @@ class AdminAthleteController extends Controller
             }
         }
 
-        DB::table('tbl_users')->whereIn('user_id', $ids)->update(['role_id' => self::ATHLETE_ROLE_ID]);
+        // athlete_since = the day they became an athlete. Attendance uses it so
+        // the person shows in the Athletes tab only from this date onward.
+        DB::table('tbl_users')->whereIn('user_id', $ids)->update([
+            'role_id' => self::ATHLETE_ROLE_ID,
+            'athlete_since' => Carbon::today()->toDateString(),
+        ]);
 
         return response()->json(array_merge(['success' => true], $this->lists()));
     }
@@ -124,6 +129,7 @@ class AdminAthleteController extends Controller
 
         DB::table('tbl_users')->where('user_id', $user)->update([
             'role_id' => $enrolledBefore ? self::STUDENT_ROLE_ID : self::APPLICANT_ROLE_ID,
+            'athlete_since' => null,
         ]);
 
         return response()->json(array_merge(['success' => true], $this->lists()));
