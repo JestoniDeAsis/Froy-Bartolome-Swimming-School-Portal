@@ -270,8 +270,54 @@ class PaymentHistoryController extends Controller
             'enrollments'           => [],
             'payments'              => $rows,
             'history'               => $history,
+            'summary'               => $this->athleteSummary($user),
             'default_enrollment_id' => null,
         ]);
+    }
+
+    /**
+     * Totals for the athlete's summary cards (fee / paid / balance / status).
+     * Counts every due (fee + billing period) that has an active payment, plus,
+     * for a current athlete, every ACTIVE fee that has no payment yet for the
+     * current period. That second part matches the "Unpaid" rows the admin
+     * Sales & Invoice page shows, so an athlete who hasn't paid anything yet
+     * still sees what they owe. Archived payments never count.
+     */
+    private function athleteSummary(User $user): array
+    {
+        $dues = DB::table('tbl_athlete_payments')
+            ->where('user_id', $user->getKey())
+            ->whereNull('archived_at')
+            ->selectRaw('MIN(amount_due) as due, SUM(amount) as paid')
+            ->groupBy('athlete_fee_id', 'period_key')
+            ->get();
+
+        $fee  = (float) $dues->sum('due');
+        $paid = (float) $dues->sum('paid');
+
+        if ((int) $user->role_id === self::ATHLETE_ROLE_ID) {
+            $periodCase = "CASE f.billing_cycle WHEN 'monthly' THEN ? WHEN 'yearly' THEN ? ELSE '' END";
+
+            $fee += (float) DB::table('tbl_athlete_fees as f')
+                ->where('f.is_active', 1)
+                ->whereRaw(
+                    'NOT EXISTS (SELECT 1 FROM tbl_athlete_payments x WHERE x.archived_at IS NULL'
+                    . ' AND x.user_id = ? AND x.athlete_fee_id = f.athlete_fee_id AND x.period_key = ' . $periodCase . ')',
+                    [$user->getKey(), now()->format('Y-m'), now()->format('Y')]
+                )
+                ->sum('f.amount');
+        }
+
+        $fee     = round($fee, 2);
+        $paid    = round($paid, 2);
+        $balance = max(round($fee - $paid, 2), 0);
+
+        return [
+            'fee'     => $fee,
+            'paid'    => $paid,
+            'balance' => $balance,
+            'status'  => $fee <= 0 ? '' : ($balance <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid')),
+        ];
     }
 
     private function periodLabel(string $cycle, string $key): string

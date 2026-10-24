@@ -1,7 +1,7 @@
 @extends('layouts.toast')
 
 @php
-    // Athletes (role 4) see the same page without the course filter.
+    // Athletes (role 4) see the same page without the course filter and Course card.
     $isAthlete = (int) auth()->user()->role_id === 4;
 @endphp
 
@@ -372,15 +372,16 @@
         <p class="text-muted small mb-0">View only. Payments are recorded by the school when you pay. If a payment is corrected, the old entry is kept in the change history below.</p>
     </header>
 
-    <!-- SUMMARY (course totals: not shown to athletes) -->
-    @unless ($isAthlete)
+    <!-- SUMMARY (the Course card is for students only; athletes see the rest) -->
     <div class="paymentsSummary" id="paymentsSummary">
+        @unless ($isAthlete)
         <div class="paymentsCard">
             <div class="paymentsCardLabel">Course</div>
             <div class="paymentsCardValue" id="summaryCourse">--</div>
         </div>
+        @endunless
         <div class="paymentsCard">
-            <div class="paymentsCardLabel">Total Fee</div>
+            <div class="paymentsCardLabel">{{ $isAthlete ? 'Total Fees' : 'Total Fee' }}</div>
             <div class="paymentsCardValue" id="summaryFee">--</div>
         </div>
         <div class="paymentsCard">
@@ -396,7 +397,6 @@
             <div class="paymentsCardValue" id="summaryStatus">--</div>
         </div>
     </div>
-    @endunless
 
     <!-- TOOLBAR -->
     <div class="paymentsToolbar">
@@ -498,6 +498,7 @@
     let enrollments = [];
     let payments = [];
     let history = [];
+    let athleteSummary = null;   // athletes only: totals computed by the server
     let client = '';
     let loading = true;
 
@@ -567,7 +568,27 @@
     /* ---------- render ---------- */
 
     function renderSummary() {
-        if (IS_ATHLETE) return;   // the summary cards aren't rendered for athletes
+        if (IS_ATHLETE) {
+            // Athletes have no course card; the server works out what they owe,
+            // including fees they haven't paid anything on yet.
+            const a = athleteSummary;
+            const nodes = [el.sFee, el.sPaid, el.sBalance, el.sStatus];
+
+            if (!a) {
+                nodes.forEach(node => { node.textContent = '--'; node.className = 'paymentsCardValue'; });
+                return;
+            }
+
+            el.sFee.textContent = peso(a.fee);
+            el.sPaid.textContent = peso(a.paid);
+
+            el.sBalance.textContent = peso(a.balance);
+            el.sBalance.className = `paymentsCardValue ${a.balance > 0 ? 'isOwing' : 'isPaid'}`;
+
+            if (a.status) el.sStatus.replaceChildren(pill(a.status));
+            else el.sStatus.textContent = '--';
+            return;
+        }
 
         const one = selectedEnrollment();
         const list = one ? [one] : enrollments;
@@ -774,6 +795,7 @@
             enrollments = data.enrollments || [];
             payments = data.payments || [];
             history = data.history || [];
+            athleteSummary = data.summary || null;
             client = data.client || '';
 
             buildCourseOptions(data.default_enrollment_id);
