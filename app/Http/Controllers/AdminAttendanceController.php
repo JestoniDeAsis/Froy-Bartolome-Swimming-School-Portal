@@ -48,6 +48,9 @@ class AdminAttendanceController extends Controller
     // Athlete role ID.
     private const ROLE_ATHLETE = 4;
 
+    // Former (retired) athlete role ID. Their old athlete logs still say role 4.
+    private const ROLE_FORMER_ATHLETE = 6;
+
     private function denyUnlessAdmin(Request $request): ?JsonResponse
     {
         return CoachController::userIsAdmin($request->user())
@@ -325,7 +328,8 @@ class AdminAttendanceController extends Controller
     }
 
     /* =========================================================
-     * Athletes: all users with role_id = 4 and their attendance
+     * Athletes: users with role_id = 4 (and role 6, Former Athlete, on the
+     * dates they were athletes) and their attendance
      * for the chosen date. This tab is read-only.
      * ========================================================= */
     private function athleteRows(string $date): array
@@ -353,14 +357,26 @@ class AdminAttendanceController extends Controller
             ->values()
             ->all();
 
+        $roleCol = 'u.' . CoachController::ROLE_COL;
+
         // athlete_since NULL = promotion date unknown, so listed on every date.
         $athletes = DB::table("$users as u")
             ->join('tbl_user_profile as p', 'p.user_id', '=', "u.$pk")
-            ->where('u.' . CoachController::ROLE_COL, self::ROLE_ATHLETE)
-            ->where(function ($q) use ($date, $pk, $loggedThatDay) {
-                $q->whereNull('u.athlete_since')
-                    ->orWhereDate('u.athlete_since', '<=', $date)
-                    ->orWhereIn("u.$pk", $loggedThatDay);
+            ->whereIn($roleCol, [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE])
+            ->where(function ($q) use ($date, $pk, $roleCol, $loggedThatDay) {
+                // Current athletes: from their promotion date onward.
+                $q->where(function ($cur) use ($date, $roleCol) {
+                    $cur->where($roleCol, self::ROLE_ATHLETE)
+                        ->where(fn ($s) => $s->whereNull('u.athlete_since')->orWhereDate('u.athlete_since', '<=', $date));
+                })
+                // Former athletes: only the dates they were athletes, up to the day they retired.
+                ->orWhere(function ($old) use ($date, $roleCol) {
+                    $old->where($roleCol, self::ROLE_FORMER_ATHLETE)
+                        ->where(fn ($s) => $s->whereNull('u.athlete_since')->orWhereDate('u.athlete_since', '<=', $date))
+                        ->whereDate('u.athlete_until', '>=', $date);
+                })
+                // Anyone who has an athlete log on this date.
+                ->orWhereIn("u.$pk", $loggedThatDay);
             })
             ->when($studentOnlyIds, fn ($q) => $q->whereNotIn("u.$pk", $studentOnlyIds))
             ->orderBy('p.last_name')
@@ -505,7 +521,9 @@ class AdminAttendanceController extends Controller
 
         $exists = DB::table($users . ' as u')
             ->where("u.$pk", $userId)
-            ->where('u.' . CoachController::ROLE_COL, $roleId)
+            ->whereIn('u.' . CoachController::ROLE_COL, $roleId === self::ROLE_ATHLETE
+                ? [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE]
+                : [$roleId])
             ->exists();
 
         if (!$exists) {
@@ -763,7 +781,7 @@ class AdminAttendanceController extends Controller
 
             $exists = DB::table(CoachController::USERS_TABLE . ' as u')
                 ->where('u.' . CoachController::USER_PK, $athleteId)
-                ->where('u.' . CoachController::ROLE_COL, self::ROLE_ATHLETE)
+                ->whereIn('u.' . CoachController::ROLE_COL, [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE])
                 ->exists();
 
             if (!$exists) {

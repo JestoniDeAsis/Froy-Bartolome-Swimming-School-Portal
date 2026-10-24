@@ -44,4 +44,11 @@ return [
         'announcements' => ['icon' => 'bi-megaphone',       'label' => 'Announcements', 'view' => 'pages.shared.announcements'],
         'profile'       => ['icon' => 'bi-person-circle',   'label' => 'Profile',       'view' => 'pages.shared.profile'],
     ],
+    6 => [ // former athlete
+        'dashboard'     => ['icon' => 'bi-speedometer2',    'label' => 'Dashboard',     'view' => 'pages.athlete.dashboard'],
+        'attendance'    => ['icon' => 'bi-calendar-check',  'label' => 'Attendance',    'view' => 'pages.student.attendance'],
+        'payments'      => ['icon' => 'bi-cash-coin',       'label' => 'Payments',      'view' => 'pages.shared.payments'],
+        'announcements' => ['icon' => 'bi-megaphone',       'label' => 'Announcements', 'view' => 'pages.shared.announcements'],
+        'profile'       => ['icon' => 'bi-person-circle',   'label' => 'Profile',       'view' => 'pages.shared.profile'],
+    ],
 ];

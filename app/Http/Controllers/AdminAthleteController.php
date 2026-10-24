@@ -18,6 +18,8 @@ use Illuminate\Validation\Rule;
  * Admin Athletes page (split out of the Registers page).
  *
  *   Athletes      role 4
+ *   Former        role 6: retired athletes (athlete_since / athlete_until keep
+ *                 the dates they were athletes, so old attendance stays visible)
  *   Candidates    who can be made an athlete: applicants (role 5, never
  *                 enrolled) and graduates who are NOT enrolled right now
  *   Leaderboards  placeholder tab, nothing here yet
@@ -25,14 +27,17 @@ use Illuminate\Validation\Rule;
  * Rules enforced here (not only in the page):
  *   - only applicants and graduates who are not enrolled now can become athletes
  *   - nobody who is currently enrolled can become an athlete
- *   - revoking sends the person back to Graduates (role 3) if they were ever
- *     enrolled, otherwise back to Applicants (role 5)
+ *   - revoking (a mistake) sends the person back to Graduates (role 3) if they
+ *     were ever enrolled, otherwise back to Applicants (role 5)
+ *   - retiring keeps their history: role 6 and athlete_until = today. A former
+ *     athlete can be added back as an athlete later
  */
 class AdminAthleteController extends Controller
 {
     private const ADMIN_ROLE_ID     = 1;
     private const STUDENT_ROLE_ID   = 3;
     private const ATHLETE_ROLE_ID   = 4;
+    private const FORMER_ATHLETE_ROLE_ID = 6;
     private const APPLICANT_ROLE_ID = 5;
 
     /**
@@ -88,8 +93,10 @@ class AdminAthleteController extends Controller
                 return $this->fail("{$name} is enrolled in a course right now. Only people who are not enrolled can become athletes.");
             }
 
-            if (! in_array($id, $enrolledBefore, true) && (int) $user->role_id !== self::APPLICANT_ROLE_ID) {
-                return $this->fail("{$name} is not an applicant or a graduate.");
+            $isFormerAthlete = (int) $user->role_id === self::FORMER_ATHLETE_ROLE_ID;
+
+            if (! in_array($id, $enrolledBefore, true) && (int) $user->role_id !== self::APPLICANT_ROLE_ID && ! $isFormerAthlete) {
+                return $this->fail("{$name} is not an applicant, a graduate or a former athlete.");
             }
         }
 
@@ -98,6 +105,7 @@ class AdminAthleteController extends Controller
         DB::table('tbl_users')->whereIn('user_id', $ids)->update([
             'role_id' => self::ATHLETE_ROLE_ID,
             'athlete_since' => Carbon::today()->toDateString(),
+            'athlete_until' => null,
         ]);
 
         return response()->json(array_merge(['success' => true], $this->lists()));
@@ -130,6 +138,38 @@ class AdminAthleteController extends Controller
         DB::table('tbl_users')->where('user_id', $user)->update([
             'role_id' => $enrolledBefore ? self::STUDENT_ROLE_ID : self::APPLICANT_ROLE_ID,
             'athlete_since' => null,
+            'athlete_until' => null,
+        ]);
+
+        return response()->json(array_merge(['success' => true], $this->lists()));
+    }
+
+    /**
+     * POST /athletes/{user}/retire
+     * The athlete stops being an athlete but their history stays: role 6
+     * (Former Athlete) and athlete_until = today. Attendance uses the two
+     * dates to keep showing them on the days they were athletes.
+     * Replies with the refreshed lists.
+     */
+    public function retire(Request $request, int $user): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $roleId = DB::table('tbl_users')->where('user_id', $user)->value('role_id');
+
+        if ($roleId === null) {
+            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+        }
+
+        if ((int) $roleId !== self::ATHLETE_ROLE_ID) {
+            return $this->fail('This person is not an athlete.');
+        }
+
+        DB::table('tbl_users')->where('user_id', $user)->update([
+            'role_id' => self::FORMER_ATHLETE_ROLE_ID,
+            'athlete_until' => Carbon::today()->toDateString(),
         ]);
 
         return response()->json(array_merge(['success' => true], $this->lists()));
@@ -179,12 +219,21 @@ class AdminAthleteController extends Controller
         $graduates = User::with('profile')
             ->whereIn('user_id', $graduatedIds)
             ->whereNotIn('user_id', $enrolledNow)
-            ->where('role_id', '!=', self::ATHLETE_ROLE_ID)
+            ->whereNotIn('role_id', [self::ATHLETE_ROLE_ID, self::FORMER_ATHLETE_ROLE_ID])
             ->get()
             ->map(fn ($user) => array_merge($this->personRow($user), ['source' => 'Graduate']));
 
+        // Retired athletes can be added back as athletes (not while enrolled).
+        $formerAthletes = User::with('profile')
+            ->where('role_id', self::FORMER_ATHLETE_ROLE_ID)
+            ->whereHas('profile')
+            ->whereNotIn('user_id', $enrolledNow)
+            ->get()
+            ->map(fn ($user) => array_merge($this->personRow($user), ['source' => 'Former Athlete']));
+
         return $applicants
             ->concat($graduates)
+            ->concat($formerAthletes)
             ->sortBy('lastName', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
     }

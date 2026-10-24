@@ -138,6 +138,7 @@ use App\Http\Controllers\AdminAthleteController;
 Route::post('/athletes', [AdminAthleteController::class, 'store'])->middleware('auth');
 Route::post('/athletes/{user}/revoke', [AdminAthleteController::class, 'revoke'])->middleware('auth')->whereNumber('user');
 Route::get('/athletes/leaderboard', [AdminAthleteController::class, 'leaderboard'])->middleware('auth');
+Route::post('/athletes/{user}/retire', [AdminAthleteController::class, 'retire']);
 
 use App\Http\Controllers\StudentAttendanceController;
  

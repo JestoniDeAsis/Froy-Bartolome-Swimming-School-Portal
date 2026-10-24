@@ -28,9 +28,11 @@ use Illuminate\Support\Facades\DB;
 class PaymentHistoryController extends Controller
 {
     /** 3 = student, 4 = athlete, 5 = applicant (see config/role_menus.php). */
-    private const ALLOWED_ROLE_IDS = [3, 4, 5];
+    private const ALLOWED_ROLE_IDS = [3, 4, 5, 6];
 
     private const ATHLETE_ROLE_ID = 4;
+
+    private const FORMER_ATHLETE_ROLE_ID = 6;
 
     public function data(Request $request): JsonResponse
     {
@@ -41,7 +43,7 @@ class PaymentHistoryController extends Controller
         }
 
         // Athletes pay athlete fees (tbl_athlete_payments), not course enrollments.
-        if ((int) $user->role_id === self::ATHLETE_ROLE_ID) {
+        if (in_array((int) $user->role_id, [self::ATHLETE_ROLE_ID, self::FORMER_ATHLETE_ROLE_ID], true)) {
             return $this->athleteData($user);
         }
 

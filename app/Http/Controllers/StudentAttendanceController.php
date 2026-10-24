@@ -24,10 +24,13 @@ class StudentAttendanceController extends Controller
      * Roles allowed to view this attendance page.
      * 3 and 5 = Student roles, 4 = Athlete role (adjust if your athlete role ID differs).
      */
-    public const SHARED_ROLES = [3, 4, 5];
+    public const SHARED_ROLES = [3, 4, 5, 6];
     
     /** Define which role ID specifically represents the athlete. */
     public const ATHLETE_ROLE_ID = 4; // Adjust this if your athlete role ID is different
+
+    /** Former (retired) athlete role ID. */
+    public const FORMER_ATHLETE_ROLE_ID = 6;
 
     /* =========================================================
      * GET /student/attendance/data
@@ -42,7 +45,7 @@ class StudentAttendanceController extends Controller
         }
 
         $userId = (int) Auth::id();
-        $isAthlete = ($roleId === self::ATHLETE_ROLE_ID);
+        $isAthlete = in_array($roleId, [self::ATHLETE_ROLE_ID, self::FORMER_ATHLETE_ROLE_ID], true);
 
         $enrollments = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
             ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id')

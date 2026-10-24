@@ -54,17 +54,18 @@ trait HandlesAttendanceData
 
         $statusCol = 'st.' . CoachController::STATUS_NAME_COL;
         $roleCol = 'u.' . CoachController::ROLE_COL;
-        $athleteRole = 4;
+        // Athlete (4) and Former Athlete (6): they are no longer listed as active students.
+        $athleteRoles = [4, 6];
 
         // Enrollments that already have attendance logged on this date.
         $loggedThatDay = Attendance::onDate($date)
             ->whereNotNull('enrollment_id')
             ->select('enrollment_id');
 
-        $query->where(function ($q) use ($date, $statusCol, $loggedThatDay, $roleCol, $athleteRole) {
-            $q->where(function ($active) use ($date, $statusCol, $roleCol, $athleteRole) {
+        $query->where(function ($q) use ($date, $statusCol, $loggedThatDay, $roleCol, $athleteRoles) {
+            $q->where(function ($active) use ($date, $statusCol, $roleCol, $athleteRoles) {
                 $active->where($statusCol, 'Active')
-                    ->where(fn ($r) => $r->where($roleCol, '<>', $athleteRole)
+                    ->where(fn ($r) => $r->whereNotIn($roleCol, $athleteRoles)
                         ->orWhereDate('u.athlete_since', '>', $date))
                     ->where(fn ($s) => $s->whereNull('e.enrollment_at')->orWhereDate('e.enrollment_at', '<=', $date))
                     ->where(fn ($g) => $g->whereNull('e.graduation_at')->orWhereDate('e.graduation_at', '>', $date));
@@ -136,7 +137,7 @@ trait HandlesAttendanceData
                 // No longer an active enrollment (graduated / moved to a new course, or the
                 // student is not Active): shown for the record, view only for coaches.
                 'ended' => $e->graduation_at !== null || $e->user_status !== 'Active'
-                    || ((int) $e->user_role_id === 4
+                    || (in_array((int) $e->user_role_id, [4, 6], true)
                         && ($e->athlete_since === null || substr((string) $e->athlete_since, 0, 10) <= $date)),
             ];
         })->values()->all();

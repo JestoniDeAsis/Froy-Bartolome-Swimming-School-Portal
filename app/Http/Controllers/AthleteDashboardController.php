@@ -16,10 +16,15 @@ use Illuminate\Validation\Rule;
 class AthleteDashboardController extends Controller
 {
     private const ATHLETE_ROLE_ID = 4;
+    private const FORMER_ATHLETE_ROLE_ID = 6;
 
     private function isAthlete($user): bool
     {
-        return $user && (int) ($user->{CoachController::ROLE_COL} ?? 0) === self::ATHLETE_ROLE_ID;
+        return $user && in_array(
+            (int) ($user->{CoachController::ROLE_COL} ?? 0),
+            [self::ATHLETE_ROLE_ID, self::FORMER_ATHLETE_ROLE_ID],
+            true
+        );
     }
 
     private function denyUnlessAthlete(Request $request): ?JsonResponse

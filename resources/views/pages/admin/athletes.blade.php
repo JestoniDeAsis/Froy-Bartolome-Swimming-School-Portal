@@ -721,7 +721,7 @@
        DATA — from AthleteController::data()
          athletes    people with role 4
          candidates  applicants + graduates (not enrolled now) who can
-                     be made athletes; each has source = Applicant|Graduate
+                     be made athletes; each has source = Applicant|Graduate|Former Athlete
     ========================================================= */
 
     let athletes = @json($athletes);
@@ -914,7 +914,23 @@
                 });
             });
 
-            actionCell.append(revokeButton);
+            const retireButton = createElement('button', {
+                id: `athleteActionButton${rowIndex}Retire`,
+                className: 'btn btn-outline-secondary btn-sm me-1',
+                text: 'Retire',
+                attributes: { type: 'button' }
+            });
+
+            retireButton.addEventListener('click', () => {
+                openConfirmModal({
+                    title: 'Retire this athlete?',
+                    message: `Retire ${getPersonName(person)}? They become a Former Athlete. Their attendance and records are kept, and you can add them back as an athlete later.`,
+                    confirmLabel: 'Retire',
+                    onConfirm: () => retireAthlete(person)
+                });
+            });
+
+            actionCell.append(retireButton, revokeButton);
             tableRow.append(actionCell);
             elements.tableBody.append(tableRow);
         });
@@ -1007,6 +1023,23 @@
         return candidates;
     }
 
+    async function retireAthlete(person) {
+        try {
+            const result = await sendJson(`{{ url('/athletes') }}/${person.id}/retire`, 'POST');
+
+            if (result.ok) {
+                applyLists(result.data);
+                renderAthletes();
+                showToast(`${getPersonName(person)} is now a former athlete.`, 'success');
+            } else {
+                showToast(firstError(result.data, 'Something went wrong while retiring the athlete.'), 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while retiring the athlete.', 'danger');
+        }
+    }
+
     function getCandidateAvatarInitials(candidate) {
         return `${candidate.firstName.charAt(0)}${candidate.lastName.charAt(0)}`.toUpperCase();
     }
@@ -1026,8 +1059,8 @@
             elements.athleteModalCandidateList.append(createElement('p', {
                 className: 'athleteCandidateEmpty',
                 text: candidates.length
-                    ? 'No matching applicants or graduates.'
-                    : 'No applicants or graduates to add.'
+                    ? 'No matching applicants, graduates or former athletes.'
+                    : 'No applicants, graduates or former athletes to add.'
             }));
         } else {
             visible.forEach((candidate, index) => {
