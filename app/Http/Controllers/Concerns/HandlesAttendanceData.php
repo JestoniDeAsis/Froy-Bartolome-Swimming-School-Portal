@@ -102,10 +102,12 @@ trait HandlesAttendanceData
         $logs = Attendance::forEnrollment($ids)
             ->onDate($date)
             ->earliestFirst()
-            ->get(['enrollment_id', 'time_in', 'time_out', 'attendance_state', 'logged_by'])
+            ->get(['enrollment_id', 'time_in', 'time_out', 'attendance_state', 'logged_by', 'last_edited_by', 'last_edited_at'])
             ->groupBy('enrollment_id');
 
-        $loggerNames = $this->loggerNames($logs->flatten(1)->pluck('logged_by'));
+        $loggerNames = $this->loggerNames(
+            $logs->flatten(1)->pluck('logged_by')->merge($logs->flatten(1)->pluck('last_edited_by'))
+        );
 
         return $enrollments->map(function ($e) use ($logs, $completed, $loggerNames) {
             $log = ($logs->get($e->id) ?? collect())->first();
@@ -123,6 +125,8 @@ trait HandlesAttendanceData
                 'time_in' => $this->hhmm($log->time_in ?? null),
                 'time_out' => $this->hhmm($log->time_out ?? null),
                 'state' => $log->attendance_state ?? null,
+                'last_edited_by' => $log ? ($loggerNames[$log->last_edited_by] ?? null) : null,
+                'last_edited_at' => $log->last_edited_at ?? null,
                 // No longer an active enrollment (graduated / moved to a new course, or the
                 // student is not Active): shown for the record, view only for coaches.
                 'ended' => $e->graduation_at !== null || $e->user_status !== 'Active',
@@ -202,10 +206,12 @@ trait HandlesAttendanceData
                 'a.time_out',
                 'a.attendance_state',
                 'a.logged_by',
+                'a.last_edited_by',
+                'a.last_edited_at',
                 'c.' . CoachController::COURSE_NAME_COL . ' as course_name',
             ]);
 
-        $loggerNames = $this->loggerNames($logs->pluck('logged_by'));
+        $loggerNames = $this->loggerNames($logs->pluck('logged_by')->merge($logs->pluck('last_edited_by')));
 
         return response()->json([
             'success' => true,
@@ -230,6 +236,8 @@ trait HandlesAttendanceData
                 'time_out' => $this->hhmm($l->time_out),
                 'state' => $l->attendance_state,
                 'logged_by' => $loggerNames[$l->logged_by] ?? null,
+                'last_edited_by' => $loggerNames[$l->last_edited_by] ?? null,
+                'last_edited_at' => $l->last_edited_at,
             ])->values(),
         ]);
     }

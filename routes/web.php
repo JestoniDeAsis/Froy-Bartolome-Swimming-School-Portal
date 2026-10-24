@@ -108,9 +108,11 @@ Route::get('/admin/attendance/data', [AdminAttendanceController::class, 'data'])
 Route::get('/admin/attendance/student-logs', [AdminAttendanceController::class, 'studentLogs'])->middleware('auth');
 Route::post('/admin/attendance/coaches/time-in', [AdminAttendanceController::class, 'coachTimeIn'])->middleware('auth');
 Route::post('/admin/attendance/coaches/time-out', [AdminAttendanceController::class, 'coachTimeOut'])->middleware('auth');
+Route::post('/admin/attendance/coaches/absent', [AdminAttendanceController::class, 'coachAbsent'])->middleware('auth');
 Route::get('/admin/attendance/athlete-logs', [AdminAttendanceController::class, 'athleteLogs'])->middleware('auth');
 Route::get('/admin/attendance/coach-logs', [AdminAttendanceController::class, 'coachLogs'])->middleware('auth');
-Route::post('/admin/attendance/records', [AdminAttendanceController::class, 'record']);
+Route::post('/admin/attendance/records', [AdminAttendanceController::class, 'record'])->middleware('auth');
+Route::get('/admin/attendance/handling-coaches', [AdminAttendanceController::class, 'handlingCoaches'])->middleware('auth');
 
 use App\Http\Controllers\CoachAttendanceController;
 

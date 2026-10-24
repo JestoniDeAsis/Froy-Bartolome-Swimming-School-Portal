@@ -304,6 +304,9 @@
 }
 
 .attendanceLogFilter { --dd-min-width: 280px; }
+.attendanceCoachPick { --dd-min-width: 280px; }
+.attendanceCoachPickGroup { display: flex; flex-direction: column; gap: .5rem; }
+.attendanceCoachPickGroup[hidden] { display: none; }
 
 .attendanceLogSummary {
     margin: 0;
@@ -433,6 +436,7 @@
         <div class="attendanceToolbarActions" id="attendanceToolbarActions">
             <button class="btn btn-primary" id="recordTimeInButton" type="button" disabled>Time In</button>
             <button class="btn btn-primary" id="recordTimeOutButton" type="button" disabled>Time Out</button>
+            <button class="btn btn-primary" id="coachAbsentButton" type="button" disabled title="Mark as Absent (only if there is no Time In)">Absent</button>
             <button class="btn btn-primary" id="coachViewLogsButton" type="button" disabled>View Logs</button>
         </div>
 
@@ -470,9 +474,30 @@
         <div class="attendanceModalBody">
             <p class="attendanceModalName" id="timeModalRecordName"></p>
             <p class="attendanceModalMeta" id="timeModalMeta" hidden></p>
+            <p class="attendanceModalMeta" id="timeModalAudit" hidden></p>
 
             <label class="attendanceModalLabel" id="timeModalLabel" for="timeModalInput">Current Time</label>
             <input class="attendanceModalInput" id="timeModalInput" type="time">
+
+            <!-- Only shown when this creates the day's record for a student / athlete -->
+            <div class="attendanceCoachPickGroup" id="timeModalCoachGroup" hidden>
+                <label class="attendanceModalLabel" id="timeModalCoachLabel">Coach</label>
+
+                <div class="registerDropdown attendanceCoachPick" id="coachPickDropdown" data-fbss-dropdown>
+                    <button class="registerDropdownToggle" id="coachPickToggle" type="button" aria-expanded="false" aria-controls="coachPickOptions">
+                        <span id="coachPickSelected">Select a coach</span>
+                        <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="registerDropdownOptions" id="coachPickOptions" hidden>
+                        <button class="registerDropdownOption active" type="button" data-value="">Select a coach</button>
+                    </div>
+
+                    <input id="coachPickInput" name="coachPick" type="hidden" value="">
+                </div>
+
+                <p class="attendanceModalMeta" id="coachPickNote" hidden></p>
+            </div>
 
             <label class="attendanceModalRemove" id="timeModalRemoveWrap" for="timeModalRemove" hidden>
                 <input type="checkbox" id="timeModalRemove">
@@ -548,6 +573,8 @@
         data: '/admin/attendance/data',
         timeIn: '/admin/attendance/coaches/time-in',
         timeOut: '/admin/attendance/coaches/time-out',
+        coachAbsent: '/admin/attendance/coaches/absent',
+        handlingCoaches: '/admin/attendance/handling-coaches',
         studentLogs: '/admin/attendance/student-logs',
         athleteLogs: '/admin/attendance/athlete-logs',
         coachLogs: '/admin/attendance/coach-logs',
@@ -560,7 +587,7 @@
     // Per-tab columns. "key" matches the field names the server returns.
     const TAB_CONFIGS = {
         coaches: {
-            hint: 'Record, edit or remove the Time In and Time Out of each coach, or view the full attendance log. Select a coach to enable the buttons. Switch View to Monthly for monthly totals.',
+            hint: 'Record, edit or remove the Time In and Time Out of each coach, mark them Absent, or view the full attendance log. Select a coach to enable the buttons. Switch View to Monthly for monthly totals.',
             selectable: true,
             columns: [
                 { label: 'Coach Name', key: 'name', isNameColumn: true },
@@ -572,7 +599,7 @@
             searchKeys: ['name', 'classes', 'state']
         },
         students: {
-            hint: 'Log or correct attendance for students: Time In / Time Out (edit or remove) or Absent, or view the full log. Select a student to enable the buttons.',
+            hint: 'Log or correct attendance for students: Time In / Time Out (edit or remove) or Absent, or view the full log. When a student has no record yet, choose the coach who handled them.',
             selectable: true,
             columns: [
                 { label: 'Student Name', key: 'name', isNameColumn: true },
@@ -587,7 +614,7 @@
             searchKeys: ['name', 'coach', 'course', 'state']
         },
         athletes: {
-            hint: 'Log or correct attendance for athletes: Time In / Time Out (edit or remove) or Absent, or view the full log. Select an athlete to enable the buttons.',
+            hint: 'Log or correct attendance for athletes: Time In / Time Out (edit or remove) or Absent, or view the full log. When an athlete has no record yet, choose the coach who handled them.',
             selectable: true,
             columns: [
                 { label: 'Athlete Name', key: 'name', isNameColumn: true },
@@ -640,6 +667,7 @@
         dateGroup: $('attendanceDateGroup'),
 
         absentButton: $('markAbsentButton'),
+        coachAbsentButton: $('coachAbsentButton'),
 
         dateButton: $('attendanceDateButton'),
         dateSelected: $('attendanceDateSelected'),
@@ -674,6 +702,7 @@
         modalTitle: $('timeModalTitle'),
         modalName: $('timeModalRecordName'),
         modalMeta: $('timeModalMeta'),
+        modalAudit: $('timeModalAudit'),
         modalLabel: $('timeModalLabel'),
         modalInput: $('timeModalInput'),
         modalClose: $('timeModalCloseButton'),
@@ -681,7 +710,12 @@
         modalSave: $('timeModalSaveButton'),
         modalRemoveWrap: $('timeModalRemoveWrap'),
         modalRemove: $('timeModalRemove'),
-        modalRemoveText: $('timeModalRemoveText')
+        modalRemoveText: $('timeModalRemoveText'),
+
+        coachGroup: $('timeModalCoachGroup'),
+        coachPick: $('coachPickDropdown'),
+        coachPickInput: $('coachPickInput'),
+        coachPickNote: $('coachPickNote')
     };
 
     const REFRESH_MS = 10000;   // auto-refresh every 10 seconds
@@ -698,6 +732,8 @@
     let logsAnchorId = null;
     let logsSeq = 0;
     let logFilterBuilt = false;
+    let coachPickSeq = 0;
+    let coachPickLoaded = false;
 
     /* =========================================================
        HELPERS
@@ -806,7 +842,25 @@
     const isMonthlyView = () => activeTab === 'coaches' && monthly;
     const tabConfig = () => isMonthlyView() ? COACH_MONTHLY_CONFIG : TAB_CONFIGS[activeTab];
 
-    const actionLabel = action => action === 'in' ? 'Time In' : 'Time Out';
+    const actionLabel = action => action === 'absent' ? 'Absent' : (action === 'in' ? 'Time In' : 'Time Out');
+
+    // "2026-10-24 16:30:00" -> "Oct 24, 2026 4:30 PM"
+    function formatDateTimeLabel(value) {
+        if (!value) return '';
+
+        const d = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(d.getTime())) return String(value);
+
+        return `${formatShortDate(d)} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    }
+
+    // A student / athlete with no record at all for the chosen date: saving a Time In
+    // or Absent creates the row, so the admin has to say which coach handled them.
+    function needsCoachPick(record, action) {
+        return activeTab !== 'coaches'
+            && (action === 'in' || action === 'absent')
+            && !record.state && !record.time_in && !record.time_out;
+    }
 
     function monthLabel(value) {
         const [y, m] = value.split('-').map(Number);
@@ -904,7 +958,9 @@
 
         const value = column.isTime
             ? formatTimeLabel(record[column.key])
-            : (column.isState ? stateLabel(record[column.key]) : (record[column.key] ?? ''));
+            : (column.isDateTime
+                ? formatDateTimeLabel(record[column.key])
+                : (column.isState ? stateLabel(record[column.key]) : (record[column.key] ?? '')));
 
         return value
             ? document.createTextNode(value)
@@ -1042,12 +1098,17 @@
         el.timeInButton.textContent = record && record.time_in ? 'Time In (Edit)' : 'Time In';
         el.timeOutButton.textContent = record && record.time_out ? 'Time Out (Edit)' : 'Time Out';
 
-        // Absent (students and athletes): marks, or removes the mark when it is already set.
-        const markable = Boolean(record) && !isCoaches && !record.time_in;
+        // Absent (every tab): marks, or removes the mark when it is already set.
+        const markable = Boolean(record) && !record.time_in;
         const hasAbsent = markable && record.state === 'Absent';
+        const absentText = hasAbsent ? 'Remove Absent' : 'Absent';
 
-        el.absentButton.disabled = busy || !markable;
-        el.absentButton.textContent = hasAbsent ? 'Remove Absent' : 'Absent';
+        el.absentButton.disabled = busy || !markable || isCoaches;
+        el.absentButton.textContent = absentText;
+
+        el.coachAbsentButton.disabled = busy || !markable || !isCoaches;
+        el.coachAbsentButton.textContent = absentText;
+        el.coachAbsentButton.style.display = isCoaches && !monthlyView ? '' : 'none';
 
         el.viewLogsButton.disabled = busy || !record || isCoaches;
         el.coachViewLogsButton.disabled = busy || !record || !isCoaches;
@@ -1186,14 +1247,15 @@
 
         pendingAction = action;
 
-        const existing = action === 'in' ? record.time_in : record.time_out;
+        const isAbsent = action === 'absent';
+        const existing = action === 'in' ? record.time_in : (isAbsent ? null : record.time_out);
         const isEdit = Boolean(existing);
         const label = actionLabel(action);
 
-        el.modalTitle.textContent = isEdit ? `Edit ${label}` : `Record ${label}`;
+        el.modalTitle.textContent = isAbsent ? 'Mark as Absent' : (isEdit ? `Edit ${label}` : `Record ${label}`);
 
         el.modalName.replaceChildren(
-            document.createTextNode(isEdit ? 'Editing for ' : 'Recording for '),
+            document.createTextNode(isAbsent ? 'Marking absent: ' : (isEdit ? 'Editing for ' : 'Recording for ')),
             make('strong', { text: record.name })
         );
 
@@ -1208,6 +1270,20 @@
             el.modalMeta.hidden = true;
         }
 
+        // Who logged this row and who changed it last (when there is a row).
+        const loggedBy = record.coach || record.logged_by;
+        const auditParts = [];
+
+        if (loggedBy) auditParts.push(`Logged by ${loggedBy}`);
+
+        if (record.last_edited_by) {
+            const when = formatDateTimeLabel(record.last_edited_at);
+            auditParts.push(`Last edited by ${record.last_edited_by}${when ? ' on ' + when : ''}`);
+        }
+
+        el.modalAudit.textContent = auditParts.join(' · ');
+        el.modalAudit.hidden = !auditParts.length;
+
         el.modalInput.value = existing || currentTimeInputValue();
         el.modalInput.disabled = false;
         el.modalLabel.textContent = isEdit ? label : 'Current Time';
@@ -1218,52 +1294,124 @@
         el.modalRemoveText.textContent = `Remove ${label}`;
         el.modalRemoveWrap.hidden = !isEdit;
 
+        // Absent has no time to enter.
+        el.modalLabel.hidden = isAbsent;
+        el.modalInput.hidden = isAbsent;
+
+        // The coach dropdown only appears when this save creates the day's record.
+        if (needsCoachPick(record, action)) {
+            loadCoachPick(record);
+        } else {
+            el.coachGroup.hidden = true;
+        }
+
         el.modalOverlay.hidden = false;
-        el.modalInput.focus();
+        if (!isAbsent) el.modalInput.focus();
+    }
+
+    // Fills the "Coach" dropdown: coaches who handle this student's course,
+    // or, for athletes, coaches who handle athletes.
+    async function loadCoachPick(record) {
+        const seq = ++coachPickSeq;
+        const isAthlete = activeTab === 'athletes';
+        const noun = isAthlete ? 'athlete' : 'student';
+
+        coachPickLoaded = false;
+        el.coachGroup.hidden = false;
+        el.coachPickNote.hidden = true;
+
+        window.FBSSDropdown.setOptions(el.coachPick, [{ value: '', label: 'Loading coaches...' }], '');
+
+        // The server only lists coaches who have timed in on this date.
+        const params = new URLSearchParams({ date: el.dateInput.value });
+        if (!isAthlete) params.set('enrollment_id', record.id);
+
+        try {
+            const result = await api(`${URLS.handlingCoaches}?${params}`);
+            if (seq !== coachPickSeq) return;
+
+            if (!result.ok) {
+                window.FBSSDropdown.setOptions(el.coachPick, [{ value: '', label: 'Unable to load coaches' }], '');
+                toastServerErrors(result, 'Unable to load the coaches.');
+                return;
+            }
+
+            const coaches = result.data.coaches || [];
+
+            window.FBSSDropdown.setOptions(
+                el.coachPick,
+                [{ value: '', label: coaches.length ? 'Select a coach' : 'No coach available' }]
+                    .concat(coaches.map(c => ({ value: String(c.id), label: c.name }))),
+                ''
+            );
+
+            if (!coaches.length) {
+                el.coachPickNote.textContent = (result.data.total || 0) > 0
+                    ? 'No eligible coach has timed in on this date. Record the coach\'s Time In first on the Coaches tab.'
+                    : (isAthlete
+                        ? 'No active coach is marked as handling athletes.'
+                        : 'No active coach is assigned to this student\'s course.');
+                el.coachPickNote.hidden = false;
+            } else {
+                coachPickLoaded = true;
+            }
+        } catch (error) {
+            if (seq !== coachPickSeq) return;
+
+            console.error(error);
+            window.FBSSDropdown.setOptions(el.coachPick, [{ value: '', label: 'Unable to load coaches' }], '');
+            showToast(`Something went wrong while loading the coaches for this ${noun}.`, 'danger');
+        }
     }
 
     function closeTimeModal() {
+        coachPickSeq++;
+        coachPickLoaded = false;
+        el.coachGroup.hidden = true;
+        el.modalLabel.hidden = false;
+        el.modalInput.hidden = false;
         el.modalOverlay.hidden = true;
         pendingAction = null;
     }
 
     // Coaches use their own endpoints; students and athletes share one (kind = in | out | absent).
-    function buildTimeRequest(record, action, remove, time) {
-        const base = { date: el.dateInput.value, time: remove ? null : time, remove };
+    function buildTimeRequest(record, action, remove, time, pickedCoachId = null) {
+        const base = { date: el.dateInput.value, time: (remove || action === 'absent') ? null : time, remove };
 
         if (activeTab === 'coaches') {
             return {
-                url: action === 'in' ? URLS.timeIn : URLS.timeOut,
+                url: action === 'absent' ? URLS.coachAbsent : (action === 'in' ? URLS.timeIn : URLS.timeOut),
                 body: { coach_id: record.id, ...base }
             };
         }
 
-        return {
-            url: URLS.record,
-            body: { kind: action, [activeTab === 'athletes' ? 'athlete_id' : 'enrollment_id']: record.id, ...base }
-        };
+        const body = { kind: action, [activeTab === 'athletes' ? 'athlete_id' : 'enrollment_id']: record.id, ...base };
+
+        // Only sent when this creates the day's record; becomes "Logged by".
+        if (pickedCoachId) body.coach_id = pickedCoachId;
+
+        return { url: URLS.record, body };
     }
 
     // Absent: marks the selected student or athlete, or removes the mark when it is already set.
     async function toggleAbsent() {
         const record = getSelectedRecord();
-        if (!record || busy || activeTab === 'coaches' || record.time_in) return;
+        if (!record || busy || isMonthlyView() || record.time_in) return;
 
         const removing = record.state === 'Absent';
+
+        // No record yet for a student / athlete: ask which coach handled them first.
+        if (!removing && needsCoachPick(record, 'absent')) {
+            openTimeModal('absent');
+            return;
+        }
 
         busy = true;
         updateToolbarState();
 
         try {
-            const result = await api(URLS.record, {
-                method: 'POST',
-                body: {
-                    kind: 'absent',
-                    [activeTab === 'athletes' ? 'athlete_id' : 'enrollment_id']: record.id,
-                    date: el.dateInput.value,
-                    remove: removing
-                }
-            });
+            const request = buildTimeRequest(record, 'absent', removing, null);
+            const result = await api(request.url, { method: 'POST', body: request.body });
 
             if (result.ok) {
                 showToast(
@@ -1294,10 +1442,25 @@
             return;
         }
 
-        const remove = el.modalRemove.checked;
+        const isAbsent = action === 'absent';
+        const remove = !isAbsent && el.modalRemove.checked;
         const time = el.modalInput.value;
 
-        if (!remove) {
+        // A new record needs the coach who handled this student / athlete.
+        let pickedCoachId = null;
+
+        if (!remove && needsCoachPick(record, action)) {
+            pickedCoachId = el.coachPickInput.value || null;
+
+            if (!pickedCoachId) {
+                showToast(`Please choose the coach who handled this ${activeTab === 'athletes' ? 'athlete' : 'student'}.`, 'danger');
+                return;
+            }
+        }
+
+        if (isAbsent) {
+            /* no time to check */
+        } else if (!remove) {
             if (!time) {
                 showToast('Please choose a time.', 'danger');
                 return;
@@ -1323,14 +1486,16 @@
         updateToolbarState();
 
         try {
-            const request = buildTimeRequest(record, action, remove, time);
+            const request = buildTimeRequest(record, action, remove, time, pickedCoachId);
             const result = await api(request.url, { method: 'POST', body: request.body });
 
             if (result.ok) {
                 closeTimeModal();
 
                 showToast(
-                    `${actionLabel(action)} ${remove ? 'removed' : 'saved'} for ${record.name}.`,
+                    isAbsent
+                        ? `${record.name} marked as Absent.`
+                        : `${actionLabel(action)} ${remove ? 'removed' : 'saved'} for ${record.name}.`,
                     'success'
                 );
 
@@ -1352,6 +1517,7 @@
     el.timeInButton.addEventListener('click', () => openTimeModal('in'));
     el.timeOutButton.addEventListener('click', () => openTimeModal('out'));
     el.absentButton.addEventListener('click', toggleAbsent);
+    el.coachAbsentButton.addEventListener('click', toggleAbsent);
 
     el.modalClose.addEventListener('click', () => {
         if (!busy) closeTimeModal();
@@ -1396,8 +1562,8 @@
 
     function renderLogs(list, isLoading, isAthlete = false, withHours = false, summaryText = null) {
         const headers = isAthlete
-            ? ['Date', 'Time In', 'Time Out', 'Status', 'Logged By']
-            : ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
+            ? ['Date', 'Time In', 'Time Out', 'Status', 'Logged By', 'Last Edited By', 'Last Edited At']
+            : ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By', 'Last Edited By', 'Last Edited At'];
 
         if (withHours) headers.push('Hours');
 
@@ -1458,7 +1624,9 @@
                 formatTimeLabel(log.time_in),
                 formatTimeLabel(log.time_out),
                 stateLabel(log.state),
-                log.logged_by
+                log.logged_by,
+                log.last_edited_by,
+                formatDateTimeLabel(log.last_edited_at)
             );
 
             if (withHours) values.push(log.worked);

@@ -74,9 +74,9 @@ class StudentAttendanceController extends Controller
             ->orderByRaw('time_in IS NULL')
             ->orderByDesc('time_in')
             ->limit(1000)
-            ->get(['attendance_id', 'attendance_at', 'time_in', 'time_out', 'attendance_state', 'logged_by', 'enrollment_id']);
+            ->get(['attendance_id', 'attendance_at', 'time_in', 'time_out', 'attendance_state', 'logged_by', 'last_edited_by', 'last_edited_at', 'enrollment_id']);
 
-        $loggerNames = $this->loggerNames($logs->pluck('logged_by'));
+        $loggerNames = $this->loggerNames($logs->pluck('logged_by')->merge($logs->pluck('last_edited_by')));
 
         $active = $enrollments->first(fn ($e) => $e->graduation_at === null);
 
@@ -111,6 +111,9 @@ class StudentAttendanceController extends Controller
                 'time_out' => $this->hhmm($l->time_out),
                 'state' => $l->attendance_state,
                 'logged_by' => $loggerNames[$l->logged_by] ?? null,
+                // Whoever changed this row last (a coach or the admin) and when.
+                'last_edited_by' => $l->last_edited_by ? ($loggerNames[$l->last_edited_by] ?? null) : null,
+                'last_edited_at' => $l->last_edited_at,
             ])->values(),
         ]);
     }

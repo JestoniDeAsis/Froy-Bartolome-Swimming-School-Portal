@@ -10,7 +10,8 @@ use Illuminate\Database\Eloquent\Model;
  * One row of tbl_attendances.
  *
  *   attendance_id (PK), user_id, role_id, attendance_at (DATE), time_in (TIME),
- *   time_out (TIME), attendance_state (varchar), logged_by (int), enrollment_id.
+ *   time_out (TIME), attendance_state (varchar), logged_by (int),
+ *   last_edited_by (int), last_edited_at (DATETIME), enrollment_id.
  *
  * Coach rows have role_id = 2 and no enrollment_id (logged by the admin).
  * Student / athlete rows point to their tbl_enrollments row through
@@ -39,6 +40,8 @@ class Attendance extends Model
         'time_out',
         'attendance_state',
         'logged_by',
+        'last_edited_by',
+        'last_edited_at',
         'enrollment_id',
     ];
 
@@ -87,6 +90,18 @@ class Attendance extends Model
     /* ---------------------------------------------------------
      * Helpers
      * --------------------------------------------------------- */
+
+    /**
+     * Columns to merge into an update/create to record who touched the row last
+     * and when. logged_by is NOT touched: it stays whoever first logged the row.
+     */
+    public static function editStamp(int $userId): array
+    {
+        return [
+            'last_edited_by' => $userId,
+            'last_edited_at' => Carbon::now()->toDateTimeString(),
+        ];
+    }
 
     /** TIME value ("08:05:00") -> "HH:MM" (24h), or null. */
     public static function hhmm($value): ?string

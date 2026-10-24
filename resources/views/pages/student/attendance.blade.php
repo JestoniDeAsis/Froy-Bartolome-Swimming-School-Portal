@@ -228,7 +228,7 @@
     'use strict';
 
     const URL_DATA = '/student/attendance/data';
-    const HEADERS = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
+    const HEADERS = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By', 'Last Edited By', 'Last Edited At'];
 
     const $ = id => document.getElementById(id);
 
@@ -271,6 +271,16 @@
 
     const formatLongDate = d => d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const formatShortDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+
+    // "2026-10-24 16:30:00" -> "Oct 24, 2026 4:30 PM"
+    function formatDateTimeLabel(value) {
+        if (!value) return '';
+
+        const d = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(d.getTime())) return String(value);
+
+        return `${formatShortDate(d)} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    }
 
     function formatTimeLabel(value) {
         if (!value) return '';
@@ -410,7 +420,9 @@
                 cell(formatTimeLabel(log.time_in), '-'),
                 cell(formatTimeLabel(log.time_out), '-'),
                 cell(log.state),
-                cell(log.logged_by)
+                cell(log.logged_by),
+                cell(log.last_edited_by),
+                cell(formatDateTimeLabel(log.last_edited_at))
             ].forEach(content => {
                 const td = make('td');
                 td.append(content);

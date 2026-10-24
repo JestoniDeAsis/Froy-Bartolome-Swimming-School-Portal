@@ -189,7 +189,7 @@ class CoachAttendanceController extends Controller
             ->orderByDesc('time_in')
             ->get();
 
-        $loggers = $this->loggerNames($logs->pluck('logged_by'));
+        $loggers = $this->loggerNames($logs->pluck('logged_by')->merge($logs->pluck('last_edited_by')));
 
         return response()->json([
             'success' => true,
@@ -201,6 +201,8 @@ class CoachAttendanceController extends Controller
                 'time_out' => $this->hhmm($log->time_out),
                 'state' => $log->attendance_state ?: ($log->time_in ? Attendance::STATE_PRESENT : 'Absent'),
                 'logged_by' => $loggers->get((int) $log->logged_by) ?? '',
+                'last_edited_by' => $log->last_edited_by ? ($loggers->get((int) $log->last_edited_by) ?? null) : null,
+                'last_edited_at' => $log->last_edited_at,
             ])->values(),
         ]);
     }
@@ -319,11 +321,12 @@ class CoachAttendanceController extends Controller
             }
 
             if ($row) {
+                // The row already exists (e.g. the admin marked them Absent): keep
+                // logged_by and record this edit as the last one.
                 $row->update([
                     'time_in' => $time,
                     'attendance_state' => Attendance::STATE_PRESENT,
-                    'logged_by' => $coachId,
-                ]);
+                ] + Attendance::editStamp($coachId));
             } else {
                 Attendance::create([
                     'user_id' => $coachId,
@@ -369,7 +372,7 @@ class CoachAttendanceController extends Controller
                 return $this->fail('Please wait a minute after timing in before you time out.');
             }
 
-            $row->update(['time_out' => $time]);
+            $row->update(['time_out' => $time] + Attendance::editStamp($coachId));
 
             return response()->json([
                 'success' => true,
@@ -430,7 +433,7 @@ class CoachAttendanceController extends Controller
                 return $this->fail('You have not timed out today.');
             }
 
-            $row->update(['time_out' => null]);
+            $row->update(['time_out' => null] + Attendance::editStamp($coachId));
 
             return response()->json(['success' => true, 'message' => 'Your Time Out was cancelled.']);
         });
@@ -463,9 +466,9 @@ class CoachAttendanceController extends Controller
             ])
             ->orderByDesc('attendance_at')
             ->orderByDesc('time_in')
-            ->get(['attendance_at', 'time_in', 'time_out', 'attendance_state', 'logged_by']);
+            ->get(['attendance_at', 'time_in', 'time_out', 'attendance_state', 'logged_by', 'last_edited_by', 'last_edited_at']);
 
-        $loggers = $this->loggerNames($logs->pluck('logged_by'));
+        $loggers = $this->loggerNames($logs->pluck('logged_by')->merge($logs->pluck('last_edited_by')));
 
         return response()->json([
             'success' => true,
@@ -482,6 +485,13 @@ class CoachAttendanceController extends Controller
                 'logged_by' => (int) $log->logged_by === $coachId
                     ? 'You'
                     : ($loggers->get((int) $log->logged_by) ?? '--'),
+                // Whoever changed the row last (the admin, or the coach themselves).
+                'last_edited_by' => $log->last_edited_by
+                    ? ((int) $log->last_edited_by === $coachId
+                        ? 'You'
+                        : ($loggers->get((int) $log->last_edited_by) ?? '--'))
+                    : null,
+                'last_edited_at' => $log->last_edited_at,
             ])->values(),
             'summary' => $this->myMonthTotals($logs),
         ]);

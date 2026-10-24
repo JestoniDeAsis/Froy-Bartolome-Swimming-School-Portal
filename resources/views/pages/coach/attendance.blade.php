@@ -1561,8 +1561,18 @@
             : make('span', { className: 'attendanceEmptyValue', text: dash });
     }
 
+    // "2026-10-24 16:30:00" -> "Oct 24, 2026 4:30 PM"
+    function formatDateTimeLabel(value) {
+        if (!value) return '';
+
+        const d = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(d.getTime())) return String(value);
+
+        return `${formatShortDate(d)} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    }
+
     function renderLogs(list, isLoading) {
-        const headers = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By'];
+        const headers = ['Date', 'Course', 'Time In', 'Time Out', 'Status', 'Logged By', 'Last Edited By', 'Last Edited At'];
 
         el.logsTableHead.replaceChildren();
         el.logsTableBody.replaceChildren();
@@ -1600,7 +1610,9 @@
                 logCell(formatTimeLabel(log.time_in), '-'),
                 logCell(formatTimeLabel(log.time_out), '-'),
                 logCell(stateLabel(log.state)),
-                logCell(log.logged_by)
+                logCell(log.logged_by),
+                logCell(log.last_edited_by),
+                logCell(formatDateTimeLabel(log.last_edited_at))
             ].forEach(content => {
                 const cell = make('td');
                 cell.append(content);
@@ -1699,7 +1711,7 @@
     }
 
     function renderMyLogs() {
-        const headers = ['Date', 'Time In', 'Time Out', 'Hours Worked', 'Status', 'Recorded By'];
+        const headers = ['Date', 'Time In', 'Time Out', 'Hours Worked', 'Status', 'Recorded By', 'Last Edited By', 'Last Edited At'];
         const logs = myData.logs;
         const summary = myData.summary;
 
@@ -1742,7 +1754,9 @@
                 logCell(formatTimeLabel(log.time_out), '-'),
                 logCell(log.worked, '-'),
                 logCell(stateLabel(log.state)),
-                logCell(log.logged_by)
+                logCell(log.logged_by),
+                logCell(log.last_edited_by),
+                logCell(formatDateTimeLabel(log.last_edited_at))
             ].forEach(content => {
                 const cell = make('td');
                 cell.append(content);

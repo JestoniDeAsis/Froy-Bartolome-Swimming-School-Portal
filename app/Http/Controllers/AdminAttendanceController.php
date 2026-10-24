@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,15 @@ use Illuminate\Validation\Rule;
  *     that can be used as a base for salary.
  *   - Students tab and Athletes tab (role_id = 4): the admin can do everything a
  *     coach can (Time In / Time Out and Absent, each added, edited or removed) with no class or coach restrictions: see record().
+ *
+ * Who is recorded on a row:
+ *   - logged_by: whoever first logged it. For a student / athlete row created
+ *     by the admin this is the coach chosen in the dropdown (only coaches who
+ *     can handle that student's course, or who handle athletes). For a coach's
+ *     own row created by the admin it is the admin.
+ *   - last_edited_by / last_edited_at: whoever touched the row last and when
+ *     (see Attendance::editStamp()). Every admin edit sets it; logged_by is
+ *     left alone once the row exists.
  *
  * Rows live in tbl_attendances (see App\Models\Attendance).
  * Coach rows have role_id = 2 and no enrollment_id; student rows point
@@ -138,6 +148,7 @@ class AdminAttendanceController extends Controller
                 'p.middle_name',
                 'p.last_name',
                 'p.name_suffix',
+                'u.handles_athletes',
             ]);
 
         if ($coaches->isEmpty()) {
@@ -145,6 +156,7 @@ class AdminAttendanceController extends Controller
         }
 
         $ids = $coaches->pluck('id');
+        $totalCourses = DB::table(CoachController::COURSES_TABLE)->count();
 
         $assigned = DB::table(CoachController::COACH_COURSES_TABLE . ' as cc')
             ->join(
@@ -170,23 +182,56 @@ class AdminAttendanceController extends Controller
                 'time_in',
                 'time_out',
                 'attendance_state',
+                'logged_by',
+                'last_edited_by',
+                'last_edited_at',
             ])
             ->groupBy('user_id');
 
-        return $coaches->map(function ($c) use ($assigned, $logs) {
+        $names = $this->loggerNames(
+            $logs->flatten(1)->pluck('logged_by')->merge($logs->flatten(1)->pluck('last_edited_by'))
+        );
+
+        return $coaches->map(function ($c) use ($assigned, $logs, $names, $totalCourses) {
             $log = ($logs->get($c->id) ?? collect())->first();
 
             return [
                 'id' => (int) $c->id,
                 'name' => $this->formatName($c),
-                'classes' => ($assigned->get($c->id) ?? collect())
-                    ->pluck('name')
-                    ->implode(', '),
+                'classes' => $this->classesLabel(
+                    ($assigned->get($c->id) ?? collect())->pluck('name'),
+                    (bool) $c->handles_athletes,
+                    $totalCourses
+                ),
                 'time_in' => $this->hhmm($log->time_in ?? null),
                 'time_out' => $this->hhmm($log->time_out ?? null),
                 'state' => $log->attendance_state ?? null,
+                'logged_by' => $log ? ($names[$log->logged_by] ?? null) : null,
+                'last_edited_by' => $log ? ($names[$log->last_edited_by] ?? null) : null,
+                'last_edited_at' => $log->last_edited_at ?? null,
             ];
         })->values()->all();
+    }
+
+    /**
+     * "Assigned Classes" text: the course names plus "Athletes" when the coach
+     * handles athletes. Every course + athletes -> "Handles all"; every course
+     * without athletes -> "All classes".
+     */
+    private function classesLabel(Collection $courseNames, bool $handlesAthletes, int $totalCourses): string
+    {
+        $courseNames = $courseNames->unique()->values();
+        $hasAllCourses = $totalCourses > 0 && $courseNames->count() >= $totalCourses;
+
+        if ($hasAllCourses) {
+            return $handlesAthletes ? 'Handles all' : 'All classes';
+        }
+
+        if ($handlesAthletes) {
+            $courseNames->push('Athletes');
+        }
+
+        return $courseNames->implode(', ');
     }
 
     /* =========================================================
@@ -316,18 +361,28 @@ class AdminAttendanceController extends Controller
                 'time_in',
                 'time_out',
                 'attendance_state',
+                'logged_by',
+                'last_edited_by',
+                'last_edited_at',
             ])
             ->groupBy('user_id');
 
-        return $athletes->map(function ($athlete) use ($logs) {
+        $names = $this->loggerNames(
+            $logs->flatten(1)->pluck('logged_by')->merge($logs->flatten(1)->pluck('last_edited_by'))
+        );
+
+        return $athletes->map(function ($athlete) use ($logs, $names) {
             $log = ($logs->get($athlete->id) ?? collect())->first();
 
             return [
                 'id' => (int) $athlete->id,
                 'name' => $this->formatName($athlete),
+                'coach' => $log ? ($names[$log->logged_by] ?? null) : null,
                 'time_in' => $this->hhmm($log->time_in ?? null),
                 'time_out' => $this->hhmm($log->time_out ?? null),
                 'state' => $log->attendance_state ?? null,
+                'last_edited_by' => $log ? ($names[$log->last_edited_by] ?? null) : null,
+                'last_edited_at' => $log->last_edited_at ?? null,
             ];
         })->values()->all();
     }
@@ -443,17 +498,23 @@ class AdminAttendanceController extends Controller
                     $start->copy()->endOfMonth()->toDateTimeString(),
                 ]);
             })
-            ->earliestFirst()
+            // Newest day first (like the student logs); within a day, latest Time In first, rows without one last.
+            ->orderByDesc('attendance_at')
+            ->orderByRaw('time_in IS NULL')
+            ->orderByDesc('time_in')
             ->get([
                 'attendance_at',
                 'time_in',
                 'time_out',
                 'attendance_state',
                 'logged_by',
+                'last_edited_by',
+                'last_edited_at',
             ]);
 
         $loggerIds = $attendance
             ->pluck('logged_by')
+            ->merge($attendance->pluck('last_edited_by'))
             ->filter()
             ->unique()
             ->values();
@@ -492,6 +553,10 @@ class AdminAttendanceController extends Controller
                 'logged_by' => $logger
                     ? $this->formatName($logger)
                     : '--',
+                'last_edited_by' => $log->last_edited_by && $loggers->get($log->last_edited_by)
+                    ? $this->formatName($loggers->get($log->last_edited_by))
+                    : null,
+                'last_edited_at' => $log->last_edited_at,
                 // Time Out minus Time In, when both exist.
                 'worked' => $log->time_in && $log->time_out
                     ? $this->hoursLabel($this->minutesBetween($log->time_in, $log->time_out))
@@ -507,14 +572,132 @@ class AdminAttendanceController extends Controller
     }
 
     /* =========================================================
+     * GET /admin/attendance/handling-coaches
+     *     ?enrollment_id=   (student: coaches assigned to that enrollment's course)
+     *     (no enrollment_id: athlete: coaches marked "handles athletes")
+     *     &date=YYYY-MM-DD  (optional: only coaches who have timed in that day are listed)
+     *
+     * Fills the "Coach" dropdown shown when the admin logs a student or
+     * athlete who has no record yet for the date. "total" is how many coaches
+     * can handle them at all, so the page can tell "nobody assigned" apart from
+     * "assigned coaches have not timed in yet".
+     * ========================================================= */
+    public function handlingCoaches(Request $request): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) {
+            return $denied;
+        }
+
+        $v = $request->validate([
+            'enrollment_id' => ['nullable', 'integer'],
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $forAthletes = empty($v['enrollment_id']);
+        $courseId = null;
+
+        if (!$forAthletes) {
+            $enrollment = DB::table(Attendance::ENROLLMENTS_TABLE)
+                ->where('enrollment_id', (int) $v['enrollment_id'])
+                ->first(['course_id']);
+
+            if (!$enrollment) {
+                return $this->fail('Student not found.', 404);
+            }
+
+            $courseId = $enrollment->course_id ? (int) $enrollment->course_id : null;
+        }
+
+        $pk = CoachController::USER_PK;
+
+        $coaches = ($forAthletes || $courseId)
+            ? $this->eligibleCoachesQuery($courseId, $forAthletes)
+                ->orderBy('p.last_name')
+                ->orderBy('p.first_name')
+                ->get(["u.$pk as id", 'p.first_name', 'p.middle_name', 'p.last_name', 'p.name_suffix'])
+            : collect();
+
+        $total = $coaches->count();
+
+        // A coach can only log attendance for a day they have timed in.
+        if (!empty($v['date']) && $coaches->isNotEmpty()) {
+            $timedIn = Attendance::ofRole(CoachController::ROLE_COACH)
+                ->forUser($coaches->pluck('id'))
+                ->onDate($v['date'])
+                ->attended()
+                ->pluck('user_id')
+                ->flip()
+                ->all();
+
+            $coaches = $coaches->filter(fn ($c) => isset($timedIn[$c->id]))->values();
+        }
+
+        return response()->json([
+            'success' => true,
+            'total' => $total,
+            'coaches' => $coaches->map(fn ($c) => [
+                'id' => (int) $c->id,
+                'name' => $this->formatName($c),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Active coaches who can handle a student (assigned to $courseId) or,
+     * with $forAthletes, athletes (tbl_users.handles_athletes = 1).
+     */
+    private function eligibleCoachesQuery(?int $courseId, bool $forAthletes)
+    {
+        $pk = CoachController::USER_PK;
+
+        $query = DB::table(CoachController::USERS_TABLE . ' as u')
+            ->join('tbl_user_profile as p', 'p.user_id', '=', "u.$pk")
+            ->join(
+                CoachController::STATUS_TABLE . ' as st',
+                'st.' . CoachController::STATUS_ID_COL,
+                '=',
+                'u.' . CoachController::STATUS_COL
+            )
+            ->where('u.' . CoachController::ROLE_COL, CoachController::ROLE_COACH)
+            ->where('st.' . CoachController::STATUS_NAME_COL, 'Active');
+
+        if ($forAthletes) {
+            return $query->where('u.handles_athletes', 1);
+        }
+
+        return $query->whereExists(function ($sub) use ($pk, $courseId) {
+            $sub->selectRaw('1')
+                ->from(CoachController::COACH_COURSES_TABLE . ' as cc')
+                ->whereColumn('cc.coach_id', "u.$pk")
+                ->where('cc.course_id', $courseId);
+        });
+    }
+
+    private function coachCanHandle(int $coachId, ?int $courseId, bool $forAthletes): bool
+    {
+        if (!$forAthletes && !$courseId) {
+            return false;
+        }
+
+        return $this->eligibleCoachesQuery($courseId, $forAthletes)
+            ->where('u.' . CoachController::USER_PK, $coachId)
+            ->exists();
+    }
+
+    /* =========================================================
      * POST /admin/attendance/records
-     * { kind, enrollment_id | athlete_id, date, time?, remove? }
+     * { kind, enrollment_id | athlete_id, date, time?, remove?, coach_id? }
      *
      * kind: in | out | absent
      * The admin can do everything a coach can for students and athletes,
      * without the coach rules: no Time In needed first, no class ownership,
-     * and any mark or time can be changed or removed. The row is saved with
-     * the admin as "logged by".
+     * and any mark or time can be changed or removed.
+     *
+     * coach_id: REQUIRED when this creates the day's row (the student / athlete
+     * has no record yet). It must be a coach who can handle that student's
+     * course (or who handles athletes) and becomes "logged by". The admin is
+     * stored as "last edited by", with the time. On an existing row, logged_by
+     * is left alone and only last_edited_by / last_edited_at change.
      * ========================================================= */
     public function record(Request $request): JsonResponse
     {
@@ -529,6 +712,7 @@ class AdminAttendanceController extends Controller
             'kind' => ['required', Rule::in(['in', 'out', 'absent'])],
             'enrollment_id' => ['required_without:athlete_id', 'nullable', 'integer'],
             'athlete_id' => ['required_without:enrollment_id', 'nullable', 'integer'],
+            'coach_id' => ['nullable', 'integer'],
             'date' => ['required', 'date_format:Y-m-d', 'before_or_equal:' . Carbon::now()->addDay()->toDateString()],
             'remove' => ['sometimes', 'boolean'],
             // No time for Absent, or when removing a time.
@@ -542,9 +726,10 @@ class AdminAttendanceController extends Controller
         ]);
 
         $adminId = (int) Auth::id();
-        $remove = in_array($kind, ['in', 'out', 'absent'], true) && (bool) ($v['remove'] ?? false);
+        $remove = (bool) ($v['remove'] ?? false);
         $time = $v['time'] ?? null;
         $isAthlete = !empty($v['athlete_id']);
+        $courseId = null;
 
         if ($isAthlete) {
             $athleteId = (int) $v['athlete_id'];
@@ -569,11 +754,13 @@ class AdminAttendanceController extends Controller
             $enrollment = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
                 ->join(CoachController::USERS_TABLE . ' as u', 'u.' . CoachController::USER_PK, '=', 'e.user_id')
                 ->where('e.enrollment_id', (int) $v['enrollment_id'])
-                ->first(['e.enrollment_id', 'e.user_id', 'u.' . CoachController::ROLE_COL . ' as role_id']);
+                ->first(['e.enrollment_id', 'e.user_id', 'e.course_id', 'u.' . CoachController::ROLE_COL . ' as role_id']);
 
             if (!$enrollment) {
                 return $this->fail('Student not found.', 404);
             }
+
+            $courseId = $enrollment->course_id ? (int) $enrollment->course_id : null;
 
             $attrs = [
                 'user_id' => $enrollment->user_id,
@@ -584,7 +771,9 @@ class AdminAttendanceController extends Controller
             $who = 'student';
         }
 
-        return DB::transaction(function () use ($v, $kind, $remove, $time, $adminId, $isAthlete, $attrs, $who) {
+        $coachId = isset($v['coach_id']) ? (int) $v['coach_id'] : null;
+
+        return DB::transaction(function () use ($v, $kind, $remove, $time, $adminId, $isAthlete, $attrs, $who, $courseId, $coachId) {
             $row = $isAthlete
                 ? Attendance::ofRole(self::ROLE_ATHLETE)
                     ->forUser((int) $v['athlete_id'])
@@ -598,26 +787,50 @@ class AdminAttendanceController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-            if ($kind === 'absent') {
-                return $this->applyMark($row, $kind, $remove, $adminId, $attrs);
+            // A brand-new row needs the coach who handled this student / athlete.
+            if (!$row && !$remove && $kind !== 'out') {
+                if (!$coachId) {
+                    return $this->fail("Choose the coach who handled this $who.");
+                }
+
+                if (!$this->coachCanHandle($coachId, $courseId, $isAthlete)) {
+                    return $this->fail($isAthlete
+                        ? 'That coach does not handle athletes.'
+                        : 'That coach is not assigned to this student\'s course.');
+                }
+
+                // Same rule as the coach page: a coach must have timed in to log attendance.
+                $coachTimedIn = Attendance::ofRole(CoachController::ROLE_COACH)
+                    ->forUser($coachId)
+                    ->onDate($v['date'])
+                    ->attended()
+                    ->exists();
+
+                if (!$coachTimedIn) {
+                    return $this->fail('That coach has not timed in on this date. Record their Time In first on the Coaches tab.');
+                }
             }
 
-            return $this->applyInOut($row, $kind, $remove, $time, $adminId, $attrs, $who);
+            if ($kind === 'absent') {
+                return $this->applyMark($row, $remove, $adminId, $attrs, $coachId);
+            }
+
+            return $this->applyInOut($row, $kind, $remove, $time, $adminId, $attrs, $who, $coachId);
         });
     }
 
     /**
      * Marks someone Absent, or removes that mark. A mark row holds no times,
-     * so removing deletes it. The admin may change any coach's mark.
+     * so removing deletes it. A new row is logged by $coachId; an existing
+     * row keeps its logged_by and only gets the last-edited stamp.
      */
-    private function applyMark(?Attendance $row, string $kind, bool $remove, int $adminId, array $createAttrs): JsonResponse
+    private function applyMark(?Attendance $row, bool $remove, int $adminId, array $createAttrs, ?int $coachId): JsonResponse
     {
         $state = 'Absent';
-        $label = 'Absent';
 
         if ($remove) {
             if (!$row || $row->attendance_state !== $state) {
-                return $this->fail('Not marked as ' . $label . '.');
+                return $this->fail('Not marked as Absent.');
             }
 
             if ($row->time_in) {
@@ -626,7 +839,7 @@ class AdminAttendanceController extends Controller
 
             $row->delete();
 
-            return response()->json(['success' => true, 'message' => $label . ' removed.']);
+            return response()->json(['success' => true, 'message' => 'Absent removed.']);
         }
 
         if ($row && $row->time_in) {
@@ -634,24 +847,30 @@ class AdminAttendanceController extends Controller
         }
 
         if ($row && $row->attendance_state === $state) {
-            return $this->fail('Already marked as ' . $label . '.');
+            return $this->fail('Already marked as Absent.');
         }
 
         if ($row) {
-            $row->update(['attendance_state' => $state, 'logged_by' => $adminId]);
+            $row->update(['attendance_state' => $state] + Attendance::editStamp($adminId));
         } else {
-            Attendance::create($createAttrs + ['attendance_state' => $state, 'logged_by' => $adminId]);
+            Attendance::create($createAttrs + [
+                'attendance_state' => $state,
+                'logged_by' => $coachId,
+            ] + Attendance::editStamp($adminId));
         }
 
-        return response()->json(['success' => true, 'message' => 'Marked as ' . $label . '.']);
+        return response()->json(['success' => true, 'message' => 'Marked as Absent.']);
     }
 
     /**
      * Adds a Time In / Time Out, overwrites one that exists (edit), or clears
      * it when $remove is true. Same rules as the coach side, minus the coach checks.
+     * Every change to an existing row stamps last_edited_by / last_edited_at.
      */
-    private function applyInOut(?Attendance $row, string $kind, bool $remove, ?string $time, int $adminId, array $createAttrs, string $who): JsonResponse
+    private function applyInOut(?Attendance $row, string $kind, bool $remove, ?string $time, int $adminId, array $createAttrs, string $who, ?int $coachId): JsonResponse
     {
+        $stamp = Attendance::editStamp($adminId);
+
         /* ---------------- Time In ---------------- */
         if ($kind === 'in') {
             if ($remove) {
@@ -668,7 +887,7 @@ class AdminAttendanceController extends Controller
                     $row->update([
                         'time_in' => null,
                         'attendance_state' => CoachAttendanceController::STATE_EXPECTING,
-                    ]);
+                    ] + $stamp);
                 } else {
                     // Nothing left to keep for that day.
                     $row->delete();
@@ -683,7 +902,7 @@ class AdminAttendanceController extends Controller
 
             if ($row && $row->time_in) {
                 // Edit: only the time changes (Present-Late stays Present-Late).
-                $row->update(['time_in' => $time, 'logged_by' => $adminId]);
+                $row->update(['time_in' => $time] + $stamp);
 
                 return response()->json(['success' => true, 'message' => 'Time In saved.']);
             }
@@ -692,14 +911,13 @@ class AdminAttendanceController extends Controller
                 $row->update([
                     'time_in' => $time,
                     'attendance_state' => Attendance::STATE_PRESENT,
-                    'logged_by' => $adminId,
-                ]);
+                ] + $stamp);
             } else {
                 Attendance::create($createAttrs + [
                     'time_in' => $time,
                     'attendance_state' => Attendance::STATE_PRESENT,
-                    'logged_by' => $adminId,
-                ]);
+                    'logged_by' => $coachId,
+                ] + $stamp);
             }
 
             return response()->json(['success' => true, 'message' => 'Time In saved.']);
@@ -715,7 +933,7 @@ class AdminAttendanceController extends Controller
                 return $this->fail("This $who has no Time Out to remove.");
             }
 
-            $row->update(['time_out' => null]);
+            $row->update(['time_out' => null] + $stamp);
 
             return response()->json(['success' => true, 'message' => 'Time Out removed.']);
         }
@@ -724,14 +942,35 @@ class AdminAttendanceController extends Controller
             return $this->fail('Time Out must be later than Time In.');
         }
 
-        $row->update(['time_out' => $time]);
+        $row->update(['time_out' => $time] + $stamp);
 
         return response()->json(['success' => true, 'message' => 'Time Out saved.']);
     }
 
+    /* =========================================================
+     * Coaches: POST /admin/attendance/coaches/time-in | time-out | absent
+     *
+     * A row the admin creates is logged by the admin. After that, whoever
+     * changes it last (admin here, or the coach on their own page) goes to
+     * last_edited_by / last_edited_at; logged_by is never overwritten.
+     * ========================================================= */
     public function coachTimeOut(Request $request): JsonResponse
     {
         return $this->recordCoachTime($request, 'out');
+    }
+
+    public function coachAbsent(Request $request): JsonResponse
+    {
+        return $this->recordCoachTime($request, 'absent');
+    }
+
+    /** Whether this coach logged any student / athlete attendance on $date (rows they are "logged by"). */
+    private function coachHasLoggedAttendance(int $coachId, string $date): bool
+    {
+        return Attendance::onDate($date)
+            ->where('logged_by', $coachId)
+            ->where('role_id', '!=', CoachController::ROLE_COACH)
+            ->exists();
     }
 
     private function recordCoachTime(Request $request, string $kind): JsonResponse
@@ -749,9 +988,9 @@ class AdminAttendanceController extends Controller
                 'before_or_equal:' . Carbon::now()->addDay()->toDateString(),
             ],
             'remove' => ['sometimes', 'boolean'],
-            // Time is only needed when saving; not when removing.
+            // Time is only needed when saving a Time In / Out; not for Absent or when removing.
             'time' => [
-                Rule::requiredIf(!$request->boolean('remove')),
+                Rule::requiredIf($kind !== 'absent' && !$request->boolean('remove')),
                 'nullable',
                 'date_format:H:i',
             ],
@@ -781,17 +1020,58 @@ class AdminAttendanceController extends Controller
             ], 404);
         }
 
-        $loggedBy = Auth::id();
-
+        $adminId = (int) Auth::id();
         $remove = (bool) ($v['remove'] ?? false);
 
-        return DB::transaction(function () use ($v, $kind, $loggedBy, $remove) {
+        return DB::transaction(function () use ($v, $kind, $adminId, $remove) {
             $row = Attendance::ofRole(CoachController::ROLE_COACH)
                 ->forUser((int) $v['coach_id'])
                 ->onDate($v['date'])
                 ->earliestFirst()
                 ->lockForUpdate()
                 ->first();
+
+            $stamp = Attendance::editStamp($adminId);
+
+            /* ---------------- Absent (mark / remove) ---------------- */
+            if ($kind === 'absent') {
+                if ($remove) {
+                    if (!$row || $row->attendance_state !== 'Absent') {
+                        return $this->fail('This coach is not marked as Absent.');
+                    }
+
+                    if ($row->time_in) {
+                        return $this->fail('A Time In is already recorded for that date.');
+                    }
+
+                    $row->delete();
+
+                    return response()->json(['success' => true, 'message' => 'Absent removed.']);
+                }
+
+                if ($row && $row->time_in) {
+                    return $this->fail('A coach who has timed in cannot be marked absent. Remove their Time In first.');
+                }
+
+                if ($row && $row->attendance_state === 'Absent') {
+                    return $this->fail('Already marked as Absent.');
+                }
+
+                if ($row) {
+                    $row->update(['attendance_state' => 'Absent'] + $stamp);
+                } else {
+                    Attendance::create([
+                        'user_id' => (int) $v['coach_id'],
+                        'role_id' => CoachController::ROLE_COACH,
+                        'attendance_at' => $v['date'],
+                        'attendance_state' => 'Absent',
+                        'logged_by' => $adminId,
+                        'enrollment_id' => null,
+                    ]);
+                }
+
+                return response()->json(['success' => true, 'message' => 'Marked as Absent.']);
+            }
 
             /* ---------------- Time In (add / edit / remove) ---------------- */
             if ($kind === 'in') {
@@ -801,47 +1081,44 @@ class AdminAttendanceController extends Controller
                     }
 
                     if ($row->time_out) {
-                        return $this->fail(
-                            'Remove the Time Out first before removing the Time In.'
-                        );
+                        return $this->fail('Remove the Time Out first before removing the Time In.');
+                    }
+
+                    // Same rule as the coach's own Cancel Time In: not while they have
+                    // student / athlete attendance logged that day.
+                    if ($this->coachHasLoggedAttendance((int) $v['coach_id'], $v['date'])) {
+                        return $this->fail('This coach has already logged attendance on that date. Remove it first to remove their Time In.', 403);
                     }
 
                     // No times left, so the day's row is no longer needed.
                     $row->delete();
 
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Time In removed.',
-                    ]);
+                    return response()->json(['success' => true, 'message' => 'Time In removed.']);
                 }
 
-                if ($row && $row->time_out
-                    && $v['time'] >= $this->hhmm($row->time_out)) {
+                if ($row && $row->time_out && $v['time'] >= $this->hhmm($row->time_out)) {
                     return $this->fail('Time In must be earlier than Time Out.');
                 }
 
                 if ($row) {
-                    // Adds or overwrites the Time In on the existing row.
+                    // Adds or overwrites the Time In on the existing row (a mark such as Absent is replaced).
                     $row->update([
                         'time_in' => $v['time'],
                         'attendance_state' => Attendance::STATE_PRESENT,
-                        'logged_by' => $loggedBy,
-                    ]);
+                    ] + $stamp);
                 } else {
                     Attendance::create([
-                        'user_id' => $v['coach_id'],
+                        'user_id' => (int) $v['coach_id'],
                         'role_id' => CoachController::ROLE_COACH,
                         'attendance_at' => $v['date'],
                         'time_in' => $v['time'],
                         'attendance_state' => Attendance::STATE_PRESENT,
-                        'logged_by' => $loggedBy,
+                        'logged_by' => $adminId,
+                        'enrollment_id' => null,
                     ]);
                 }
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Time In saved.',
-                ]);
+                return response()->json(['success' => true, 'message' => 'Time In saved.']);
             }
 
             /* ---------------- Time Out (add / edit / remove) ---------------- */
@@ -854,25 +1131,18 @@ class AdminAttendanceController extends Controller
                     return $this->fail('This coach has no Time Out to remove.');
                 }
 
-                $row->update(['time_out' => null]);
+                $row->update(['time_out' => null] + $stamp);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Time Out removed.',
-                ]);
+                return response()->json(['success' => true, 'message' => 'Time Out removed.']);
             }
 
             if ($v['time'] <= $this->hhmm($row->time_in)) {
                 return $this->fail('Time Out must be later than Time In.');
             }
 
-            // Adds or overwrites the Time Out.
-            $row->update(['time_out' => $v['time']]);
+            $row->update(['time_out' => $v['time']] + $stamp);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Time Out saved.',
-            ]);
+            return response()->json(['success' => true, 'message' => 'Time Out saved.']);
         });
     }
 }
