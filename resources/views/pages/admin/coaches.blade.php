@@ -29,11 +29,34 @@
 .coachesToolbar {
     flex: 0 0 auto;
     display: flex;
-    align-items: center;
-    gap: .75rem;
+    align-items: flex-end;
+    gap: 1.5rem;
     flex-wrap: wrap;
     margin-bottom: .75rem;
 }
+
+/* Tabs (same look as Attendance) */
+.coachesTabs {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: .75rem;
+}
+.coachesTab { min-width: 150px; }
+.coachesTab[hidden],
+#addCoachButton[hidden] { display: none !important; }
+
+/* Filter label + control, stacked */
+.coachesFilterGroup { display: flex; flex-direction: column; gap: .35rem; }
+.coachesFilterLabel {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #667085;
+    text-transform: uppercase;
+}
+.coachesStatusFilter { --dd-min-width: 170px; }
 
 .coachesSearchContainer {
     position: relative;
@@ -113,7 +136,7 @@
     text-align: center;
 }
 
-/* Status badges — Active / Held / Inactive */
+/* Status badges — Active / On hold / Deactivated */
 .statusBadge {
     display: inline-block;
     padding: .2rem .65rem;
@@ -121,9 +144,9 @@
     font-size: .75rem;
     font-weight: 600;
 }
-.statusBadge.active   { background: #e6f7ec; color: #1a7f3c; }
-.statusBadge.held     { background: #fff4e0; color: #b26a00; }
-.statusBadge.inactive { background: #fdebec; color: #c22b3a; }
+.statusBadge.active      { background: #e6f7ec; color: #1a7f3c; }
+.statusBadge.on-hold  { background: #fff4e0; color: #b26a00; }
+.statusBadge.deactivated { background: #fdebec; color: #c22b3a; }
 
 /* Shared modal (backdrop = .modalOverlay in our_theme.css) */
 
@@ -215,8 +238,9 @@
 
     <header class="coachesHeader">
         <div>
-            <h2 class="mb-1" id="coachesTitle">Coaches</h2>
-            <p class="text-muted mb-0">Manage coaches.</p>
+            <h2 class="mb-1" id="coachesTitle">User Management</h2>
+            <p class="text-muted mb-0">Update account statuses and register new coaches.</p>
+            <p class="text-muted small mb-0" id="coachesHint"></p>
         </div>
 
         <button class="btn btn-primary btn-icon-label" id="addCoachButton" type="button">
@@ -225,11 +249,41 @@
         </button>
     </header>
 
+    <!-- TABS -->
+    <nav class="coachesTabs" id="coachesTabs" aria-label="User groups">
+        <button class="btn btn-primary coachesTab active" type="button" data-users-tab="coaches" aria-selected="true">Coaches</button>
+        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="students" aria-selected="false">Students</button>
+        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="athletes" aria-selected="false">Athletes</button>
+        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="others" aria-selected="false" hidden>Others</button>
+    </nav>
+
+    <!-- TOOLBAR -->
     <div class="coachesToolbar">
-        <div class="coachesSearchContainer">
-            <i class="bi bi-search coachesSearchIcon" aria-hidden="true"></i>
-            <input class="form-control coachesSearchInput" id="coachesSearch" type="search"
-                   placeholder="Search" autocomplete="off" aria-label="Search coaches">
+        <div class="coachesFilterGroup">
+            <label class="coachesFilterLabel" id="statusFilterLabel">Status</label>
+
+            <div class="registerDropdown coachesStatusFilter" id="statusFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="statusFilterToggle" type="button" aria-expanded="false" aria-controls="statusFilterOptions">
+                    <span id="statusFilterSelected">All Statuses</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+
+                <div class="registerDropdownOptions" id="statusFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All Statuses</button>
+                </div>
+
+                <input id="statusFilterInput" name="statusFilter" type="hidden" value="">
+            </div>
+        </div>
+
+        <div class="coachesFilterGroup">
+            <label class="coachesFilterLabel" for="coachesSearch">Search</label>
+
+            <div class="coachesSearchContainer">
+                <i class="bi bi-search coachesSearchIcon" aria-hidden="true"></i>
+                <input class="form-control coachesSearchInput" id="coachesSearch" type="search"
+                       placeholder="Search" autocomplete="off" aria-label="Search users">
+            </div>
         </div>
     </div>
 
@@ -466,8 +520,8 @@
 <div class="modalOverlay" id="coachEditModal" hidden>
     <div class="modalContentBox" role="dialog" aria-modal="true" aria-labelledby="coachEditModalTitle">
 
-        <h3 id="coachEditModalTitle">Editing coach</h3>
-        <p class="modalCoachName">Coach name: <span id="coachEditModalName"></span></p>
+        <h3 id="coachEditModalTitle">Editing user</h3>
+        <p class="modalCoachName">Name: <span id="coachEditModalName"></span></p>
 
         <div class="modalDataContainer">
 
@@ -482,13 +536,15 @@
 
                     <div class="registerDropdownOptions" id="coachEditStatusOptions" hidden>
                         <button class="registerDropdownOption active" type="button" data-value="Active">Active</button>
-                        <button class="registerDropdownOption" type="button" data-value="Held">Held</button>
-                        <button class="registerDropdownOption" type="button" data-value="Inactive">Inactive</button>
                     </div>
 
                     <input id="coachEditStatusInput" name="status" type="hidden" value="Active">
                 </div>
+                <div class="formHint">Accounts that are On hold or Deactivated cannot log in.</div>
             </div>
+
+            <!-- Coaches only -->
+            <div id="coachEditCoachFields">
 
             <div class="formGroup">
                 <label>Courses to assign *</label>
@@ -502,6 +558,7 @@
                         <input type="checkbox" id="coachEditHandlesAthletes"> This coach also handles athletes
                     </label>
                 </div>
+            </div>
             </div>
 
         </div>
@@ -530,6 +587,7 @@
     };
 
     const MIN_COACH_AGE = 18;
+    const ROLE_COACH = 2;
     const USERNAME_RE = /^[A-Za-z0-9_]{3,30}$/;
     const PASSWORD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     const PHONE_RE = /^09\d{9}$/;
@@ -548,8 +606,14 @@
        STATE + ELEMENTS
     ========================================================= */
 
-    let coaches = [];
+    let users = [];          // rows of the tab being shown
     let courses = [];
+    let statuses = [];       // names from tbl_status
+    let tabCounts = {};
+    let activeTab = 'coaches';
+    let loading = false;
+    let loadSeq = 0;
+    let statusFilterBuilt = false;
     let editId = null;
     let busy = false;
 
@@ -557,6 +621,10 @@
 
     const el = {
         search: $('coachesSearch'),
+        tabs: $('coachesTabs'),
+        hint: $('coachesHint'),
+        statusFilter: $('statusFilterDropdown'),
+        statusFilterInput: $('statusFilterInput'),
         tableHead: $('coachesTableHead'),
         tableBody: $('coachesTableBody'),
         addButton: $('addCoachButton'),
@@ -589,23 +657,57 @@
         copyUsername: $('coachAddCopyUsername'),
         copyPassword: $('coachAddCopyPassword'),
 
+        editTitle: $('coachEditModalTitle'),
         editName: $('coachEditModalName'),
+        editStatusDropdown: $('coachEditStatusDropdown'),
+        editCoachFields: $('coachEditCoachFields'),
         editCourseRow: $('coachEditCourseRow'),
         editHandlesAthletes: $('coachEditHandlesAthletes'),
         editStatusInput: $('coachEditStatusInput'),
         editUpdateButton: $('coachEditModalUpdateButton')
     };
 
-    const columns = [
-        { label: 'Username',    value: c => c.username },
-        { label: 'Last name',   value: c => c.last_name },
-        { label: 'First name',  value: c => c.first_name },
-        { label: 'Middle name', value: c => c.middle_name },
-        { label: 'Contact',     value: c => c.phone_number },
-        { label: 'Courses',     value: c => courseNames(c.course_ids).join(', ') },
-        { label: 'Athletes',    value: c => c.handles_athletes ? 'Yes' : 'No' },
-        { label: 'Status',      value: c => c.status, badge: true }
+    const TAB_LABELS = { coaches: 'Coaches', students: 'Students', athletes: 'Athletes', others: 'Others' };
+
+    const nameColumns = [
+        { label: 'Username',    value: u => u.username },
+        { label: 'Last name',   value: u => u.last_name },
+        { label: 'First name',  value: u => u.first_name },
+        { label: 'Middle name', value: u => u.middle_name },
+        { label: 'Contact',     value: u => u.phone_number }
     ];
+    const statusColumn = { label: 'Status', value: u => u.status, badge: true };
+
+    // Columns and wording per tab.
+    const TAB_CONFIGS = {
+        coaches: {
+            singular: 'coach', plural: 'coaches',
+            hint: 'Register coaches, assign their courses and change their account status.',
+            columns: [
+                ...nameColumns,
+                { label: 'Courses',  value: u => courseNames(u.course_ids).join(', ') },
+                { label: 'Athletes', value: u => u.handles_athletes ? 'Yes' : 'No' },
+                statusColumn
+            ]
+        },
+        students: {
+            singular: 'student', plural: 'students',
+            hint: 'Change a student\'s account status.',
+            columns: [...nameColumns, { label: 'Course', value: u => u.course_names }, statusColumn]
+        },
+        athletes: {
+            singular: 'athlete', plural: 'athletes',
+            hint: 'Change an athlete\'s account status. Former athletes are listed here too.',
+            columns: [...nameColumns, { label: 'Type', value: u => u.role_name }, statusColumn]
+        },
+        others: {
+            singular: 'user', plural: 'users',
+            hint: 'Accounts with any other role. Change their account status.',
+            columns: [...nameColumns, { label: 'Role', value: u => u.role_name }, statusColumn]
+        }
+    };
+
+    function tabConfig() { return TAB_CONFIGS[activeTab]; }
 
     /* =========================================================
        HELPERS
@@ -622,7 +724,7 @@
     function openModal(modal) { modal.hidden = false; }
     function closeModal(modal) { modal.hidden = true; }
 
-    function coachName(c) {
+    function personName(c) {
         const given = [c.first_name, c.middle_name].filter(Boolean).join(' ');
         const base = c.last_name ? `${c.last_name}, ${given}` : given;
         return c.name_suffix ? `${base} ${c.name_suffix}` : base;
@@ -709,20 +811,47 @@
        TABLE
     ========================================================= */
 
-    function renderTable() {
-        const term = el.search.value.trim().toLowerCase();
+    function renderTabs() {
+        el.tabs.querySelectorAll('[data-users-tab]').forEach(button => {
+            const name = button.dataset.usersTab;
+            const selected = name === activeTab;
+            const count = tabCounts[name];
 
-        const rows = coaches.filter(c =>
-            [c.username, c.email_address, c.last_name, c.first_name, c.middle_name,
-             c.phone_number, c.status, c.handles_athletes ? 'athletes' : '', ...courseNames(c.course_ids)]
-                .join(' ').toLowerCase().includes(term)
-        );
+            button.classList.toggle('btn-primary', selected);
+            button.classList.toggle('btn-outline-primary', !selected);
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-selected', String(selected));
+            button.textContent = count === undefined ? TAB_LABELS[name] : `${TAB_LABELS[name]} (${count})`;
+
+            // "Others" only appears when somebody actually has such a role.
+            if (name === 'others') button.hidden = !count && !selected;
+        });
+
+        el.hint.textContent = tabConfig().hint;
+
+        // Registration is for coaches only.
+        el.addButton.hidden = activeTab !== 'coaches';
+    }
+
+    function renderTable() {
+        const cfg = tabConfig();
+        const term = el.search.value.trim().toLowerCase();
+        const statusFilter = el.statusFilterInput.value;
+
+        const rows = users.filter(u => {
+            if (statusFilter && u.status !== statusFilter) return false;
+
+            return [u.username, u.email_address, u.last_name, u.first_name, u.middle_name,
+                    u.phone_number, u.status, u.role_name, u.course_names,
+                    u.handles_athletes ? 'athletes' : '', ...courseNames(u.course_ids)]
+                .join(' ').toLowerCase().includes(term);
+        });
 
         el.tableHead.replaceChildren();
         el.tableBody.replaceChildren();
 
         const headerRow = make('tr');
-        columns.forEach(col => headerRow.append(make('th', { text: col.label, attributes: { scope: 'col' } })));
+        cfg.columns.forEach(col => headerRow.append(make('th', { text: col.label, attributes: { scope: 'col' } })));
         headerRow.append(make('th', { text: 'Actions', attributes: { scope: 'col' } }));
         el.tableHead.append(headerRow);
 
@@ -730,24 +859,26 @@
             const emptyRow = make('tr');
             emptyRow.append(make('td', {
                 className: 'coachesEmptyState',
-                text: coaches.length ? 'No matching coaches found.' : 'No coaches yet.',
-                attributes: { colSpan: columns.length + 1 }
+                text: loading && !users.length
+                    ? 'Loading...'
+                    : (users.length ? `No matching ${cfg.plural} found.` : `No ${cfg.plural} yet.`),
+                attributes: { colSpan: cfg.columns.length + 1 }
             }));
             el.tableBody.append(emptyRow);
             return;
         }
 
-        rows.forEach(coach => {
+        rows.forEach(user => {
             const row = make('tr');
-            row.dataset.id = coach.id;
+            row.dataset.id = user.id;
 
-            columns.forEach(col => {
+            cfg.columns.forEach(col => {
                 const cell = make('td');
-                const value = col.value(coach);
+                const value = col.value(user);
 
                 if (col.badge) {
                     cell.append(make('span', {
-                        className: `statusBadge ${String(value).toLowerCase()}`,
+                        className: `statusBadge ${String(value).toLowerCase().replace(/\s+/g, '-')}`,
                         text: value
                     }));
                 } else {
@@ -760,10 +891,10 @@
             const actionCell = make('td');
             const editButton = make('button', {
                 className: 'btn btn-outline-secondary btn-sm',
-                attributes: { type: 'button', 'aria-label': `Edit ${coachName(coach)}`, title: 'Edit coach' }
+                attributes: { type: 'button', 'aria-label': `Edit ${personName(user)}`, title: `Edit ${cfg.singular}` }
             });
             editButton.append(make('i', { className: 'bi bi-pencil', attributes: { 'aria-hidden': 'true' } }));
-            editButton.addEventListener('click', () => openEditModal(coach.id));
+            editButton.addEventListener('click', () => openEditModal(user.id));
             actionCell.append(editButton);
             row.append(actionCell);
 
@@ -773,18 +904,63 @@
 
     el.search.addEventListener('input', renderTable);
 
-    async function loadCoaches() {
-        const result = await api(URLS.data);
+    // Status names come from tbl_status, so a renamed status shows up here without a code change.
+    function buildStatusFilter() {
+        if (statusFilterBuilt || !statuses.length) return;
+
+        window.FBSSDropdown.setOptions(
+            el.statusFilter,
+            [{ value: '', label: 'All Statuses' }].concat(statuses.map(name => ({ value: name, label: name }))),
+            el.statusFilterInput.value
+        );
+
+        statusFilterBuilt = true;
+    }
+
+    async function loadUsers() {
+        const seq = ++loadSeq;
+        loading = true;
+        renderTable();
+
+        const result = await api(`${URLS.data}?tab=${encodeURIComponent(activeTab)}`);
+
+        // A newer request (tab switch) took over; ignore this answer.
+        if (seq !== loadSeq) return;
+
+        loading = false;
 
         if (!result.ok) {
-            toastServerErrors(result, 'Unable to load coaches.');
+            renderTable();
+            toastServerErrors(result, 'Unable to load users.');
             return;
         }
 
-        coaches = result.data.coaches || [];
+        users = result.data.users || [];
         courses = result.data.courses || [];
+        statuses = result.data.statuses || [];
+        tabCounts = result.data.counts || {};
+
+        buildStatusFilter();
+        renderTabs();
         renderTable();
     }
+
+    function switchTab(name) {
+        if (!TAB_CONFIGS[name] || name === activeTab) return;
+
+        activeTab = name;
+        users = [];
+
+        renderTabs();
+        loadUsers();
+    }
+
+    el.tabs.addEventListener('click', event => {
+        const button = event.target.closest('[data-users-tab]');
+        if (button) switchTab(button.dataset.usersTab);
+    });
+
+    el.statusFilter.addEventListener('dropdown:change', renderTable);
 
     /* =========================================================
        ADD COACH — STEP NAVIGATION
@@ -1052,7 +1228,7 @@
                     showToast('The account was created, but the email could not be sent. Share the login details with the coach directly.', 'warning', 8000);
                 }
 
-                await loadCoaches();
+                await loadUsers();
             } else {
                 const fields = toastServerErrors(result, 'Unable to add the coach.');
 
@@ -1086,14 +1262,29 @@
     }
 
     function openEditModal(id) {
-        const coach = coaches.find(c => c.id === id);
-        if (!coach) return;
+        const user = users.find(u => u.id === id);
+        if (!user) return;
+
+        const isCoach = user.role_id === ROLE_COACH;
+        const current = user.status || 'Active';
 
         editId = id;
-        el.editName.textContent = coachName(coach);
-        setDropdownValue('coachEditStatus', coach.status || 'Active');
-        renderCourseChecks(el.editCourseRow, 'coachEditCourseCheckbox', coach.course_ids);
-        el.editHandlesAthletes.checked = Boolean(coach.handles_athletes);
+        el.editTitle.textContent = `Editing ${tabConfig().singular}`;
+        el.editName.textContent = personName(user);
+
+        window.FBSSDropdown.setOptions(
+            el.editStatusDropdown,
+            (statuses.length ? statuses : [current]).map(name => ({ value: name, label: name })),
+            current
+        );
+        setDropdownValue('coachEditStatus', current);
+
+        el.editCoachFields.hidden = !isCoach;
+
+        if (isCoach) {
+            renderCourseChecks(el.editCourseRow, 'coachEditCourseCheckbox', user.course_ids);
+            el.editHandlesAthletes.checked = Boolean(user.handles_athletes);
+        }
 
         openModal(el.editModal);
     }
@@ -1106,9 +1297,11 @@
     el.editUpdateButton.addEventListener('click', async () => {
         if (busy || editId === null) return;
 
-        const ids = checkedCourseIds('coachEditCourseCheckbox');
+        const user = users.find(u => u.id === editId);
+        const isCoach = Boolean(user) && user.role_id === ROLE_COACH;
+        const ids = isCoach ? checkedCourseIds('coachEditCourseCheckbox') : [];
 
-        if (!ids.length) {
+        if (isCoach && !ids.length) {
             showToast('Assign at least one course.', 'danger');
             return;
         }
@@ -1120,25 +1313,27 @@
         try {
             const result = await api(URLS.update(editId), {
                 method: 'PUT',
-                body: {
-                    status: el.editStatusInput.value || 'Active',
-                    courses: ids,
-                    handles_athletes: el.editHandlesAthletes.checked
-                }
+                body: isCoach
+                    ? {
+                        status: el.editStatusInput.value || 'Active',
+                        courses: ids,
+                        handles_athletes: el.editHandlesAthletes.checked
+                    }
+                    : { status: el.editStatusInput.value || 'Active' }
             });
 
             if (result.ok) {
-                const coach = coaches.find(c => c.id === editId);
+                const label = tabConfig().singular.charAt(0).toUpperCase() + tabConfig().singular.slice(1);
                 closeModal(el.editModal);
                 editId = null;
-                showToast(coach ? `Coach ${coachName(coach)} was updated.` : 'Coach was updated.', 'success');
-                await loadCoaches();
+                showToast(user ? `${label} ${personName(user)} was updated.` : `${label} was updated.`, 'success');
+                await loadUsers();
             } else {
-                toastServerErrors(result, 'Unable to update the coach.');
+                toastServerErrors(result, 'Unable to update the user.');
             }
         } catch (error) {
             console.error(error);
-            showToast('Something went wrong while updating the coach.', 'danger');
+            showToast('Something went wrong while updating the user.', 'danger');
         } finally {
             busy = false;
             el.editUpdateButton.disabled = false;
@@ -1215,7 +1410,8 @@
         update();
     });
 
-    loadCoaches();
+    renderTabs();
+    loadUsers();
 
 })();
 </script>

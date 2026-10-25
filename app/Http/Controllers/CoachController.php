@@ -42,7 +42,26 @@ class CoachController extends Controller
     // 0/1 flag on tbl_users, only meaningful for coaches. Default 0.
     public const HANDLES_ATHLETES_COL = 'handles_athletes';
 
-    public const STATUSES = ['Active', 'Held', 'Inactive'];
+    // Kept for reference only: validation reads the names straight from tbl_status
+    // so a renamed status can never drift out of sync with this file again.
+    public const STATUSES = ['Active', 'On hold', 'Deactivated'];
+
+    /* ---- User management (this page lists every role except admin) ---- */
+    public const ROLE_STUDENT        = 3;
+    public const ROLE_ATHLETE        = 4;
+    public const ROLE_FORMER_ATHLETE = 6;
+    public const ROLES_TABLE         = 'tbl_roles';    // role_id, role_name
+    // Student course per user. Same table AdminAttendanceController reads (enrollment_id, user_id, course_id).
+    public const STUDENTS_TABLE      = \App\Models\Attendance::ENROLLMENTS_TABLE;
+
+    public const TABS = ['coaches', 'students', 'athletes', 'others'];
+
+    // Roles shown on each tab. "others" = every role not listed here and not admin.
+    private const TAB_ROLES = [
+        'coaches'  => [self::ROLE_COACH],
+        'students' => [self::ROLE_STUDENT],
+        'athletes' => [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE],
+    ];
 
     // Same name rule as registration and profile: letters (including ñ, é, etc.),
     // spaces, periods, apostrophes, and hyphens. Must start with a letter.
@@ -60,23 +79,50 @@ class CoachController extends Controller
             : response()->json(['success' => false, 'message' => 'You are not allowed to do that.'], 403);
     }
 
-    /** GET /coaches/data — coaches + the course list for the checkboxes. */
+    /** Role ids that have their own tab, plus admin (admins are never listed). */
+    private function knownRoleIds(): array
+    {
+        return array_merge([self::ROLE_ADMIN], ...array_values(self::TAB_ROLES));
+    }
+
+    private function applyTabRoles($query, string $tab, string $roleColumn)
+    {
+        return $tab === 'others'
+            ? $query->whereNotIn($roleColumn, $this->knownRoleIds())
+            : $query->whereIn($roleColumn, self::TAB_ROLES[$tab]);
+    }
+
+    /**
+     * GET /coaches/data?tab=coaches|students|athletes|others
+     *
+     * Users of one tab (admins are never listed), plus what the page needs to
+     * draw itself: the course list (coach checkboxes), the status names from
+     * tbl_status (filter + edit dropdown) and a head-count per tab.
+     */
     public function data(Request $request): JsonResponse
     {
         if ($denied = $this->denyUnlessAdmin($request)) {
             return $denied;
         }
 
-        $coaches = DB::table(self::USERS_TABLE . ' as u')
-            ->join('tbl_user_profile as p', 'p.user_id', '=', 'u.' . self::USER_PK)
+        $tab = $request->validate([
+            'tab' => ['nullable', Rule::in(self::TABS)],
+        ])['tab'] ?? 'coaches';
+
+        $query = DB::table(self::USERS_TABLE . ' as u')
+            ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.' . self::USER_PK)
             ->leftJoin(self::STATUS_TABLE . ' as st', 'st.' . self::STATUS_ID_COL, '=', 'u.' . self::STATUS_COL)
-            ->where('u.' . self::ROLE_COL, self::ROLE_COACH)
+            ->leftJoin(self::ROLES_TABLE . ' as r', 'r.role_id', '=', 'u.' . self::ROLE_COL);
+
+        $users = $this->applyTabRoles($query, $tab, 'u.' . self::ROLE_COL)
             ->orderBy('p.last_name')
             ->orderBy('p.first_name')
             ->get([
                 'u.' . self::USER_PK . ' as id',
                 'u.username',
                 'u.email_address',
+                'u.' . self::ROLE_COL . ' as role_id',
+                'r.role_name',
                 'u.' . self::HANDLES_ATHLETES_COL . ' as handles_athletes',
                 'st.' . self::STATUS_NAME_COL . ' as status',
                 'p.first_name',
@@ -86,10 +132,25 @@ class CoachController extends Controller
                 'p.phone_number',
             ]);
 
-        $assigned = DB::table(self::COACH_COURSES_TABLE)
-            ->whereIn('coach_id', $coaches->pluck('id'))
-            ->get(['coach_id', 'course_id'])
-            ->groupBy('coach_id');
+        $ids = $users->pluck('id');
+
+        // Coaches: the courses they are assigned to.
+        $assigned = $tab === 'coaches'
+            ? DB::table(self::COACH_COURSES_TABLE)
+                ->whereIn('coach_id', $ids)
+                ->get(['coach_id', 'course_id'])
+                ->groupBy('coach_id')
+            : collect();
+
+        // Students: the course(s) they are enrolled in.
+        $studentCourses = $tab === 'students'
+            ? DB::table(self::STUDENTS_TABLE . ' as s')
+                ->join(self::COURSES_TABLE . ' as c', 'c.' . self::COURSE_ID_COL, '=', 's.course_id')
+                ->whereIn('s.user_id', $ids)
+                ->orderBy('c.' . self::COURSE_ID_COL)
+                ->get(['s.user_id', 'c.' . self::COURSE_NAME_COL . ' as name'])
+                ->groupBy('user_id')
+            : collect();
 
         $courses = DB::table(self::COURSES_TABLE)
             ->orderBy(self::COURSE_ID_COL)
@@ -97,22 +158,51 @@ class CoachController extends Controller
             ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name])
             ->values();
 
+        $statuses = DB::table(self::STATUS_TABLE)
+            ->orderBy(self::STATUS_ID_COL)
+            ->pluck(self::STATUS_NAME_COL)
+            ->values();
+
+        // Head-count per tab (shown on the tab buttons; "Others" hides itself at 0).
+        $roleCounts = DB::table(self::USERS_TABLE)
+            ->select(self::ROLE_COL . ' as role_id')
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy(self::ROLE_COL)
+            ->pluck('total', 'role_id');
+
+        $known = $this->knownRoleIds();
+        $counts = [];
+
+        foreach (self::TAB_ROLES as $name => $roleIds) {
+            $counts[$name] = (int) collect($roleIds)->sum(fn ($roleId) => $roleCounts[$roleId] ?? 0);
+        }
+
+        $counts['others'] = (int) $roleCounts
+            ->reject(fn ($total, $roleId) => in_array((int) $roleId, $known, true))
+            ->sum();
+
         return response()->json([
             'success' => true,
-            'coaches' => $coaches->map(fn ($c) => [
-                'id' => $c->id,
-                'username' => $c->username,
-                'email_address' => $c->email_address,
-                'status' => $c->status ?: 'Active',
-                'handles_athletes' => (bool) $c->handles_athletes,
-                'first_name' => $c->first_name,
-                'middle_name' => $c->middle_name,
-                'last_name' => $c->last_name,
-                'name_suffix' => $c->name_suffix,
-                'phone_number' => $c->phone_number,
-                'course_ids' => ($assigned[$c->id] ?? collect())->pluck('course_id')->map(fn ($v) => (int) $v)->values(),
-            ])->values(),
+            'tab' => $tab,
+            'counts' => $counts,
+            'statuses' => $statuses,
             'courses' => $courses,
+            'users' => $users->map(fn ($u) => [
+                'id' => (int) $u->id,
+                'username' => $u->username,
+                'email_address' => $u->email_address,
+                'role_id' => (int) $u->role_id,
+                'role_name' => $u->role_name,
+                'status' => $u->status ?: 'Active',
+                'handles_athletes' => (bool) $u->handles_athletes,
+                'first_name' => $u->first_name,
+                'middle_name' => $u->middle_name,
+                'last_name' => $u->last_name,
+                'name_suffix' => $u->name_suffix,
+                'phone_number' => $u->phone_number,
+                'course_ids' => ($assigned[$u->id] ?? collect())->pluck('course_id')->map(fn ($v) => (int) $v)->values(),
+                'course_names' => ($studentCourses[$u->id] ?? collect())->pluck('name')->unique()->implode(', '),
+            ])->values(),
         ]);
     }
 
@@ -211,31 +301,50 @@ class CoachController extends Controller
         ], 201);
     }
 
-    /** PUT /coaches/{id} — status, course assignment and the "handles athletes" option. */
+    /**
+     * PUT /coaches/{id} — change a user's status. For a coach it also saves the
+     * course assignment and the "handles athletes" option. Admin accounts (and
+     * your own) cannot be changed from here.
+     */
     public function update(Request $request, int $id): JsonResponse
     {
         if ($denied = $this->denyUnlessAdmin($request)) {
             return $denied;
         }
 
-        $data = $request->validate([
-            'status' => ['required', Rule::in(self::STATUSES)],
-            'handles_athletes' => ['sometimes', 'boolean'],   // left unchanged when not sent
-            'courses' => ['required', 'array', 'min:1'],
-            'courses.*' => ['integer', 'distinct', 'exists:' . self::COURSES_TABLE . ',' . self::COURSE_ID_COL],
-        ], [
+        $target = DB::table(self::USERS_TABLE)
+            ->where(self::USER_PK, $id)
+            ->first([self::ROLE_COL . ' as role_id']);
+
+        if (!$target) {
+            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+        }
+
+        $roleId = (int) $target->role_id;
+
+        if ($roleId === self::ROLE_ADMIN || (int) $request->user()->getAuthIdentifier() === $id) {
+            return response()->json(['success' => false, 'message' => 'Admin accounts cannot be changed here.'], 403);
+        }
+
+        $isCoach = $roleId === self::ROLE_COACH;
+
+        $rules = [
+            'status' => ['required', 'string', Rule::exists(self::STATUS_TABLE, self::STATUS_NAME_COL)],
+        ];
+
+        if ($isCoach) {
+            $rules += [
+                'handles_athletes' => ['sometimes', 'boolean'],   // left unchanged when not sent
+                'courses' => ['required', 'array', 'min:1'],
+                'courses.*' => ['integer', 'distinct', 'exists:' . self::COURSES_TABLE . ',' . self::COURSE_ID_COL],
+            ];
+        }
+
+        $data = $request->validate($rules, [
+            'status.exists' => 'Unknown status.',
             'courses.required' => 'Assign at least one course.',
             'courses.min' => 'Assign at least one course.',
         ]);
-
-        $isCoach = DB::table(self::USERS_TABLE)
-            ->where(self::USER_PK, $id)
-            ->where(self::ROLE_COL, self::ROLE_COACH)
-            ->exists();
-
-        if (!$isCoach) {
-            return response()->json(['success' => false, 'message' => 'Coach not found.'], 404);
-        }
 
         $statusId = DB::table(self::STATUS_TABLE)
             ->where(self::STATUS_NAME_COL, $data['status'])
@@ -245,25 +354,27 @@ class CoachController extends Controller
             return response()->json(['success' => false, 'message' => 'Unknown status.'], 422);
         }
 
-        DB::transaction(function () use ($id, $data, $statusId) {
+        DB::transaction(function () use ($id, $data, $statusId, $isCoach) {
             $changes = [self::STATUS_COL => $statusId];
 
-            if (array_key_exists('handles_athletes', $data)) {
+            if ($isCoach && array_key_exists('handles_athletes', $data)) {
                 $changes[self::HANDLES_ATHLETES_COL] = $data['handles_athletes'] ? 1 : 0;
             }
 
             DB::table(self::USERS_TABLE)->where(self::USER_PK, $id)->update($changes);
 
-            DB::table(self::COACH_COURSES_TABLE)->where('coach_id', $id)->delete();
-            DB::table(self::COACH_COURSES_TABLE)->insert(
-                collect($data['courses'])->unique()->map(fn ($courseId) => [
-                    'coach_id' => $id,
-                    'course_id' => $courseId,
-                ])->all()
-            );
+            if ($isCoach) {
+                DB::table(self::COACH_COURSES_TABLE)->where('coach_id', $id)->delete();
+                DB::table(self::COACH_COURSES_TABLE)->insert(
+                    collect($data['courses'])->unique()->map(fn ($courseId) => [
+                        'coach_id' => $id,
+                        'course_id' => $courseId,
+                    ])->all()
+                );
+            }
         });
 
-        return response()->json(['success' => true, 'message' => 'Coach updated.']);
+        return response()->json(['success' => true, 'message' => 'User updated.']);
     }
 
     /**

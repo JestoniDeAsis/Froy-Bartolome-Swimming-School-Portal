@@ -6,7 +6,7 @@ return [
         'attendance'    => ['icon' => 'bi-calendar-check',   'label' => 'Attendance',        'view' => 'pages.admin.attendance'],
         'registers'     => ['icon' => 'bi-people',           'label' => 'Students',          'view' => 'pages.admin.registers'],
         'athletes'      => ['icon' => 'bi-trophy',           'label' => 'Athletes',          'view' => 'pages.admin.athletes'],
-        'coaches'       => ['icon' => 'bi-person-badge',     'label' => 'Coaches',           'view' => 'pages.admin.coaches'],
+        'coaches'       => ['icon' => 'bi-person-badge',     'label' => 'User Management',           'view' => 'pages.admin.coaches'],
         'courses'       => ['icon' => 'bi-journal-bookmark', 'label' => 'Courses',           'view' => 'pages.admin.courses'],
         'sales_invoice' => ['icon' => 'bi-receipt',          'label' => 'Billing & Invoices', 'view' => 'pages.admin.sales_and_invoice'],
         'graduation'    => ['icon' => 'bi-mortarboard',      'label' => 'Graduation',        'view' => 'pages.admin.graduation'],

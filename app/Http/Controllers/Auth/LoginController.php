@@ -40,7 +40,7 @@ class LoginController extends Controller
         if ((int) $user->status_id !== 1) {
             $message = match ((int) $user->status_id) {
                 2 => 'Your account is currently on hold. Please contact the administrator.',
-                3 => 'Your account is inactive. Please contact the administrator.',
+                3 => 'Your account has been deactivated. Please contact the administrator.',
                 default => 'Your account status does not allow login. Please contact the administrator.',
             };
 

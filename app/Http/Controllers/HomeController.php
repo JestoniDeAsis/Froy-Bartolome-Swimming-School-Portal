@@ -14,6 +14,10 @@ class HomeController extends Controller
 {
     public function index(Request $request)
     {
+        if ($blocked = $this->logoutIfNotActive($request)) {
+            return $blocked;
+        }
+
         $roleId = Auth::user()->role_id;
 
         $roleMenus = config('role_menus');
@@ -62,6 +66,10 @@ class HomeController extends Controller
 
     public function navigate(Request $request, string $page)
     {
+        if ($blocked = $this->logoutIfNotActive($request)) {
+            return $blocked;
+        }
+
         $roleId = Auth::user()->role_id;
         $roleMenus = config('role_menus');
 
@@ -76,6 +84,33 @@ class HomeController extends Controller
         }
 
         return redirect()->route('home');
+    }
+
+    /**
+     * Status is only checked at login, so an admin changing a status mid-session
+     * would otherwise have no effect until the user logs out. Check it on every
+     * page load; if the account is no longer Active, end the session and send
+     * the user back to the login page with the reason.
+     */
+    private function logoutIfNotActive(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $user = Auth::user();
+
+        if ((int) $user->status_id === 1) {
+            return null;
+        }
+
+        $message = match ((int) $user->status_id) {
+            2 => 'Your account is currently on hold. Please contact the administrator.',
+            3 => 'Your account has been deactivated. Please contact the administrator.',
+            default => 'Your account status does not allow login. Please contact the administrator.',
+        };
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->withErrors(['login' => $message]);
     }
 
     /**
