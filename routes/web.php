@@ -15,6 +15,11 @@ Route::get('/login', [LoginController::class, 'show'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+// New-device verification (shown after a correct password from an unrecognized browser)
+Route::get('/login/verify-device', [LoginController::class, 'showVerifyDevice'])->name('login.verify-device');
+Route::post('/login/verify-device', [LoginController::class, 'verifyDevice']);
+Route::post('/login/verify-device/resend', [LoginController::class, 'resendDeviceCode']);
+
 
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
