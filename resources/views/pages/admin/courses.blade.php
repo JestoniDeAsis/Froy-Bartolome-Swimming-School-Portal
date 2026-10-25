@@ -21,6 +21,24 @@
         ->groupBy('co.course_id', 'co.course_name', 'co.course_session_count', 'co.course_price')
         ->orderBy('co.course_name')
         ->get();
+
+    // Counts per course. Same rules as the Graduation page, so the numbers match its tabs.
+    $enrolledByCourse = \DB::table('tbl_enrollments as e')
+        ->join(\App\Http\Controllers\CoachController::USERS_TABLE . ' as u', 'u.' . \App\Http\Controllers\CoachController::USER_PK, '=', 'e.user_id')
+        ->join('tbl_user_profile as p', 'p.user_id', '=', 'e.user_id')
+        ->join(\App\Http\Controllers\CoachController::STATUS_TABLE . ' as st', 'st.' . \App\Http\Controllers\CoachController::STATUS_ID_COL, '=', 'u.' . \App\Http\Controllers\CoachController::STATUS_COL)
+        ->whereNull('e.graduation_at')
+        ->where('st.' . \App\Http\Controllers\CoachController::STATUS_NAME_COL, 'Active')
+        ->groupBy('e.course_id')
+        ->selectRaw('e.course_id as cid, COUNT(*) as total')
+        ->pluck('total', 'cid');
+
+    $graduatesByCourse = \DB::table('tbl_enrollments as e')
+        ->join('tbl_user_profile as p', 'p.user_id', '=', 'e.user_id')
+        ->whereNotNull('e.graduation_at')
+        ->groupBy('e.course_id')
+        ->selectRaw('e.course_id as cid, COUNT(*) as total')
+        ->pluck('total', 'cid');
 @endphp
 
 <style>
@@ -454,9 +472,9 @@
 
                             <td>₱{{ number_format($course->course_price, 0) }}</td>
 
-                            <td>0</td>
+                            <td>{{ $enrolledByCourse->get($course->course_id, 0) }}</td>
 
-                            <td>0</td>
+                            <td>{{ $graduatesByCourse->get($course->course_id, 0) }}</td>
 
                             <td>
 
