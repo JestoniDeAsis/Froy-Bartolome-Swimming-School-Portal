@@ -49,18 +49,20 @@ class CoachController extends Controller
     /* ---- User management (this page lists every role except admin) ---- */
     public const ROLE_STUDENT        = 3;
     public const ROLE_ATHLETE        = 4;
+    public const ROLE_APPLICANT      = 5;   // default role of a new registration
     public const ROLE_FORMER_ATHLETE = 6;
     public const ROLES_TABLE         = 'tbl_roles';    // role_id, role_name
     // Student course per user. Same table AdminAttendanceController reads (enrollment_id, user_id, course_id).
     public const STUDENTS_TABLE      = \App\Models\Attendance::ENROLLMENTS_TABLE;
 
-    public const TABS = ['coaches', 'students', 'athletes', 'others'];
+    public const TABS = ['coaches', 'students', 'athletes', 'applicants'];
 
-    // Roles shown on each tab. "others" = every role not listed here and not admin.
+    // Roles shown on each tab. Admins are never listed.
     private const TAB_ROLES = [
-        'coaches'  => [self::ROLE_COACH],
-        'students' => [self::ROLE_STUDENT],
-        'athletes' => [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE],
+        'coaches'    => [self::ROLE_COACH],
+        'students'   => [self::ROLE_STUDENT],
+        'athletes'   => [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE],
+        'applicants' => [self::ROLE_APPLICANT],
     ];
 
     // Same name rule as registration and profile: letters (including ñ, é, etc.),
@@ -79,21 +81,13 @@ class CoachController extends Controller
             : response()->json(['success' => false, 'message' => 'You are not allowed to do that.'], 403);
     }
 
-    /** Role ids that have their own tab, plus admin (admins are never listed). */
-    private function knownRoleIds(): array
-    {
-        return array_merge([self::ROLE_ADMIN], ...array_values(self::TAB_ROLES));
-    }
-
     private function applyTabRoles($query, string $tab, string $roleColumn)
     {
-        return $tab === 'others'
-            ? $query->whereNotIn($roleColumn, $this->knownRoleIds())
-            : $query->whereIn($roleColumn, self::TAB_ROLES[$tab]);
+        return $query->whereIn($roleColumn, self::TAB_ROLES[$tab]);
     }
 
     /**
-     * GET /coaches/data?tab=coaches|students|athletes|others
+     * GET /coaches/data?tab=coaches|students|athletes|applicants
      *
      * Users of one tab (admins are never listed), plus what the page needs to
      * draw itself: the course list (coach checkboxes), the status names from
@@ -170,16 +164,11 @@ class CoachController extends Controller
             ->groupBy(self::ROLE_COL)
             ->pluck('total', 'role_id');
 
-        $known = $this->knownRoleIds();
         $counts = [];
 
         foreach (self::TAB_ROLES as $name => $roleIds) {
             $counts[$name] = (int) collect($roleIds)->sum(fn ($roleId) => $roleCounts[$roleId] ?? 0);
         }
-
-        $counts['others'] = (int) $roleCounts
-            ->reject(fn ($total, $roleId) => in_array((int) $roleId, $known, true))
-            ->sum();
 
         return response()->json([
             'success' => true,

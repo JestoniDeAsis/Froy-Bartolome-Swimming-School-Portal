@@ -254,7 +254,7 @@
         <button class="btn btn-primary coachesTab active" type="button" data-users-tab="coaches" aria-selected="true">Coaches</button>
         <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="students" aria-selected="false">Students</button>
         <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="athletes" aria-selected="false">Athletes</button>
-        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="others" aria-selected="false" hidden>Others</button>
+        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="applicants" aria-selected="false">Applicants</button>
     </nav>
 
     <!-- TOOLBAR -->
@@ -667,7 +667,7 @@
         editUpdateButton: $('coachEditModalUpdateButton')
     };
 
-    const TAB_LABELS = { coaches: 'Coaches', students: 'Students', athletes: 'Athletes', others: 'Others' };
+    const TAB_LABELS = { coaches: 'Coaches', students: 'Students', athletes: 'Athletes', applicants: 'Applicants' };
 
     const nameColumns = [
         { label: 'Username',    value: u => u.username },
@@ -700,10 +700,10 @@
             hint: 'Change an athlete\'s account status. Former athletes are listed here too.',
             columns: [...nameColumns, { label: 'Type', value: u => u.role_name }, statusColumn]
         },
-        others: {
-            singular: 'user', plural: 'users',
-            hint: 'Accounts with any other role. Change their account status.',
-            columns: [...nameColumns, { label: 'Role', value: u => u.role_name }, statusColumn]
+        applicants: {
+            singular: 'applicant', plural: 'applicants',
+            hint: 'Accounts that registered but are not enrolled yet. Change their account status.',
+            columns: [...nameColumns, statusColumn]
         }
     };
 
@@ -822,9 +822,6 @@
             button.classList.toggle('active', selected);
             button.setAttribute('aria-selected', String(selected));
             button.textContent = count === undefined ? TAB_LABELS[name] : `${TAB_LABELS[name]} (${count})`;
-
-            // "Others" only appears when somebody actually has such a role.
-            if (name === 'others') button.hidden = !count && !selected;
         });
 
         el.hint.textContent = tabConfig().hint;

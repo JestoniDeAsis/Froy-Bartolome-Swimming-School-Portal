@@ -11,6 +11,8 @@
     .login-title { font-size: 2rem; font-weight: 600; }
     .login-form-wrap { width: 100%; max-width: 480px; margin-left: auto; margin-right: auto; }
     .verify-code-input { letter-spacing: .5rem; text-align: center; font-size: 1.5rem; font-weight: 600; }
+    /* The wide spacing is for the typed digits only, not the hint text. */
+    .verify-code-input::placeholder { letter-spacing: normal; font-size: 1rem; font-weight: 400; }
     @media (max-width: 1199.98px) { .login-right { min-height: 100vh; } }
 </style>
 @endsection
@@ -37,7 +39,7 @@
                         <label class="form-label" for="verification_code">Verification code</label>
                         <input type="text" class="form-control verify-code-input" id="verification_code"
                                name="verification_code" maxlength="6" inputmode="numeric"
-                               autocomplete="one-time-code" placeholder="000000" required autofocus>
+                               autocomplete="one-time-code" placeholder="Enter 6-digit code" required autofocus>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100" id="verifyButton">Verify and log in</button>
