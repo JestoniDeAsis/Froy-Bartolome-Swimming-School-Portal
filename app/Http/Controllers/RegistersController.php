@@ -19,7 +19,9 @@ use Illuminate\Support\Str;
  *
  * Three lists, all built from real data (Athletes has its own page now):
  *   Applicants  role 5 with no enrollment at all
- *   Students    enrollments without a graduation date
+ *   Students    enrollments without a graduation date and not dropped
+ *   Dropped     enrollments with a dropped_at date (soft drop, nothing is deleted;
+ *               payments, attendance and assessments stay, and the student can be reinstated)
  *   Graduates   graduated at least once, NOT enrolled now, not an athlete
  *
  * Rules enforced here (not only in the page):
@@ -27,8 +29,11 @@ use Illuminate\Support\Str;
  *   - nobody who is currently enrolled can be enrolled again
  *   - athletes (role 4) can never be enrolled
  *   - only applicants and graduates who are not enrolled now can become athletes
- *   - an enrollment can only be cancelled (deleted) when it has no payments
- *     and no attendance records
+ *   - an enrollment can only be cancelled (deleted) when it has no ACTIVE payments
+ *     and no attendance records. Archived payments don't block it; they are deleted
+ *     together with the enrollment (and written to tbl_system_log first)
+ *   - a student can be dropped any time before graduating (not while cleared for
+ *     graduation); a dropped student can be reinstated unless they are enrolled elsewhere
  */
 class RegistersController extends Controller
 {
@@ -40,6 +45,9 @@ class RegistersController extends Controller
     // Table that holds student attendance rows (must have an enrollment_id column).
     // CHANGE this to your real attendance table name.
     private const ATTENDANCE_TABLE = 'tbl_attendances';
+
+    // Course payments (enrollment_id + archived_at). Archived payments don't count anywhere.
+    private const PAYMENTS_TABLE = 'tbl_course_payments';
 
     /**
      * Called from HomeController's match($page) when $page === 'registers'.
@@ -59,6 +67,7 @@ class RegistersController extends Controller
         // user id => ids of the courses they already graduated from
         $graduatedCourseIds = $this->graduatedCourseIdsByUser();
 
+        // Everyone not graduated yet: active students and dropped ones
         $enrollments = Enrollment::whereNull('graduation_at')
             ->with(['user.profile', 'course', 'payments'])
             ->orderByDesc('enrollment_at')
@@ -67,10 +76,14 @@ class RegistersController extends Controller
         // enrollment id => number of attendance rows logged for it
         $attendanceCounts = $this->attendanceCountsByEnrollment($enrollments->pluck('enrollment_id')->all());
 
+        // enrollment id => number of archived payments (deleted together with a cancelled enrollment)
+        $archivedCounts = $this->archivedPaymentCountsByEnrollment($enrollments->pluck('enrollment_id')->all());
+
+        $rows = $enrollments->map(fn ($e) => $this->studentRow($e, $graduatedCourseIds->get($e->user_id, []), $attendanceCounts, $archivedCounts));
+
         return array_merge($this->lists(), [
-            'students' => $enrollments
-                ->map(fn ($e) => $this->studentRow($e, $graduatedCourseIds->get($e->user_id, []), $attendanceCounts))
-                ->values(),
+            'students' => $rows->filter(fn ($r) => $r['droppedAt'] === null)->values(),
+            'dropped' => $rows->filter(fn ($r) => $r['droppedAt'] !== null)->values(),
             'courses' => $courses,
         ]);
     }
@@ -149,6 +162,10 @@ class RegistersController extends Controller
             return $denied;
         }
 
+        if ($enrollment->dropped_at !== null) {
+            return response()->json(['success' => false, 'message' => 'A dropped student cannot be updated. Reinstate them first.'], 422);
+        }
+
         $validated = $request->validate([
             'course_id' => ['required', 'integer', 'exists:tbl_courses,course_id'],
             'scheduled_time' => ['nullable', 'string', 'max:100'],
@@ -173,7 +190,7 @@ class RegistersController extends Controller
 
         $enrollment->update($changes);
 
-        $totalPaid = $enrollment->payments()->sum('amount');
+        $totalPaid = $enrollment->payments()->whereNull('archived_at')->sum('amount');   // archived payments don't count
         $balance = max($enrollment->course_price_at_enrollment - $totalPaid, 0);
 
         return response()->json([
@@ -185,10 +202,103 @@ class RegistersController extends Controller
     }
 
     /**
+     * POST /registers/students/{enrollment}/drop
+     * Called via fetch() from the Students tab's "Drop Student" button.
+     * Soft drop: stamps dropped_at (and an optional reason). Nothing is deleted,
+     * so payments, attendance and assessments are kept, and the student can be
+     * reinstated later. The user stays role 3.
+     */
+    public function drop(Request $request, Enrollment $enrollment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'drop_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($enrollment->graduation_at !== null) {
+            return response()->json(['success' => false, 'message' => 'A graduated enrollment cannot be dropped.'], 422);
+        }
+
+        if ($enrollment->dropped_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student is already dropped.'], 422);
+        }
+
+        if ($enrollment->cleared_for_graduation_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student is cleared for graduation. Move them back to Ready on the Graduation page before dropping.'], 422);
+        }
+
+        $reason = isset($validated['drop_reason']) ? trim($validated['drop_reason']) : '';
+
+        DB::transaction(function () use ($enrollment, $reason) {
+            $enrollment->forceFill([
+                'dropped_at' => now(),
+                'drop_reason' => $reason !== '' ? $reason : null,
+            ])->save();
+
+            $this->logAction('Dropped student enrollment #' . $enrollment->enrollment_id . ($reason !== '' ? ' (' . $reason . ')' : ''));
+        });
+
+        return response()->json([
+            'success' => true,
+            'dropped' => $this->rowFor($enrollment),
+        ]);
+    }
+
+    /**
+     * POST /registers/students/{enrollment}/reinstate
+     * Called via fetch() from the Dropped tab's "Reinstate" button.
+     * Clears dropped_at so the person is an active student again, as long as
+     * they are not enrolled in another course right now.
+     */
+    public function reinstate(Enrollment $enrollment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        if ($enrollment->dropped_at === null) {
+            return response()->json(['success' => false, 'message' => 'This student is not dropped.'], 422);
+        }
+
+        if ($this->hasGraduatedFrom((int) $enrollment->user_id, (int) $enrollment->course_id)) {
+            return response()->json(['success' => false, 'message' => 'This person has already graduated from this course.'], 422);
+        }
+
+        $enrolledElsewhere = Enrollment::where('user_id', $enrollment->user_id)
+            ->where('enrollment_id', '!=', $enrollment->enrollment_id)
+            ->whereNull('graduation_at')
+            ->whereNull('dropped_at')
+            ->exists();
+
+        if ($enrolledElsewhere) {
+            return response()->json(['success' => false, 'message' => 'This person is already enrolled in another course, so they cannot be reinstated.'], 422);
+        }
+
+        DB::transaction(function () use ($enrollment) {
+            $enrollment->forceFill([
+                'dropped_at' => null,
+                'drop_reason' => null,
+            ])->save();
+
+            $this->logAction('Reinstated student enrollment #' . $enrollment->enrollment_id);
+        });
+
+        return response()->json([
+            'success' => true,
+            'student' => $this->rowFor($enrollment),
+        ]);
+    }
+
+    /**
      * DELETE /registers/students/{enrollment}
      * Called via fetch() from the Students tab's "Cancel Enrollment" button.
-     * Cancels an enrollment by deleting it, but only when it has no payments
-     * and no attendance. If the person has no enrollment left at all, they go
+     * Cancels an enrollment by deleting it, but only when it has no ACTIVE payments
+     * and no attendance. Archived payments do not block it: they are deleted with the
+     * enrollment (the foreign key requires it) after being written to tbl_system_log.
+     * If the person has no enrollment left at all, they go
      * back to applicant (role 5). The response says where the person landed
      * (applicant list, graduate list, or neither) so the page can update itself.
      */
@@ -202,8 +312,8 @@ class RegistersController extends Controller
             return response()->json(['success' => false, 'message' => 'A graduated enrollment cannot be cancelled.'], 422);
         }
 
-        if ($enrollment->payments()->exists()) {
-            return response()->json(['success' => false, 'message' => 'This enrollment already has payment records, so it cannot be cancelled.'], 422);
+        if ($this->activePaymentCount((int) $enrollment->enrollment_id) > 0) {
+            return response()->json(['success' => false, 'message' => 'This enrollment still has active payment records, so it cannot be cancelled. Archive them first.'], 422);
         }
 
         if (($this->attendanceCountsByEnrollment([$enrollment->enrollment_id])[$enrollment->enrollment_id] ?? 0) > 0) {
@@ -214,6 +324,34 @@ class RegistersController extends Controller
 
         try {
             DB::transaction(function () use ($enrollment, $userId) {
+                // Check again inside the transaction, in case a payment was added meanwhile.
+                if ($this->activePaymentCount((int) $enrollment->enrollment_id, true) > 0) {
+                    throw new \RuntimeException('active-payments');
+                }
+
+                // Archived payments still point at the enrollment (foreign key), so they
+                // go with it. Keep a record of what was removed first.
+                $archived = DB::table(self::PAYMENTS_TABLE)
+                    ->where('enrollment_id', $enrollment->enrollment_id)
+                    ->whereNotNull('archived_at')
+                    ->get(['course_payment_id', 'amount', 'payment_method', 'reference_number', 'paid_at', 'archive_reason']);
+
+                if ($archived->isNotEmpty()) {
+                    $this->logAction(
+                        'Cancelled enrollment #' . $enrollment->enrollment_id . ' and deleted its ' . $archived->count() . ' archived payment(s): '
+                        . $archived->map(fn ($p) => '#' . $p->course_payment_id . ' PHP ' . number_format((float) $p->amount, 2)
+                            . ' ' . $p->payment_method
+                            . ($p->reference_number ? ' ref ' . $p->reference_number : '')
+                            . ' paid ' . $p->paid_at
+                            . ($p->archive_reason ? ' (archived: ' . $p->archive_reason . ')' : ''))->implode('; ')
+                    );
+
+                    DB::table(self::PAYMENTS_TABLE)
+                        ->where('enrollment_id', $enrollment->enrollment_id)
+                        ->whereNotNull('archived_at')
+                        ->delete();
+                }
+
                 $enrollment->delete();
 
                 // Only go back to applicant when no enrollment is left at all
@@ -227,7 +365,10 @@ class RegistersController extends Controller
             });
         } catch (\Illuminate\Database\QueryException $e) {
             // another table still points at this enrollment
+            // (caught first: QueryException is also a RuntimeException)
             return response()->json(['success' => false, 'message' => 'This enrollment is linked to other records, so it cannot be cancelled.'], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => 'This enrollment still has active payment records, so it cannot be cancelled. Archive them first.'], 422);
         }
 
         return response()->json([
@@ -332,7 +473,8 @@ class RegistersController extends Controller
             ->get()
             ->groupBy('user_id');
 
-        $enrolledNow = Enrollment::whereNull('graduation_at')->pluck('user_id')->unique()->all();
+        // Dropped enrollments don't count as "enrolled now"
+        $enrolledNow = Enrollment::whereNull('graduation_at')->whereNull('dropped_at')->pluck('user_id')->unique()->all();
 
         $users = User::with('profile')
             ->whereIn('user_id', $graduated->keys()->all())
@@ -382,12 +524,15 @@ class RegistersController extends Controller
      * student has exactly the same fields as one loaded with the page.
      * Needs the enrollment's user.profile, course and payments loaded.
      */
-    private function studentRow(Enrollment $e, array $graduatedCourseIds, array $attendanceCounts): array
+    private function studentRow(Enrollment $e, array $graduatedCourseIds, array $attendanceCounts, array $archivedCounts = []): array
     {
-        $totalPaid = $e->payments->sum('amount');
+        // Archived payments don't count toward what was paid, and they don't block cancelling.
+        $activePayments = $e->payments->filter(fn ($p) => $p->archived_at === null);
+
+        $totalPaid = $activePayments->sum('amount');
         $balance = max($e->course_price_at_enrollment - $totalPaid, 0);
 
-        $paymentCount = $e->payments->count();
+        $paymentCount = $activePayments->count();
         $attendanceCount = (int) ($attendanceCounts[$e->enrollment_id] ?? 0);
 
         return [
@@ -412,7 +557,12 @@ class RegistersController extends Controller
             'clearedAt' => $e->cleared_for_graduation_at
                 ? Carbon::parse($e->cleared_for_graduation_at)->toIso8601String()
                 : null,
+            // set when the student was dropped (null = active)
+            'droppedAt' => $e->dropped_at ? Carbon::parse($e->dropped_at)->toIso8601String() : null,
+            'dropReason' => $e->drop_reason ?? '',
             // Cancel button: enabled flag + the reason shown on the page when it is off
+            // archived payments that would be deleted together with the enrollment
+            'archivedPaymentCount' => (int) ($archivedCounts[$e->enrollment_id] ?? 0),
             'canCancel' => $paymentCount === 0 && $attendanceCount === 0,
             'cancelBlockReason' => $this->cancelBlockReason($paymentCount, $attendanceCount),
         ];
@@ -424,7 +574,7 @@ class RegistersController extends Controller
         $parts = [];
 
         if ($paymentCount > 0) {
-            $parts[] = $paymentCount . ' payment ' . Str::plural('record', $paymentCount);
+            $parts[] = $paymentCount . ' active payment ' . Str::plural('record', $paymentCount);
         }
 
         if ($attendanceCount > 0) {
@@ -435,7 +585,8 @@ class RegistersController extends Controller
             return null;
         }
 
-        return 'Cannot cancel: this enrollment already has ' . implode(' and ', $parts) . '.';
+        return 'Cannot cancel: this enrollment already has ' . implode(' and ', $parts) . '.'
+            . ($paymentCount > 0 ? ' Archive the payments first to cancel.' : '');
     }
 
     private function birthFields(?UserProfile $profile): array
@@ -469,7 +620,7 @@ class RegistersController extends Controller
             return 'Athletes cannot be enrolled in a course.';
         }
 
-        if (Enrollment::where('user_id', $userId)->whereNull('graduation_at')->exists()) {
+        if (Enrollment::where('user_id', $userId)->whereNull('graduation_at')->whereNull('dropped_at')->exists()) {
             return 'This person is already enrolled in a course. Use Course update to change it.';
         }
 
@@ -478,6 +629,61 @@ class RegistersController extends Controller
         }
 
         return null;
+    }
+
+    /** One Students/Dropped-tab row for a single enrollment (same shape as data()). */
+    private function rowFor(Enrollment $enrollment): array
+    {
+        $enrollment->refresh()->load(['user.profile', 'course', 'payments']);
+
+        return $this->studentRow(
+            $enrollment,
+            $this->graduatedCourseIdsByUser((int) $enrollment->user_id)->get((int) $enrollment->user_id, []),
+            $this->attendanceCountsByEnrollment([$enrollment->enrollment_id]),
+            $this->archivedPaymentCountsByEnrollment([$enrollment->enrollment_id])
+        );
+    }
+
+    /** Writes an admin action to tbl_system_log. */
+    private function logAction(string $info): void
+    {
+        DB::table('tbl_system_log')->insert([
+            'user_id' => Auth::id(),
+            'role_id' => Auth::user()->role_id,
+            'log_info' => $info,
+            'log_timestamp' => now(),
+        ]);
+    }
+
+    /** Payments of an enrollment that are not archived. $lock = lock the rows (use inside a transaction). */
+    private function activePaymentCount(int $enrollmentId, bool $lock = false): int
+    {
+        $query = DB::table(self::PAYMENTS_TABLE)
+            ->where('enrollment_id', $enrollmentId)
+            ->whereNull('archived_at');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->count();
+    }
+
+    /** enrollment id => number of ARCHIVED payments, for the given enrollments (ids with none are left out). */
+    private function archivedPaymentCountsByEnrollment(array $enrollmentIds): array
+    {
+        if (! $enrollmentIds) {
+            return [];
+        }
+
+        return DB::table(self::PAYMENTS_TABLE)
+            ->whereIn('enrollment_id', $enrollmentIds)
+            ->whereNotNull('archived_at')
+            ->selectRaw('enrollment_id, COUNT(*) as total')
+            ->groupBy('enrollment_id')
+            ->pluck('total', 'enrollment_id')
+            ->mapWithKeys(fn ($total, $id) => [(int) $id => (int) $total])
+            ->all();
     }
 
     /** enrollment id => number of attendance rows, for the given enrollments (ids with none are left out). */

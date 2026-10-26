@@ -16,10 +16,11 @@ use Illuminate\Support\Facades\DB;
  * The page is rendered by name from role_menus.php (no route), so the blade
  * calls pageData() itself, the same way the Graduation page does.
  *
- * Three states, decided by the user's enrollments:
- *   none    -> no current or past enrollment
+ * Four states, decided by the user's enrollments:
+ *   none    -> no current, dropped or past enrollment
  *   past    -> enrolled before, nothing current (everything graduated)
- *   current -> has an enrollment with no graduation date yet
+ *   dropped -> nothing current, and the latest enrollment was dropped by the admin
+ *   current -> has an enrollment with no graduation date yet that is not dropped
  */
 class StudentDashboardController extends Controller
 {
@@ -47,14 +48,18 @@ class StudentDashboardController extends Controller
             ->orderByDesc('enrollment_id')
             ->get();
 
-        $current = $enrollments->first(fn ($e) => $e->graduation_at === null);
+        // A dropped enrollment is not current; it only counts again if the admin reinstates it.
+        $current = $enrollments->first(fn ($e) => $e->graduation_at === null && $e->dropped_at === null);
+        $dropped = $current ? null : $enrollments->first(fn ($e) => $e->graduation_at === null && $e->dropped_at !== null);
         $past    = $enrollments->filter(fn ($e) => $e->graduation_at !== null)->values();
 
         return [
-            'state'     => $current ? 'current' : ($past->isNotEmpty() ? 'past' : 'none'),
+            'state'     => $current ? 'current' : ($dropped ? 'dropped' : ($past->isNotEmpty() ? 'past' : 'none')),
             'firstName' => $firstName,
             'contact'   => self::CONTACT,
             'current'   => $current ? $this->summarize($current, true) : null,
+            // The dropped enrollment (course, dates, sessions done, balance). The admin's drop reason is not sent.
+            'dropped'   => $dropped ? $this->summarize($dropped, false) : null,
             'past'      => $past->map(fn ($e) => $this->summarize($e, false))->all(),
         ];
     }
@@ -124,6 +129,7 @@ class StudentDashboardController extends Controller
             'schedule'     => $enrollment->scheduled_time ?: null,
             'enrolledAt'   => $this->day($enrollment->enrollment_at),
             'graduatedAt'  => $this->day($enrollment->graduation_at),
+            'droppedAt'    => $this->day($enrollment->dropped_at),
             'done'         => $done,
             'total'        => $total,
             'lastSession'  => $this->day($lastSession),

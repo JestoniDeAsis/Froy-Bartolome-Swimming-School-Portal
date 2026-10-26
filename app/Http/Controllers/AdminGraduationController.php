@@ -70,6 +70,7 @@ class AdminGraduationController extends Controller
             ->join(CoachController::STATUS_TABLE . ' as st', 'st.' . CoachController::STATUS_ID_COL, '=', 'u.' . CoachController::STATUS_COL)
             ->leftJoin(CoachController::COURSES_TABLE . ' as c', 'c.' . CoachController::COURSE_ID_COL, '=', 'e.course_id')
             ->whereNull('e.graduation_at')
+            ->whereNull('e.dropped_at')   // dropped students are not part of graduation
             ->where('st.' . CoachController::STATUS_NAME_COL, 'Active')
             ->orderBy('p.last_name')
             ->orderBy('p.first_name')
@@ -216,6 +217,10 @@ class AdminGraduationController extends Controller
             return response()->json(['success' => false, 'message' => 'This student has already graduated.'], 422);
         }
 
+        if ($row->dropped_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student has been dropped.'], 422);
+        }
+
         if ($row->cleared_for_graduation_at === null) {
             return response()->json(['success' => false, 'message' => 'Move the student to Graduating before uploading the certificate.'], 422);
         }
@@ -268,6 +273,10 @@ class AdminGraduationController extends Controller
             return response()->json(['success' => false, 'message' => 'This student has already graduated.'], 422);
         }
 
+        if ($row->dropped_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student has been dropped.'], 422);
+        }
+
         if ($row->cleared_for_graduation_at === null) {
             return response()->json(['success' => false, 'message' => 'Move the student to Graduating first.'], 422);
         }
@@ -308,6 +317,10 @@ class AdminGraduationController extends Controller
 
         if ($row->graduation_at !== null) {
             return response()->json(['success' => false, 'message' => 'This student has already graduated.'], 422);
+        }
+
+        if ($row->dropped_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student has been dropped.'], 422);
         }
 
         if ($row->cleared_for_graduation_at !== null) {

@@ -5,10 +5,11 @@
     // rendered by name from role_menus.php (no route), so it is called here.
     $dashboard = app(\App\Http\Controllers\StudentDashboardController::class)->pageData(auth()->user());
 
-    $state     = $dashboard['state'];       // none | past | current
+    $state     = $dashboard['state'];       // none | past | dropped | current
     $firstName = $dashboard['firstName'];
     $contact   = $dashboard['contact'];
     $current   = $dashboard['current'];
+    $dropped   = $dashboard['dropped'] ?? null;   // only set when state is 'dropped'
     $past      = $dashboard['past'];
 
     $peso = fn ($amount) => '₱' . number_format((float) $amount, 2);
@@ -226,6 +227,7 @@
 }
 
 .studentDashMessageIcon.isSuccess { background: var(--fbss-success-tint, #e6f7ec); color: var(--fbss-success, #1a7f3c); }
+.studentDashMessageIcon.isWarning { background: #fff4e0; color: #b26a00; }
 
 .studentDashMessage h3 { margin: 0 0 .4rem; color: #1f2937; font-size: 1.2rem; font-weight: 700; }
 .studentDashMessage p { margin: 0 0 .25rem; color: #667085; font-size: .9rem; }
@@ -347,9 +349,66 @@
             @endforeach
         </div>
 
+    @elseif ($state === 'dropped')
+
+        {{-- STATE 3: the admin dropped their enrollment (can be reinstated) --}}
+        <div class="studentDashCard studentDashMessage" id="studentDashDropped">
+            <div class="studentDashMessageIcon isWarning"><i class="bi bi-person-dash-fill" aria-hidden="true"></i></div>
+            <h3>You have been dropped from your course.</h3>
+            <p>
+                Your enrollment in <strong>{{ $dropped['courseName'] }}</strong> was dropped{{ $dropped['droppedAt'] ? ' on ' . $dropped['droppedAt'] : '' }}.
+                You are not enrolled in any course right now.
+            </p>
+            @if ($dropped['balance'] > 0)
+                <p>You still have a balance of <strong>{{ $peso($dropped['balance']) }}</strong> on this enrollment.</p>
+            @endif
+            <p>If you think this is a mistake, or you want to continue, please contact FBSS Swim School.</p>
+
+            <div class="studentDashContact" aria-label="School contact information">
+                <p><i class="bi bi-facebook" aria-hidden="true"></i><a href="{{ $contact['facebookUrl'] }}" target="_blank" rel="noopener noreferrer">{{ $contact['facebookLabel'] }}</a></p>
+                <p><i class="bi bi-envelope-fill" aria-hidden="true"></i><a href="mailto:{{ $contact['email'] }}">{{ $contact['email'] }}</a></p>
+                <p><i class="bi bi-telephone-fill" aria-hidden="true"></i><a href="tel:{{ $contact['phoneLink'] }}">{{ $contact['phoneLabel'] }}</a></p>
+            </div>
+        </div>
+
+        <div class="studentDashPastList" id="studentDashDroppedList">
+            <article class="studentDashCard studentDashPastCard">
+                <div>
+                    <h4 class="studentDashPastName">{{ $dropped['courseName'] }}</h4>
+                    <div class="studentDashMeta">
+                        @if ($dropped['enrolledAt'])<span><i class="bi bi-calendar-event"></i>Enrolled {{ $dropped['enrolledAt'] }}</span>@endif
+                        @if ($dropped['droppedAt'])<span><i class="bi bi-person-dash"></i>Dropped {{ $dropped['droppedAt'] }}</span>@endif
+                    </div>
+                </div>
+                <div class="studentDashPastPills">
+                    <span class="studentDashPill is-failed">Dropped</span>
+                    <span class="studentDashPill is-pending">{{ $dropped['done'] }}{{ $dropped['total'] > 0 ? ' / ' . $dropped['total'] : '' }} sessions</span>
+                </div>
+            </article>
+
+            {{-- courses they already graduated from, if any --}}
+            @foreach ($past as $item)
+                <article class="studentDashCard studentDashPastCard">
+                    <div>
+                        <h4 class="studentDashPastName">{{ $item['courseName'] }}</h4>
+                        <div class="studentDashMeta">
+                            @if ($item['enrolledAt'])<span><i class="bi bi-calendar-event"></i>Enrolled {{ $item['enrolledAt'] }}</span>@endif
+                            <span><i class="bi bi-mortarboard"></i>Graduated {{ $item['graduatedAt'] }}</span>
+                        </div>
+                    </div>
+                    <div class="studentDashPastPills">
+                        <span class="studentDashPill is-pass">{{ $item['done'] }}{{ $item['total'] > 0 ? ' / ' . $item['total'] : '' }} sessions</span>
+                        @if ($item['skillsTotal'] > 0)
+                            <span class="studentDashPill is-pass">{{ $item['skillsPassed'] }} / {{ $item['skillsTotal'] }} skills passed</span>
+                        @endif
+                    </div>
+                </article>
+            @endforeach
+        </div>
+
     @else
 
-        {{-- STATE 3: currently enrolled and not graduated --}}
+        {{-- STATE 4: currently enrolled and not graduated --}}
         @php
             $percent = $current['total'] > 0 ? min(100, (int) round(($current['done'] / $current['total']) * 100)) : 0;
             $left = max($current['total'] - $current['done'], 0);

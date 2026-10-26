@@ -775,6 +775,7 @@ class AdminAttendanceController extends Controller
         $time = $v['time'] ?? null;
         $isAthlete = !empty($v['athlete_id']);
         $courseId = null;
+        $isDropped = false;
 
         if ($isAthlete) {
             $athleteId = (int) $v['athlete_id'];
@@ -799,13 +800,14 @@ class AdminAttendanceController extends Controller
             $enrollment = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
                 ->join(CoachController::USERS_TABLE . ' as u', 'u.' . CoachController::USER_PK, '=', 'e.user_id')
                 ->where('e.enrollment_id', (int) $v['enrollment_id'])
-                ->first(['e.enrollment_id', 'e.user_id', 'e.course_id', 'u.' . CoachController::ROLE_COL . ' as role_id']);
+                ->first(['e.enrollment_id', 'e.user_id', 'e.course_id', 'e.dropped_at', 'u.' . CoachController::ROLE_COL . ' as role_id']);
 
             if (!$enrollment) {
                 return $this->fail('Student not found.', 404);
             }
 
             $courseId = $enrollment->course_id ? (int) $enrollment->course_id : null;
+            $isDropped = $enrollment->dropped_at !== null;
 
             $attrs = [
                 'user_id' => $enrollment->user_id,
@@ -818,7 +820,7 @@ class AdminAttendanceController extends Controller
 
         $coachId = isset($v['coach_id']) ? (int) $v['coach_id'] : null;
 
-        return DB::transaction(function () use ($v, $kind, $remove, $time, $adminId, $isAthlete, $attrs, $who, $courseId, $coachId) {
+        return DB::transaction(function () use ($v, $kind, $remove, $time, $adminId, $isAthlete, $attrs, $who, $courseId, $coachId, $isDropped) {
             $row = $isAthlete
                 ? Attendance::ofRole(self::ROLE_ATHLETE)
                     ->forUser((int) $v['athlete_id'])
@@ -831,6 +833,12 @@ class AdminAttendanceController extends Controller
                     ->earliestFirst()
                     ->lockForUpdate()
                     ->first();
+
+            // A dropped student can't get new attendance rows. Rows that were
+            // logged before the drop can still be edited or removed.
+            if (!$row && $isDropped) {
+                return $this->fail('This student has been dropped, so no new attendance can be logged. Existing logs can still be edited.', 422);
+            }
 
             // A brand-new row needs the coach who handled this student / athlete.
             if (!$row && !$remove && $kind !== 'out') {

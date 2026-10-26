@@ -366,11 +366,13 @@
     white-space: pre-line;
 }
 
-.confirmModalTypeGroup {
+.confirmModalTypeGroup,
+.confirmModalReasonGroup {
     margin-top: 1rem;
 }
 
-.confirmModalTypeGroup label {
+.confirmModalTypeGroup label,
+.confirmModalReasonGroup label {
     display: block;
     margin-bottom: .35rem;
     font-size: .85rem;
@@ -485,6 +487,9 @@
         <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="graduates" aria-selected="false">
             Graduates
         </button>
+        <button class="btn btn-outline-primary btn-tab registersTab" type="button" data-register-tab="dropped" aria-selected="false">
+            Dropped
+        </button>
     </nav>
 
 
@@ -569,6 +574,8 @@
             <button class="btn btn-outline-danger" id="deleteApplicantButton" type="button" disabled>Delete</button>
             <button class="btn btn-primary" id="courseUpdateButton" type="button" disabled>Course update</button>
             <button class="btn btn-outline-danger" id="cancelEnrollmentButton" type="button" disabled>Cancel Enrollment</button>
+            <button class="btn btn-outline-danger" id="dropStudentButton" type="button" disabled>Drop Student</button>
+            <button class="btn btn-primary" id="reinstateButton" type="button" disabled>Reinstate</button>
         </div>
 
     </div>
@@ -723,6 +730,11 @@
             <input class="form-control" id="confirmModalTypeInput" type="text" autocomplete="off" spellcheck="false">
         </div>
 
+        <div class="confirmModalReasonGroup" id="confirmModalReasonGroup" hidden>
+            <label for="confirmModalReasonInput">Reason (optional)</label>
+            <input class="form-control" id="confirmModalReasonInput" type="text" maxlength="255" autocomplete="off" placeholder="e.g. moved away, non-payment, student request">
+        </div>
+
         <div class="modalActions">
             <button class="btn btn-outline-danger" id="confirmModalCancelButton" type="button">Cancel</button>
             <button class="btn btn-primary" id="confirmModalConfirmButton" type="button">Confirm</button>
@@ -753,6 +765,7 @@
 
     let students = @json($students);
     let graduates = @json($graduates);
+    let dropped = @json($dropped);
 
 
     /* =========================================================
@@ -790,6 +803,22 @@
                 { label: 'Graduation', key: 'graduation' },
                 { label: 'Notes', key: 'notes' },
                 { label: 'Enrolled On', key: 'enrolledAt' }
+            ]
+        },
+        dropped: {
+            getRows: () => dropped,
+            dateKey: 'droppedAt',
+            columns: [
+                { label: 'Last Name', key: 'lastName' },
+                { label: 'First Name', key: 'firstName' },
+                { label: 'Middle Name', key: 'middleName' },
+                { label: 'Last Course', key: 'course' },
+                { label: 'Payment Status', key: 'paymentStatus' },
+                { label: 'Balance', key: 'balance' },
+                { label: 'Sessions', key: 'sessions' },
+                { label: 'Reason', key: 'dropReason' },
+                { label: 'Enrolled On', key: 'enrolledAt' },
+                { label: 'Dropped On', key: 'droppedAt' }
             ]
         },
         graduates: {
@@ -849,6 +878,8 @@
         deleteApplicantButton: document.getElementById('deleteApplicantButton'),
         courseUpdateButton: document.getElementById('courseUpdateButton'),
         cancelEnrollmentButton: document.getElementById('cancelEnrollmentButton'),
+        dropStudentButton: document.getElementById('dropStudentButton'),
+        reinstateButton: document.getElementById('reinstateButton'),
         actionHint: document.getElementById('registersActionHint'),
 
         notesModal: document.getElementById('notesModal'),
@@ -865,6 +896,8 @@
         confirmModalTypeGroup: document.getElementById('confirmModalTypeGroup'),
         confirmModalTypeLabel: document.getElementById('confirmModalTypeLabel'),
         confirmModalTypeInput: document.getElementById('confirmModalTypeInput'),
+        confirmModalReasonGroup: document.getElementById('confirmModalReasonGroup'),
+        confirmModalReasonInput: document.getElementById('confirmModalReasonInput'),
 
     };
 
@@ -1031,7 +1064,8 @@
         title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm,
         danger = false,      // red Confirm button, neutral Cancel
         warning = '',        // red warning box under the message
-        requireText = ''     // Confirm stays off until this exact text is typed
+        requireText = '',    // Confirm stays off until this exact text is typed
+        askReason = false    // shows an optional reason box; its text is passed to onConfirm
     }) {
         elements.confirmModalTitle.textContent = title;
         elements.confirmModalMessage.textContent = message;
@@ -1050,6 +1084,9 @@
         elements.confirmModalTypeLabel.textContent = requireText ? `Type ${requireText} to confirm` : '';
         elements.confirmModalConfirmButton.disabled = !!requireText;
 
+        elements.confirmModalReasonInput.value = '';
+        elements.confirmModalReasonGroup.hidden = !askReason;
+
         pendingConfirmAction = typeof onConfirm === 'function' ? onConfirm : null;
 
         openModal(elements.confirmModal);
@@ -1066,6 +1103,7 @@
         elements.confirmModalCancelButton.hidden = true;
         elements.confirmModalWarning.hidden = true;
         elements.confirmModalTypeGroup.hidden = true;
+        elements.confirmModalReasonGroup.hidden = true;
         confirmRequiredText = '';
 
         pendingConfirmAction = null;
@@ -1090,9 +1128,10 @@
 
     elements.confirmModalConfirmButton.addEventListener('click', () => {
         const action = pendingConfirmAction;
+        const reason = elements.confirmModalReasonInput.value.trim();
         pendingConfirmAction = null;
         closeModal(elements.confirmModal);
-        if (action) action();
+        if (action) action(reason);
     });
 
     /* =========================================================
@@ -1101,7 +1140,7 @@
 
     // Keys that hold a date. Date-and-time for enrollments, date only for the rest.
     const DATE_TIME_KEYS = ['enrolledAt'];
-    const DATE_KEYS = ['createdAt', 'graduatedAt'];
+    const DATE_KEYS = ['createdAt', 'graduatedAt', 'droppedAt'];
 
     // What a cell shows as plain text (also what the search box matches against).
     function getCellText(key, person) {
@@ -1183,21 +1222,31 @@
         const hasSelection = person !== null;
 
         // Which buttons show on which tab.
-        elements.enrollButton.hidden = activeTab === 'students';
+        elements.enrollButton.hidden = activeTab !== 'registrations' && activeTab !== 'graduates';
         elements.deleteApplicantButton.hidden = activeTab !== 'registrations';
         elements.courseUpdateButton.hidden = activeTab !== 'students';
         elements.cancelEnrollmentButton.hidden = activeTab !== 'students';
+        elements.dropStudentButton.hidden = activeTab !== 'students';
+        elements.reinstateButton.hidden = activeTab !== 'dropped';
 
         // Enabled only when a row is selected.
         elements.enrollButton.disabled = !hasSelection;
         elements.deleteApplicantButton.disabled = !hasSelection;
         elements.courseUpdateButton.disabled = !hasSelection;
+        elements.reinstateButton.disabled = !hasSelection;
+
+        // Drop Student is off when the student is cleared for graduation (move them back to Ready first).
+        const canDrop = hasSelection && !person.clearedAt;
+        elements.dropStudentButton.disabled = !canDrop;
+        elements.dropStudentButton.title = hasSelection && !canDrop
+            ? 'This student is cleared for graduation. Move them back to Ready on the Graduation page before dropping.'
+            : 'Drop this student (they can be reinstated later)';
 
         // Cancel Enrollment is also off when the enrollment has payments or attendance.
         const canCancel = hasSelection && person.canCancel !== false;
         elements.cancelEnrollmentButton.disabled = !canCancel;
         elements.cancelEnrollmentButton.title = hasSelection && !canCancel
-            ? (person.cancelBlockReason || 'This enrollment has payment or attendance records, so it cannot be cancelled.')
+            ? (person.cancelBlockReason || 'This enrollment has active payments or attendance records, so it cannot be cancelled.')
             : 'Cancel this enrollment';
 
         updateActionHint(person);
@@ -1213,15 +1262,19 @@
             text = activeTab === 'registrations'
                 ? 'Select an applicant to enroll them or permanently delete their account.'
                 : activeTab === 'students'
-                    ? 'Select a student to update their course or cancel their enrollment.'
-                    : 'Select a graduate to enroll them in another course.';
+                    ? 'Select a student to update their course, drop them, or cancel their enrollment.'
+                    : activeTab === 'dropped'
+                        ? 'Select a dropped student to reinstate them.'
+                        : 'Select a graduate to enroll them in another course.';
         } else {
             const name = getPersonName(person);
 
-            if (activeTab === 'students') {
+            if (activeTab === 'dropped') {
+                text = `${name}: dropped on ${formatAddedDate(person.droppedAt)}${person.dropReason ? ` (${person.dropReason})` : ''}. Payments and attendance are kept. They can be reinstated.`;
+            } else if (activeTab === 'students') {
                 text = person.canCancel === false
-                    ? `${name}: course can be updated, but the enrollment can't be cancelled. ${(person.cancelBlockReason || 'It has payment or attendance records.').replace(/^Cannot cancel:\s*/, 'Reason: ')}`
-                    : `${name}: course can be updated, and the enrollment can still be cancelled (no payments or attendance yet).`;
+                    ? `${name}: course can be updated, but the enrollment can't be cancelled. ${(person.cancelBlockReason || 'It has active payments or attendance records.').replace(/^Cannot cancel:\s*/, 'Reason: ')}`
+                    : `${name}: course can be updated, and the enrollment can still be cancelled (no active payments or attendance yet).`;
                 warning = person.canCancel === false;
             } else if (availableCoursesFor(person).length === 0) {
                 text = `${name} has already graduated from every available course, so they can't be enrolled again.`;
@@ -1514,7 +1567,7 @@
 
     elements.enrollButton.addEventListener('click', () => {
         const person = getSelectedPerson();
-        if (!person || activeTab === 'students') return;
+        if (!person || (activeTab !== 'registrations' && activeTab !== 'graduates')) return;
         openEnrollModal(activeTab, person.id);   // 'registrations' or 'graduates'
     });
 
@@ -1564,6 +1617,94 @@
         }
     }
 
+    elements.dropStudentButton.addEventListener('click', () => {
+        const student = getSelectedPerson();
+        if (!student || activeTab !== 'students' || student.clearedAt) return;
+
+        openConfirmModal({
+            title: 'Drop student?',
+            message: `Drop ${getPersonName(student)} from ${student.course}? They will move to the Dropped tab. Payments and attendance are kept, and you can reinstate them later.`,
+            confirmLabel: 'Drop Student',
+            cancelLabel: 'Keep',
+            danger: true,
+            askReason: true,
+            onConfirm: reason => submitDropStudent(student, reason)
+        });
+    });
+
+    async function submitDropStudent(student, reason) {
+        try {
+            const response = await fetch(`{{ url('/registers/students') }}/${student.id}/drop`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ drop_reason: reason || null })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                students = students.filter(s => s.id !== student.id);
+                dropped.push(data.dropped);
+
+                selectedId = null;
+                updateToolbarState();
+                renderTable(activeTab);
+                showToast(`Dropped ${getPersonName(student)}.`, 'success');
+            } else {
+                showToast(data.message || 'Something went wrong while dropping the student.', 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while dropping the student.', 'danger');
+        }
+    }
+
+    elements.reinstateButton.addEventListener('click', () => {
+        const student = getSelectedPerson();
+        if (!student || activeTab !== 'dropped') return;
+
+        openConfirmModal({
+            title: 'Reinstate student?',
+            message: `Reinstate ${getPersonName(student)} in ${student.course}? They will return to the Students tab.`,
+            confirmLabel: 'Reinstate',
+            cancelLabel: 'Cancel',
+            onConfirm: () => submitReinstateStudent(student)
+        });
+    });
+
+    async function submitReinstateStudent(student) {
+        try {
+            const response = await fetch(`{{ url('/registers/students') }}/${student.id}/reinstate`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                dropped = dropped.filter(s => s.id !== student.id);
+                students.push(data.student);
+
+                selectedId = null;
+                updateToolbarState();
+                renderTable(activeTab);
+                showToast(`Reinstated ${getPersonName(student)}.`, 'success');
+            } else {
+                showToast(data.message || 'Something went wrong while reinstating the student.', 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while reinstating the student.', 'danger');
+        }
+    }
+
     elements.cancelEnrollmentButton.addEventListener('click', () => {
         const student = getSelectedPerson();
         if (!student || activeTab !== 'students' || student.canCancel === false) return;
@@ -1571,6 +1712,9 @@
         openConfirmModal({
             title: 'Cancel enrollment?',
             message: `Cancel ${getPersonName(student)}'s enrollment in ${student.course}? This deletes the enrollment and cannot be undone.`,
+            warning: student.archivedPaymentCount > 0
+                ? `This enrollment has ${student.archivedPaymentCount} archived payment ${student.archivedPaymentCount === 1 ? 'record' : 'records'}. ${student.archivedPaymentCount === 1 ? 'It' : 'They'} will be permanently deleted together with the enrollment.`
+                : '',
             confirmLabel: 'Cancel Enrollment',
             cancelLabel: 'Keep',
             onConfirm: () => submitCancelEnrollment(student)

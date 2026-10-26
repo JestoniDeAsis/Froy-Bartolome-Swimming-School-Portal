@@ -798,6 +798,14 @@ class CoachAttendanceController extends Controller
             return $this->fail('This student has already graduated, so their attendance can no longer be changed.', 422);
         }
 
+        // A dropped student is closed for the coach too: no logging, marking or removing.
+        if (DB::table(Attendance::ENROLLMENTS_TABLE)
+            ->where('enrollment_id', $v['enrollment_id'])
+            ->whereNotNull('dropped_at')
+            ->exists()) {
+            return $this->fail('This student has been dropped, so attendance can no longer be logged.', 422);
+        }
+
         // The enrollment must be an active one, of an Active user, in one of
         // this coach's classes.
         $enrollment = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
@@ -805,6 +813,7 @@ class CoachAttendanceController extends Controller
             ->join(CoachController::STATUS_TABLE . ' as st', 'st.' . CoachController::STATUS_ID_COL, '=', 'u.' . CoachController::STATUS_COL)
             ->where('e.enrollment_id', $v['enrollment_id'])
             ->whereNull('e.graduation_at')
+            ->whereNull('e.dropped_at')
             ->where('st.' . CoachController::STATUS_NAME_COL, 'Active')
             ->first(['e.enrollment_id', 'e.user_id', 'e.course_id', 'u.' . CoachController::ROLE_COL . ' as role_id']);
 

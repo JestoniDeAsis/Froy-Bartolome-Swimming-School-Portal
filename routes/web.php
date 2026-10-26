@@ -202,6 +202,8 @@ Route::post('/registers/athletes', [RegistersController::class, 'addAthletes'])-
 Route::post('/registers/athletes/{user}/revoke', [RegistersController::class, 'revokeAthlete'])->middleware('auth')->whereNumber('user');
 Route::delete('/registers/students/{enrollment}', [RegistersController::class, 'destroy']);
 Route::delete('/registers/applicants/{user}', [RegistersController::class, 'destroyApplicant']);
+Route::post('/registers/students/{enrollment}/drop', [RegistersController::class, 'drop'])->middleware('auth')->whereNumber('enrollment');
+Route::post('/registers/students/{enrollment}/reinstate', [RegistersController::class, 'reinstate'])->middleware('auth')->whereNumber('enrollment');
 
 
 
