@@ -692,6 +692,18 @@
        HEADER
     ========================================================= */
 
+    // The student was dropped while this page was open (or the server says so):
+    // close any open modal and reload, so the row is gone. Returns true when handled.
+    async function dropHandled(result) {
+        if (!result.data || !result.data.dropped) return false;
+
+        closeChecklistModal();
+        closeTimeModal();
+        await loadRows();
+
+        return true;
+    }
+
     function renderCurrentDateLine() {
         el.description.textContent = `Current date: ${formatLongDate(new Date())}`;
     }
@@ -1104,6 +1116,7 @@
                 await loadRows({ keepSelection: true });
             } else {
                 toastServerErrors(result, 'Unable to save the assessment.');
+                await dropHandled(result);
             }
         } catch (error) {
             console.error(error);
@@ -1209,6 +1222,7 @@
                 await loadRows({ keepSelection: true });
             } else {
                 toastServerErrors(result, 'Unable to mark the student absent.');
+                await dropHandled(result);
             }
         } catch (error) {
             console.error(error);
@@ -1239,6 +1253,8 @@
                 await loadRows({ keepSelection: true, silent: true });
             } else {
                 toastServerErrors(result, `Unable to remove ${mark}.`);
+
+                if (await dropHandled(result)) return;
 
                 if (result.status === 403 || result.status === 404) await loadRows({ keepSelection: true, silent: true });
             }
@@ -1290,6 +1306,7 @@
                 await loadRows({ keepSelection: true });
             } else {
                 toastServerErrors(result, 'Unable to save the time.');
+                await dropHandled(result);
 
                 // e.g. the admin timed this coach out while the modal was open.
                 if (result.status === 403) {

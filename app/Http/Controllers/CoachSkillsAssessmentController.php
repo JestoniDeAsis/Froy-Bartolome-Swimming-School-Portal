@@ -68,7 +68,7 @@ class CoachSkillsAssessmentController extends Controller
         $courses = Course::query()
             ->whereIn(
                 'course_id',
-                Enrollment::query()->whereIn('enrollment_id', $loggedEnrollmentIds)->select('course_id')
+                Enrollment::query()->whereIn('enrollment_id', $loggedEnrollmentIds)->whereNull('dropped_at')->select('course_id')
             )
             ->orderBy('course_name')
             ->get(['course_id', 'course_name'])
@@ -89,6 +89,8 @@ class CoachSkillsAssessmentController extends Controller
         $enrollments = Enrollment::query()
             ->with(['user.profile', 'course'])
             ->whereIn('enrollment_id', $logs->keys())
+            // A dropped student is gone from this page, even with a record logged before the drop.
+            ->whereNull('dropped_at')
             ->when($courseId, fn ($query) => $query->where('course_id', $courseId))
             ->get();
 
@@ -222,6 +224,10 @@ class CoachSkillsAssessmentController extends Controller
             return $closed;
         }
 
+        if ($dropped = $this->droppedResponse((int) $input['enrollment_id'])) {
+            return $dropped;
+        }
+
         return DB::transaction(function () use ($input, $date, $coachId) {
             if ($reason = $this->sessionBlockReason($coachId, $date)) {
                 return response()->json(['success' => false, 'message' => $reason], 403);
@@ -297,6 +303,10 @@ class CoachSkillsAssessmentController extends Controller
             return $closed;
         }
 
+        if ($dropped = $this->droppedResponse((int) $input['enrollment_id'])) {
+            return $dropped;
+        }
+
         return DB::transaction(function () use ($input, $date, $coachId) {
             if ($reason = $this->sessionBlockReason($coachId, $date)) {
                 return response()->json(['success' => false, 'message' => $reason], 403);
@@ -354,6 +364,11 @@ class CoachSkillsAssessmentController extends Controller
 
         if ($enrollmentRow->graduation_at !== null) {
             return response()->json(['success' => false, 'message' => 'This student has already graduated, so the assessment can no longer be changed.'], 422);
+        }
+
+        // A dropped student's assessment cannot be viewed or changed from here anymore.
+        if ($dropped = $this->droppedResponse((int) $enrollmentRow->enrollment_id)) {
+            return $dropped;
         }
 
         // A coach can only assess a student they have logged attendance for.
@@ -465,6 +480,28 @@ class CoachSkillsAssessmentController extends Controller
 
         return $graduated
             ? response()->json(['success' => false, 'message' => 'This student has already graduated, so this can no longer be changed.'], 422)
+            : null;
+    }
+
+    /**
+     * A dropped student is no longer in the coach's class (soft drop on the admin
+     * Registers page). Nothing about the enrollment can be changed from the coach
+     * pages. "dropped" => true lets the page close its modals and reload the list.
+     * Returns the error reply when the enrollment is dropped, null otherwise.
+     */
+    private function droppedResponse(int $enrollmentId): ?JsonResponse
+    {
+        $dropped = Enrollment::query()
+            ->where('enrollment_id', $enrollmentId)
+            ->whereNotNull('dropped_at')
+            ->exists();
+
+        return $dropped
+            ? response()->json([
+                'success' => false,
+                'dropped' => true,
+                'message' => 'This student has been dropped and is no longer available here.',
+            ], 422)
             : null;
     }
 
