@@ -49,6 +49,7 @@
 
 /* Filter label + control, stacked */
 .coachesFilterGroup { display: flex; flex-direction: column; gap: .35rem; }
+.coachesFilterGroup[hidden] { display: none !important; }
 .coachesFilterLabel {
     font-size: .7rem;
     font-weight: 700;
@@ -126,9 +127,23 @@
 
 .coachesTable th,
 .coachesTable td { padding: .75rem 1rem; vertical-align: middle; }
-.coachesTable th:last-child,
-.coachesTable td:last-child { text-align: center; }
+.coachesTable tbody tr { transition: background-color .1s ease; }
 .coachesTable tbody tr:hover { background: #f8fafb; }
+
+/* Selectable rows (same as Attendance) */
+.coachesRow.isSelectable { cursor: pointer; }
+.coachesRow.selectedRow,
+.coachesRow.selectedRow:hover,
+.coachesRow.selectedRow > td { background: #e7f5ff; }
+.coachesRow:focus-visible { outline: 2px solid #4dabf7; outline-offset: -2px; }
+
+/* Toolbar buttons (same as Attendance) */
+.coachesToolbarActions {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
 
 .coachesEmptyState {
     padding: 2rem !important;
@@ -147,6 +162,12 @@
 .statusBadge.active      { background: #e6f7ec; color: #1a7f3c; }
 .statusBadge.on-hold  { background: #fff4e0; color: #b26a00; }
 .statusBadge.deactivated { background: #fdebec; color: #c22b3a; }
+
+/* Enrollment badges (Students tab) */
+.statusBadge.enrolled     { background: #e7f5ff; color: #1971c2; }
+.statusBadge.dropped      { background: #f3ecff; color: #6f42c1; }
+.statusBadge.graduated,
+.statusBadge.not-enrolled { background: #f1f3f5; color: #495057; }
 
 /* Shared modal (backdrop = .modalOverlay in our_theme.css) */
 
@@ -228,9 +249,89 @@
 .coachEmailNotice { font-size: .8125rem; color: #495057; margin-bottom: 0; }
 .coachEmailNotice strong { color: #212529; font-weight: 600; }
 
+/* User information popup (look of the Attendance modals) */
+.userInfoModal {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(16, 24, 40, .18);
+    overflow: hidden;
+}
+
+.userInfoModalHeader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e7ebef;
+}
+.userInfoModalHeader h5 { margin: 0; font-size: 1rem; font-weight: 700; }
+
+.userInfoModalClose {
+    border: none;
+    background: transparent;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #667085;
+    cursor: pointer;
+    padding: 0;
+}
+
+.userInfoModalBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.25rem;
+}
+
+.userInfoModalName { margin: 0 0 1rem; font-size: .875rem; color: #344054; }
+.userInfoModalName strong { color: #101828; }
+
+.userInfoModalFooter {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e7ebef;
+}
+
+.userInfoSection { margin-bottom: 1.25rem; }
+.userInfoSection:last-child { margin-bottom: 0; }
+
+.userInfoSectionTitle {
+    margin: 0 0 .5rem;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #667085;
+    text-transform: uppercase;
+}
+
+.userInfoList {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: .4rem 1rem;
+    margin: 0;
+    font-size: .875rem;
+}
+.userInfoList dt { color: #6c757d; font-weight: 600; overflow-wrap: anywhere; }
+.userInfoList dd { margin: 0; color: #212529; overflow-wrap: anywhere; }
+.userInfoList a { font-weight: 600; text-decoration: none; }
+.userInfoEmpty { color: #adb5bd; }
+
 @media (max-width: 575.98px) {
     .coachesContainer { padding: 1rem; }
     .modalContentBox { padding: 1.25rem; }
+    .coachesToolbarActions { margin-left: 0; width: 100%; }
+    .coachesToolbarActions button { flex: 1 1 auto; }
+    .userInfoList { grid-template-columns: 1fr; gap: 0; }
+    .userInfoList dd { margin-bottom: .5rem; }
 }
 </style>
 
@@ -276,6 +377,24 @@
             </div>
         </div>
 
+        <!-- Second filter: Enrollment (students) / Type (athletes). Hidden on the other tabs. -->
+        <div class="coachesFilterGroup" id="groupFilterGroup" hidden>
+            <label class="coachesFilterLabel" id="groupFilterLabel" for="groupFilterToggle">Enrollment</label>
+
+            <div class="registerDropdown coachesStatusFilter" id="groupFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="groupFilterToggle" type="button" aria-expanded="false" aria-controls="groupFilterOptions">
+                    <span id="groupFilterSelected">All</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+
+                <div class="registerDropdownOptions" id="groupFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All</button>
+                </div>
+
+                <input id="groupFilterInput" name="groupFilter" type="hidden" value="">
+            </div>
+        </div>
+
         <div class="coachesFilterGroup">
             <label class="coachesFilterLabel" for="coachesSearch">Search</label>
 
@@ -284,6 +403,12 @@
                 <input class="form-control coachesSearchInput" id="coachesSearch" type="search"
                        placeholder="Search" autocomplete="off" aria-label="Search users">
             </div>
+        </div>
+
+        <!-- Row actions (select a row first, same as Attendance) -->
+        <div class="coachesToolbarActions">
+            <button class="btn btn-primary" id="viewInfoButton" type="button" disabled>View Info</button>
+            <button class="btn btn-primary" id="editUserButton" type="button" disabled>Edit</button>
         </div>
     </div>
 
@@ -570,6 +695,27 @@
 
     </div>
 </div>
+<!-- ================= USER INFORMATION (view only) ================= -->
+<div class="modalOverlay" id="userInfoModalOverlay" hidden>
+    <div class="userInfoModal" role="dialog" aria-modal="true" aria-labelledby="userInfoModalTitle">
+
+        <div class="userInfoModalHeader">
+            <h5 id="userInfoModalTitle">User Information</h5>
+            <button class="userInfoModalClose" id="userInfoModalCloseButton" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="userInfoModalBody">
+            <p class="userInfoModalName">Name: <strong id="userInfoModalName"></strong></p>
+            <div id="userInfoBody"></div>
+        </div>
+
+        <div class="userInfoModalFooter">
+            <button class="btn btn-outline-primary" id="userInfoModalDoneButton" type="button">Close</button>
+        </div>
+
+    </div>
+</div>
+
 <script src="{{ asset('assets/js/fbss-dropdown.js') }}"></script>
 <script>
 (function () {
@@ -583,11 +729,14 @@
         data: '/coaches/data',
         store: '/coaches',
         preview: '/coaches/account-preview',
-        update: id => `/coaches/${id}`
+        update: id => `/coaches/${id}`,
+        info: id => `/coaches/${id}/profile`
     };
 
     const MIN_COACH_AGE = 18;
     const ROLE_COACH = 2;
+    const ROLE_ATHLETE = 4;
+    const ROLE_FORMER_ATHLETE = 6;
     const USERNAME_RE = /^[A-Za-z0-9_]{3,30}$/;
     const PASSWORD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     const PHONE_RE = /^09\d{9}$/;
@@ -616,6 +765,8 @@
     let statusFilterBuilt = false;
     let editId = null;
     let busy = false;
+    let selectedId = null;   // row picked in the table (View Info / Edit act on it)
+    let infoSeq = 0;
 
     const $ = id => document.getElementById(id);
 
@@ -625,9 +776,21 @@
         hint: $('coachesHint'),
         statusFilter: $('statusFilterDropdown'),
         statusFilterInput: $('statusFilterInput'),
+        groupFilterGroup: $('groupFilterGroup'),
+        groupFilterLabel: $('groupFilterLabel'),
+        groupFilter: $('groupFilterDropdown'),
+        groupFilterInput: $('groupFilterInput'),
         tableHead: $('coachesTableHead'),
         tableBody: $('coachesTableBody'),
         addButton: $('addCoachButton'),
+        viewInfoButton: $('viewInfoButton'),
+        editButton: $('editUserButton'),
+
+        infoOverlay: $('userInfoModalOverlay'),
+        infoName: $('userInfoModalName'),
+        infoBody: $('userInfoBody'),
+        infoClose: $('userInfoModalCloseButton'),
+        infoDone: $('userInfoModalDoneButton'),
 
         step1: $('coachAddStep1Modal'),
         step2: $('coachAddStep2Modal'),
@@ -685,20 +848,45 @@
             hint: 'Register coaches, assign their courses and change their account status.',
             columns: [
                 ...nameColumns,
-                { label: 'Courses',  value: u => courseNames(u.course_ids).join(', ') },
-                { label: 'Athletes', value: u => u.handles_athletes ? 'Yes' : 'No' },
+                { label: 'Assigned Classes', value: u => classesLabel(u) },
                 statusColumn
             ]
         },
         students: {
             singular: 'student', plural: 'students',
-            hint: 'Change a student\'s account status.',
-            columns: [...nameColumns, { label: 'Course', value: u => u.course_names }, statusColumn]
+            hint: 'Change a student\'s account status. Use the Enrollment filter to see dropped students.',
+            columns: [
+                ...nameColumns,
+                { label: 'Course', value: u => u.course_names },
+                { label: 'Enrollment', value: u => u.enrollment_status, badge: true },
+                statusColumn
+            ],
+            groupFilter: {
+                label: 'Enrollment',
+                allLabel: 'All students',
+                options: [
+                    { value: 'Enrolled', label: 'Enrolled' },
+                    { value: 'Dropped', label: 'Dropped' },
+                    { value: 'Graduated', label: 'Graduated' }
+                ],
+                match: (u, value) => u.enrollment_status === value
+            }
         },
         athletes: {
             singular: 'athlete', plural: 'athletes',
-            hint: 'Change an athlete\'s account status. Former athletes are listed here too.',
-            columns: [...nameColumns, { label: 'Type', value: u => u.role_name }, statusColumn]
+            hint: 'Change an athlete\'s account status. Use the Type filter to see former (retired) athletes.',
+            columns: [...nameColumns, { label: 'Type', value: u => u.role_name }, statusColumn],
+            groupFilter: {
+                label: 'Type',
+                allLabel: 'Athletes and former',
+                options: [
+                    { value: 'current', label: 'Athletes' },
+                    { value: 'former', label: 'Former athletes' }
+                ],
+                match: (u, value) => value === 'former'
+                    ? u.role_id === ROLE_FORMER_ATHLETE
+                    : u.role_id === ROLE_ATHLETE
+            }
         },
         applicants: {
             singular: 'applicant', plural: 'applicants',
@@ -734,6 +922,31 @@
         return (ids || [])
             .map(id => courses.find(c => Number(c.id) === Number(id))?.name)
             .filter(Boolean);
+    }
+
+    // Same wording as the Attendance page: every course + athletes -> "Handles all",
+    // every course -> "All classes", otherwise the course names (+ "Athletes").
+    function classesLabel(user) {
+        const names = [...new Set(courseNames(user.course_ids))];
+        const hasAllCourses = courses.length > 0 && names.length >= courses.length;
+
+        if (hasAllCourses) {
+            return user.handles_athletes ? 'Handles all' : 'All classes';
+        }
+
+        if (user.handles_athletes) names.push('Athletes');
+
+        return names.join(', ');
+    }
+
+    function selectedUser() {
+        return selectedId === null ? null : (users.find(u => u.id === selectedId) || null);
+    }
+
+    function updateToolbarState() {
+        const hasSelection = Boolean(selectedUser());
+        el.viewInfoButton.disabled = !hasSelection;
+        el.editButton.disabled = !hasSelection;
     }
 
     function ageFrom(iso) {
@@ -834,22 +1047,31 @@
         const cfg = tabConfig();
         const term = el.search.value.trim().toLowerCase();
         const statusFilter = el.statusFilterInput.value;
+        const groupFilter = el.groupFilterInput.value;
+        const groupConfig = cfg.groupFilter;
 
         const rows = users.filter(u => {
             if (statusFilter && u.status !== statusFilter) return false;
+            if (groupFilter && groupConfig && !groupConfig.match(u, groupFilter)) return false;
 
             return [u.username, u.email_address, u.last_name, u.first_name, u.middle_name,
-                    u.phone_number, u.status, u.role_name, u.course_names,
-                    u.handles_athletes ? 'athletes' : '', ...courseNames(u.course_ids)]
+                    u.phone_number, u.status, u.role_name, u.course_names, u.enrollment_status,
+                    u.handles_athletes ? 'athletes' : '', classesLabel(u), ...courseNames(u.course_ids)]
                 .join(' ').toLowerCase().includes(term);
         });
+
+        // A filtered-out or reloaded row can no longer be selected.
+        if (selectedId !== null && !rows.some(u => u.id === selectedId)) {
+            selectedId = null;
+        }
+
+        updateToolbarState();
 
         el.tableHead.replaceChildren();
         el.tableBody.replaceChildren();
 
         const headerRow = make('tr');
         cfg.columns.forEach(col => headerRow.append(make('th', { text: col.label, attributes: { scope: 'col' } })));
-        headerRow.append(make('th', { text: 'Actions', attributes: { scope: 'col' } }));
         el.tableHead.append(headerRow);
 
         if (!rows.length) {
@@ -859,15 +1081,19 @@
                 text: loading && !users.length
                     ? 'Loading...'
                     : (users.length ? `No matching ${cfg.plural} found.` : `No ${cfg.plural} yet.`),
-                attributes: { colSpan: cfg.columns.length + 1 }
+                attributes: { colSpan: cfg.columns.length }
             }));
             el.tableBody.append(emptyRow);
             return;
         }
 
         rows.forEach(user => {
-            const row = make('tr');
+            const row = make('tr', { className: 'coachesRow isSelectable' });
             row.dataset.id = user.id;
+            row.tabIndex = 0;
+            row.setAttribute('aria-selected', String(selectedId === user.id));
+
+            if (selectedId === user.id) row.classList.add('selectedRow');
 
             cfg.columns.forEach(col => {
                 const cell = make('td');
@@ -885,19 +1111,44 @@
                 row.append(cell);
             });
 
-            const actionCell = make('td');
-            const editButton = make('button', {
-                className: 'btn btn-outline-secondary btn-sm',
-                attributes: { type: 'button', 'aria-label': `Edit ${personName(user)}`, title: `Edit ${cfg.singular}` }
-            });
-            editButton.append(make('i', { className: 'bi bi-pencil', attributes: { 'aria-hidden': 'true' } }));
-            editButton.addEventListener('click', () => openEditModal(user.id));
-            actionCell.append(editButton);
-            row.append(actionCell);
-
             el.tableBody.append(row);
         });
     }
+
+    function selectRow(id) {
+        selectedId = id;
+
+        el.tableBody.querySelectorAll('tr[data-id]').forEach(row => {
+            const isSelected = Number(row.dataset.id) === id;
+            row.classList.toggle('selectedRow', isSelected);
+            row.setAttribute('aria-selected', String(isSelected));
+        });
+
+        updateToolbarState();
+    }
+
+    el.tableBody.addEventListener('click', event => {
+        const row = event.target.closest('tr[data-id]');
+        if (row && el.tableBody.contains(row)) selectRow(Number(row.dataset.id));
+    });
+
+    el.tableBody.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        const row = event.target.closest('tr[data-id]');
+        if (!row) return;
+
+        event.preventDefault();
+        selectRow(Number(row.dataset.id));
+    });
+
+    el.viewInfoButton.addEventListener('click', () => {
+        if (selectedId !== null) openInfoModal(selectedId);
+    });
+
+    el.editButton.addEventListener('click', () => {
+        if (selectedId !== null) openEditModal(selectedId);
+    });
 
     el.search.addEventListener('input', renderTable);
 
@@ -912,6 +1163,25 @@
         );
 
         statusFilterBuilt = true;
+    }
+
+    // Second filter (Enrollment on Students, Type on Athletes). Rebuilt on every tab switch.
+    function setupGroupFilter() {
+        const cfg = tabConfig().groupFilter;
+
+        el.groupFilterGroup.hidden = !cfg;
+        el.groupFilterInput.value = '';
+
+        if (!cfg) return;
+
+        el.groupFilterLabel.textContent = cfg.label;
+
+        window.FBSSDropdown.setOptions(
+            el.groupFilter,
+            [{ value: '', label: cfg.allLabel }].concat(cfg.options),
+            ''
+        );
+        window.FBSSDropdown.set(el.groupFilter, '');
     }
 
     async function loadUsers() {
@@ -947,6 +1217,9 @@
 
         activeTab = name;
         users = [];
+        selectedId = null;
+        setupGroupFilter();
+        updateToolbarState();
 
         renderTabs();
         loadUsers();
@@ -958,6 +1231,7 @@
     });
 
     el.statusFilter.addEventListener('dropdown:change', renderTable);
+    el.groupFilter.addEventListener('dropdown:change', renderTable);
 
     /* =========================================================
        ADD COACH — STEP NAVIGATION
@@ -1249,6 +1523,128 @@
     });
 
     /* =========================================================
+       USER INFORMATION POPUP (view only)
+       Details are fetched when the popup opens, not with the list.
+    ========================================================= */
+
+    function infoSection(title, rows) {
+        const section = make('section', { className: 'userInfoSection' });
+        section.append(make('h4', { className: 'userInfoSectionTitle', text: title }));
+
+        const list = make('dl', { className: 'userInfoList' });
+
+        rows.forEach(({ label, value, phone }) => {
+            list.append(make('dt', { text: label }));
+
+            const dd = make('dd');
+
+            if (!value) {
+                dd.append(make('span', { className: 'userInfoEmpty', text: '--' }));
+            } else if (phone) {
+                // tap-to-call on a phone
+                dd.append(make('a', {
+                    text: value,
+                    attributes: { href: `tel:${String(value).replace(/[^\d+]/g, '')}` }
+                }));
+            } else {
+                dd.textContent = value;
+            }
+
+            list.append(dd);
+        });
+
+        section.append(list);
+        return section;
+    }
+
+    function enrollmentText(e) {
+        if (e.state === 'Dropped') return `Dropped on ${e.date}${e.reason ? ` (${e.reason})` : ''}`;
+        if (e.state === 'Graduated') return `Graduated on ${e.date}`;
+        return 'Enrolled';
+    }
+
+    function closeInfoModal() {
+        infoSeq++;
+        closeModal(el.infoOverlay);
+    }
+
+    async function openInfoModal(id) {
+        const user = users.find(u => u.id === id);
+        if (!user) return;
+
+        const seq = ++infoSeq;
+
+        el.infoName.textContent = personName(user);
+        el.infoBody.replaceChildren(make('p', { className: 'text-muted mb-0', text: 'Loading...' }));
+        openModal(el.infoOverlay);
+
+        const result = await api(URLS.info(id));
+
+        // closed, or another user opened, while this was loading
+        if (seq !== infoSeq || el.infoOverlay.hidden) return;
+
+        if (!result.ok) {
+            closeInfoModal();
+            toastServerErrors(result, 'Unable to load the user information.');
+            return;
+        }
+
+        const p = result.data.profile;
+
+        const account = [
+            { label: 'Username', value: p.username },
+            { label: 'Type', value: p.role_name },
+            { label: 'Status', value: p.status },
+            { label: 'Handled by', value: p.account_handler }
+        ];
+
+        // Coaches: classes worded the same way as the table / Attendance page.
+        if (user.role_id === ROLE_COACH) {
+            account.splice(2, 0, { label: 'Assigned classes', value: classesLabel(user) });
+        }
+
+        const sections = [
+            infoSection('Personal', [
+                { label: 'Birthdate', value: p.birthdate ? `${p.birthdate} (${p.age} yrs old)` : null },
+                { label: 'Sex', value: p.sex },
+                { label: 'Address', value: p.address }
+            ]),
+            infoSection('Contact', [
+                { label: 'Mobile number', value: p.phone_number, phone: true },
+                { label: 'Email', value: p.email_address }
+            ]),
+            infoSection('Emergency contact', [
+                { label: 'Name', value: p.emergency_name },
+                { label: 'Relationship', value: p.emergency_relationship },
+                { label: 'Mobile number', value: p.emergency_phone, phone: true }
+            ])
+        ];
+
+        // Students: every enrollment, including dropped ones with their reason.
+        if (p.enrollments && p.enrollments.length) {
+            sections.push(infoSection('Enrollment', p.enrollments.map(e => ({
+                label: e.course,
+                value: enrollmentText(e)
+            }))));
+        }
+
+        // Athletes and former (retired) athletes.
+        if (p.athlete) {
+            sections.push(infoSection(p.athlete.retired ? 'Former athlete' : 'Athlete', [
+                { label: 'Athlete since', value: p.athlete.since },
+                ...(p.athlete.retired ? [{ label: 'Retired on', value: p.athlete.until }] : [])
+            ]));
+        }
+
+        sections.push(infoSection('Account', account));
+
+        el.infoBody.replaceChildren(...sections);
+    }
+
+    el.infoClose.addEventListener('click', closeInfoModal);
+    el.infoDone.addEventListener('click', closeInfoModal);
+
+    /* =========================================================
        EDIT COACH — STATUS + COURSES
     ========================================================= */
 
@@ -1349,7 +1745,7 @@
        MODAL DISMISS (Escape only; clicking outside the card does nothing)
     ========================================================= */
 
-    const allModals = [el.step1, el.step2, el.step3, el.editModal];
+    const allModals = [el.step1, el.step2, el.step3, el.editModal, el.infoOverlay];
 
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape' || busy) return;
@@ -1357,6 +1753,7 @@
         allModals.forEach(modal => {
             if (!modal.hidden) {
                 if (modal === el.editModal) editId = null;
+                if (modal === el.infoOverlay) infoSeq++;
                 closeModal(modal);
             }
         });
@@ -1407,6 +1804,7 @@
         update();
     });
 
+    setupGroupFilter();
     renderTabs();
     loadUsers();
 

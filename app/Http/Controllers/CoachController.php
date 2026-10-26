@@ -142,7 +142,7 @@ class CoachController extends Controller
                 ->join(self::COURSES_TABLE . ' as c', 'c.' . self::COURSE_ID_COL, '=', 's.course_id')
                 ->whereIn('s.user_id', $ids)
                 ->orderBy('c.' . self::COURSE_ID_COL)
-                ->get(['s.user_id', 'c.' . self::COURSE_NAME_COL . ' as name'])
+                ->get(['s.user_id', 'c.' . self::COURSE_NAME_COL . ' as name', 's.graduation_at', 's.dropped_at'])
                 ->groupBy('user_id')
             : collect();
 
@@ -191,8 +191,131 @@ class CoachController extends Controller
                 'phone_number' => $u->phone_number,
                 'course_ids' => ($assigned[$u->id] ?? collect())->pluck('course_id')->map(fn ($v) => (int) $v)->values(),
                 'course_names' => ($studentCourses[$u->id] ?? collect())->pluck('name')->unique()->implode(', '),
+                'enrollment_status' => $tab === 'students'
+                    ? $this->enrollmentStatus($studentCourses[$u->id] ?? collect())
+                    : null,
             ])->values(),
         ]);
+    }
+
+    /**
+     * GET /coaches/{id}/profile — read-only details for the "View Info" popup
+     * (used in emergencies). Admins are never shown, same as the list.
+     */
+    public function show(Request $request, int $id): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) {
+            return $denied;
+        }
+
+        $u = DB::table(self::USERS_TABLE . ' as u')
+            ->leftJoin('tbl_user_profile as p', 'p.user_id', '=', 'u.' . self::USER_PK)
+            ->leftJoin(self::STATUS_TABLE . ' as st', 'st.' . self::STATUS_ID_COL, '=', 'u.' . self::STATUS_COL)
+            ->leftJoin(self::ROLES_TABLE . ' as r', 'r.role_id', '=', 'u.' . self::ROLE_COL)
+            ->where('u.' . self::USER_PK, $id)
+            ->whereIn('u.' . self::ROLE_COL, collect(self::TAB_ROLES)->flatten()->all())
+            ->first([
+                'u.username',
+                'u.email_address',
+                'r.role_name',
+                'st.' . self::STATUS_NAME_COL . ' as status',
+                'p.birthdate',
+                'p.sex',
+                'p.phone_number',
+                'p.address',
+                'p.parent_guardian_fullname',
+                'p.parent_guardian_relationship',
+                'p.parent_guardian_phone_number',
+                'p.account_handler',
+                'u.' . self::ROLE_COL . ' as role_id',
+                'u.athlete_since',
+                'u.athlete_until',
+            ]);
+
+        if (!$u) {
+            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+        }
+
+        $birth = $u->birthdate ? \Illuminate\Support\Carbon::parse($u->birthdate) : null;
+
+        $roleId = (int) $u->role_id;
+        $fmt = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('F j, Y') : null;
+
+        // Athletes and former (retired) athletes: the dates they were athletes.
+        $athlete = in_array($roleId, [self::ROLE_ATHLETE, self::ROLE_FORMER_ATHLETE], true)
+            ? [
+                'since' => $fmt($u->athlete_since),
+                'until' => $fmt($u->athlete_until),
+                'retired' => $roleId === self::ROLE_FORMER_ATHLETE,
+            ]
+            : null;
+
+        // Students: every enrollment with its state (Enrolled / Dropped / Graduated).
+        $enrollments = $roleId === self::ROLE_STUDENT
+            ? DB::table(self::STUDENTS_TABLE . ' as s')
+                ->join(self::COURSES_TABLE . ' as c', 'c.' . self::COURSE_ID_COL, '=', 's.course_id')
+                ->where('s.user_id', $id)
+                ->orderBy('s.enrollment_id')
+                ->get([
+                    'c.' . self::COURSE_NAME_COL . ' as course',
+                    's.graduation_at',
+                    's.dropped_at',
+                    's.drop_reason',
+                ])
+                ->map(function ($e) use ($fmt) {
+                    $state = $e->graduation_at ? 'Graduated' : ($e->dropped_at ? 'Dropped' : 'Enrolled');
+
+                    return [
+                        'course' => $e->course,
+                        'state' => $state,
+                        'date' => $fmt($state === 'Graduated' ? $e->graduation_at : $e->dropped_at),
+                        'reason' => $state === 'Dropped' ? ($e->drop_reason ?: null) : null,
+                    ];
+                })
+                ->values()
+                ->all()
+            : [];
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'username' => $u->username,
+                'email_address' => $u->email_address,
+                'role_name' => $u->role_name,
+                'status' => $u->status ?: 'Active',
+                'birthdate' => $birth?->format('F j, Y'),
+                'age' => $birth?->age,
+                'sex' => $u->sex,
+                'phone_number' => $u->phone_number,
+                'address' => $u->address,
+                'emergency_name' => $u->parent_guardian_fullname,
+                'emergency_relationship' => $u->parent_guardian_relationship,
+                'emergency_phone' => $u->parent_guardian_phone_number,
+                'account_handler' => $u->account_handler === 'self' ? 'Self' : 'Parent / guardian',
+                'athlete' => $athlete,
+                'enrollments' => $enrollments,
+            ],
+        ]);
+    }
+
+    /**
+     * One status per student for the Enrollment filter. Priority: a student who is
+     * enrolled somewhere right now is "Enrolled" (even if dropped from another course);
+     * otherwise "Dropped" if an unfinished enrollment was dropped; otherwise "Graduated".
+     */
+    private function enrollmentStatus(\Illuminate\Support\Collection $rows): string
+    {
+        $open = fn ($r) => $r->graduation_at === null;
+
+        if ($rows->contains(fn ($r) => $open($r) && $r->dropped_at === null)) {
+            return 'Enrolled';
+        }
+
+        if ($rows->contains(fn ($r) => $open($r) && $r->dropped_at !== null)) {
+            return 'Dropped';
+        }
+
+        return $rows->isNotEmpty() ? 'Graduated' : 'Not enrolled';
     }
 
     /** POST /coaches/account-preview — generated username + password shown in step 3. */

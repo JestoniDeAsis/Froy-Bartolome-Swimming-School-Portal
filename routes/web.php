@@ -106,6 +106,7 @@ Route::get('/coaches/data', [CoachController::class, 'data'])->middleware('auth'
 Route::post('/coaches/account-preview', [CoachController::class, 'accountPreview'])->middleware('auth');
 Route::post('/coaches', [CoachController::class, 'store'])->middleware('auth');
 Route::put('/coaches/{id}', [CoachController::class, 'update'])->middleware('auth')->whereNumber('id');
+Route::get('/coaches/{id}/profile', [CoachController::class, 'show'])->whereNumber('id');
 
 use App\Http\Controllers\AdminAttendanceController;
  
