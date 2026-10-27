@@ -27,6 +27,7 @@
 .attendanceTabsContainer {
     flex: 0 0 auto;
     display: flex;
+    flex-wrap: wrap;
     gap: .5rem;
     margin-bottom: .75rem;
 }
@@ -185,10 +186,258 @@
 
 .attendanceEmptyValue { color: #adb5bd; }
 
+@media (max-width: 768px) {
+    .attendanceContainer {
+        height: auto;
+        min-height: calc(100vh - var(--topbar-height) - 2.5rem);
+        padding: 1rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .attendanceTabsContainer {
+        width: 100%;
+        gap: .4rem;
+    }
+
+    .attendanceTab {
+        min-width: 0;
+        flex: 1 1 auto;
+        text-align: center;
+        padding: .5rem .75rem;
+        font-size: .875rem;
+        min-height: 44px;
+    }
+
+    .attendanceToolbar {
+        gap: .75rem;
+    }
+
+    .attendanceTableContainer {
+        min-height: 260px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .attendanceTable {
+        font-size: .875rem;
+    }
+
+    .attendanceTable th,
+    .attendanceTable td {
+        padding: .65rem .75rem;
+    }
+
+    /* Keep key columns (No. and Name) visible while scrolling horizontally on mobile */
+    .attendanceTable thead th:first-child,
+    .attendanceTable tbody td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        width: 38px;
+        min-width: 38px;
+        max-width: 38px;
+        text-align: center;
+    }
+
+    .attendanceTable thead th:first-child {
+        z-index: 7;
+        background: #f8fafb;
+    }
+
+    .attendanceTable tbody td:first-child {
+        background: #fff;
+    }
+
+    .attendanceTable thead th:nth-child(2),
+    .attendanceTable tbody td:nth-child(2) {
+        position: sticky;
+        left: 38px;
+        z-index: 2;
+        box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.15);
+    }
+
+    .attendanceTable thead th:nth-child(2) {
+        z-index: 7;
+        background: #f8fafb;
+    }
+
+    .attendanceTable tbody td:nth-child(2) {
+        background: #fff;
+    }
+
+    .attendanceRow:hover > td:first-child,
+    .attendanceRow:hover > td:nth-child(2) {
+        background: #f8fafb;
+    }
+
+    .attendanceRow.selectedRow > td:first-child,
+    .attendanceRow.selectedRow > td:nth-child(2),
+    .attendanceRow.selectedRow:hover > td:first-child,
+    .attendanceRow.selectedRow:hover > td:nth-child(2) {
+        background: #e7f5ff;
+    }
+
+    .attendanceModal.isWide {
+        max-width: 100%;
+        max-height: 92vh;
+        margin: 0.5rem;
+    }
+
+    .attendanceLogToolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .5rem;
+    }
+
+    .attendanceLogFilter {
+        --dd-min-width: 0;
+        --dd-width: 100%;
+        width: 100%;
+    }
+
+    .attendanceLogFilter .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceLogTableContainer {
+        min-height: 180px;
+    }
+}
+
 @media (max-width: 575.98px) {
-    .attendanceContainer { padding: 1rem; }
-    .attendanceToolbarActions { margin-left: 0; width: 100%; }
-    .attendanceToolbarActions button { flex: 1 1 auto; }
+    .attendanceContainer {
+        padding: .85rem;
+    }
+
+    .attendanceFilterGroup {
+        width: 100%;
+    }
+
+    .attendanceClassFilter,
+    .attendanceLoggedFilter {
+        --dd-min-width: 0;
+        --dd-width: 100%;
+        width: 100%;
+    }
+
+    .attendanceClassFilter .registerDropdownToggle,
+    .attendanceLoggedFilter .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceDatePicker,
+    .attendanceDateButton {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceSearchContainer {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .attendanceSearchInput {
+        width: 100%;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    #monthGroup input {
+        width: 100%;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceToolbarActions {
+        margin-left: 0;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+    }
+
+    .attendanceToolbarActions button {
+        min-height: 44px;
+        font-size: .8125rem;
+        padding: .45rem .4rem;
+        white-space: nowrap;
+        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .attendanceToolbarActions button:only-child {
+        grid-column: 1 / -1;
+    }
+
+    .attendanceModal {
+        max-width: calc(100vw - 1.5rem);
+    }
+
+    .attendanceModalBody {
+        padding: 1rem;
+    }
+
+    .attendanceModalInput {
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceCoachPick {
+        --dd-min-width: 0;
+        --dd-width: 100%;
+        width: 100%;
+    }
+
+    .attendanceCoachPick .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceModalClose {
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .attendanceModalRemove {
+        min-height: 44px;
+    }
+
+    .attendanceModalFooter button {
+        min-height: 44px;
+        min-width: 80px;
+    }
+}
+
+@media (max-width: 375px) {
+    .attendanceContainer {
+        padding: .65rem;
+    }
+
+    .attendanceTab {
+        font-size: .8rem;
+        padding: .45rem .35rem;
+    }
+
+    .attendanceToolbarActions button {
+        font-size: .75rem;
+        padding: .45rem .25rem;
+    }
 }
 
 /* Time entry modal (backdrop = shared .modalOverlay in our_theme.css) */
@@ -313,6 +562,15 @@
     font-size: .8125rem;
     color: #667085;
 }
+.attendanceLogTableContainer {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #e7ebef;
+    border-radius: 8px;
+    background: #fff;
+}
+
 .attendanceLastUpdated { margin: .5rem 0 .25rem; font-size: .75rem; color: #98a2b3; }
 </style>
 
