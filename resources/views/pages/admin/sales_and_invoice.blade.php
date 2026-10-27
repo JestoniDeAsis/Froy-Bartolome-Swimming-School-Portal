@@ -92,6 +92,17 @@
 .sales-picker-empty, .sales-picker-more { margin: 0; padding: .6rem .65rem; font-size: .78rem; color: var(--sales-muted); }
 .sales-check { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 600; }
 
+/* Row actions live in a toolbar above the table (same pattern as the Registers page):
+   click a row to select it, then use the buttons. Keeps the table narrow for small screens. */
+.sales-toolbar-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
+.sales-toolbar-actions[hidden], .sales-toolbar-actions button[hidden] { display: none; }
+.sales-action-hint { flex: 0 0 auto; margin: -.25rem 0 .75rem; font-size: .875rem; color: var(--sales-muted); }
+.sales-action-hint.isWarning { color: #b26a00; }
+.sales-table tbody tr.sales-row { cursor: pointer; transition: background-color .1s ease; }
+.sales-table tbody tr.sales-row:hover > td { background: #f8fafb; }
+.sales-table tbody tr.sales-row.selectedRow > td,
+.sales-table tbody tr.sales-row.selectedRow:hover > td { background: #e7f5ff; }
+
 .sales-table-wrap {
     --sales-row-height: 49px;
     --sales-header-height: 49px;
@@ -501,6 +512,9 @@
         padding: 1rem;
     }
 
+    .sales-toolbar-actions { margin-left: 0; width: 100%; }
+    .sales-toolbar-actions button { flex: 1 1 auto; }
+
     .sales-heading {
         align-items: flex-start;
     }
@@ -554,6 +568,93 @@
     }
 
 }
+
+/* ---------- Pagination (all screens) ---------- */
+.sales-pager { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-top: .75rem; font-size: .85rem; color: var(--sales-muted); }
+.sales-pager[hidden] { display: none; }
+.sales-pager-controls { display: flex; align-items: center; gap: .5rem; }
+.sales-filters-toggle { display: none; align-items: center; gap: .4rem; height: 40px; border-radius: 20px; white-space: nowrap; }
+.sales-filters-toggle[hidden] { display: none !important; }
+.sales-filter-count { min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; display: inline-grid; place-items: center; border-radius: 999px; background: var(--sales-blue); color: #fff; font-size: .68rem; font-weight: 700; }
+.sales-filter-count[hidden] { display: none; }
+.sales-toolbar { scroll-margin-top: 4rem; }
+
+/* =========================================================
+   Compact screens: narrow OR short windows (tablets, squarish browser
+   windows, small laptops). The page scrolls as a whole instead of being
+   locked to the window height, which is what squashed the table before.
+========================================================= */
+@media (max-width: 1100px), (max-height: 800px) {
+    .sales-page { --sales-pad: 1.25rem; height: auto; min-height: 0; overflow: visible; padding: var(--sales-pad); }
+    .sales-table-wrap { flex: 0 0 auto; }
+
+    .sales-page .sales-tabs.btn-tab-group { position: sticky; top: 0; z-index: 20; display: flex; flex-direction: row; flex-wrap: nowrap; gap: .4rem; overflow-x: auto; margin: 0 calc(var(--sales-pad) * -1) .75rem; padding: .5rem var(--sales-pad); background: #fff; border-bottom: 1px solid #e7ebef; scrollbar-width: none; }
+    .sales-page .sales-tabs::-webkit-scrollbar { display: none; }
+    .sales-page .sales-tabs .btn-tab { flex: 0 0 auto; width: auto; min-width: 0; white-space: nowrap; padding: .35rem .85rem; font-size: .85rem; }
+
+    .sales-toolbar-start { flex: 1 1 100%; }
+
+    /* Row actions: a bar that stays at the bottom of the screen once a row is selected. */
+    .sales-toolbar-actions { position: sticky; bottom: 0; z-index: 15; width: auto; margin: .75rem calc(var(--sales-pad) * -1) 0; padding: .6rem var(--sales-pad) calc(.6rem + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #e7ebef; box-shadow: 0 -4px 12px rgba(16, 24, 40, .08); }
+    .sales-toolbar-actions.isIdle { display: none; }
+}
+
+/* Tablet / squarish window: keep the 4 stat cards on one row and the table tighter. */
+@media (min-width: 701px) and (max-width: 1100px) {
+    .sales-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+    .sales-stat { padding: .6rem .8rem; }
+    .sales-stat-value { font-size: 1.15rem; }
+    .sales-stat-icon { width: 1.75rem; height: 1.75rem; flex-basis: 1.75rem; }
+    .sales-table th, .sales-table td { padding: .6rem .75rem; }
+}
+
+/* =========================================================
+   Phones (<= 700px): the whole page scrolls, tabs slide sideways,
+   filters fold behind a button, row actions stick to the bottom,
+   and every table row becomes a card.
+========================================================= */
+@media (max-width: 700px) {
+    .sales-page { --sales-pad: .85rem; }
+
+    .sales-heading { gap: .6rem; margin-bottom: .75rem; align-items: center; }
+    .sales-heading h2 { font-size: 1.25rem; }
+    .sales-heading p { display: none; }
+    #salesAddButton { flex: 0 0 auto; max-width: 52%; padding: .45rem .75rem; font-size: .8rem; line-height: 1.15; text-align: left; }
+
+    .sales-page .sales-tabs .btn-tab { padding: .35rem .85rem; font-size: .82rem; }
+
+    .sales-stats { gap: .5rem; margin-bottom: .75rem; }
+    .sales-stat { padding: .5rem .65rem; }
+    .sales-stat-value { font-size: 1.05rem; }
+    .sales-stat-icon { display: none; }
+
+    .sales-toolbar-start { gap: .5rem; }
+    .sales-search { flex: 1 1 calc(100% - 7rem); width: auto; min-width: 0; }
+    .sales-filters-toggle { display: inline-flex; flex: 0 0 auto; }
+    .sales-filter { flex: 1 1 calc(50% - .5rem); }
+    .sales-toolbar:not(.filtersOpen) .sales-filter,
+    .sales-toolbar:not(.filtersOpen) .sales-item-filters { display: none; }
+
+    .sales-pager { justify-content: center; text-align: center; }
+    .sales-pager > span { flex: 1 0 100%; }
+
+    /* Table -> cards */
+    .sales-table-wrap { max-height: none; overflow: visible; border: 0; background: transparent; }
+    .sales-table, .sales-table tbody { display: block; white-space: normal; }
+    .sales-table thead { display: none; }
+    .sales-table tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .85rem; position: relative; margin-bottom: .6rem; padding: .75rem 2.75rem .75rem .85rem; background: #fff; border: 1px solid #e7ebef; border-radius: 12px; }
+    .sales-table tbody tr:hover { background: #fff; }
+    .sales-table tbody tr.sales-row.selectedRow, .sales-table tbody tr.sales-row.selectedRow:hover { background: #e7f5ff; border-color: var(--sales-blue); }
+    .sales-table tbody td, .sales-table tbody tr.sales-row:hover > td, .sales-table tbody tr.sales-row.selectedRow > td, .sales-table tbody tr.sales-row.selectedRow:hover > td { display: block; min-width: 0; padding: 0; border: 0; background: transparent; font-size: .85rem; overflow-wrap: anywhere; }
+    .sales-table tbody td::before { content: attr(data-label); display: block; margin-bottom: .1rem; color: var(--sales-muted); font-size: .66rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+    .sales-table tbody td.sales-name { grid-column: 1 / -1; font-size: .95rem; }
+    .sales-table tbody td.sales-name::before { display: none; }
+    .sales-table tbody td.sales-cell-invoice { position: absolute; top: .55rem; right: .55rem; }
+    .sales-table tbody td.sales-cell-invoice::before { display: none; }
+    .sales-table tbody td.sales-cell-invoice.isBlank { display: none; }
+    .sales-table tbody td.sales-empty { grid-column: 1 / -1; text-align: center; }
+    .sales-table tbody td.sales-empty::before { display: none; }
+}
 </style>
 
 <section class="sales-page" id="salesPage" aria-labelledby="salesTitle">
@@ -584,6 +685,7 @@
     <div class="sales-toolbar">
         <div class="sales-toolbar-start">
             <label class="sales-search"><i class="bi bi-search" aria-hidden="true"></i><input class="form-control" id="salesSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search rows"></label>
+            <button class="btn btn-outline-primary sales-filters-toggle" id="salesFiltersToggle" type="button" aria-expanded="false" aria-controls="salesStatusFilterDropdown"><i class="bi bi-funnel" aria-hidden="true"></i><span>Filters</span><span class="sales-filter-count" id="salesFilterCount" hidden>0</span></button>
             <div class="registerDropdown sales-filter" id="salesStatusFilterDropdown" data-fbss-dropdown>
                 <button class="registerDropdownToggle" id="salesStatusFilterToggle" type="button" aria-expanded="false" aria-controls="salesStatusFilterOptions" aria-label="Filter by payment status">
                     <span>All Status</span>
@@ -642,26 +744,45 @@
             <button class="btn btn-outline-primary" id="itemFilterClear" type="button" hidden>Clear filters</button>
             </div>
         </div>
+
+        <!-- Row actions (enabled once a row is selected) -->
+        <div class="sales-toolbar-actions" id="salesToolbarActions" hidden>
+            <button class="btn btn-primary" id="salesActEdit" type="button" disabled>Edit</button>
+            <button class="btn btn-outline-danger" id="salesActRemove" type="button" disabled>Remove</button>
+            <button class="btn btn-primary" id="salesActRelog" type="button" disabled hidden>Re-log payment</button>
+        </div>
     </div>
+
+    <!-- Says what the selected row can do, or why an action is off -->
+    <p class="sales-action-hint" id="salesActionHint" role="status" aria-live="polite" hidden></p>
 
     <section class="sales-panel" id="salesPanelAll" role="tabpanel" aria-labelledby="salesTabAll" data-sales-panel="all" hidden>
         <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Type</th><th>Name</th><th>Client</th><th>Total</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Invoice</th></tr></thead><tbody id="allRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelCourse" role="tabpanel" aria-labelledby="salesTabCourse" data-sales-panel="course">
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Invoice</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Course</th><th>Name</th><th>Price</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Invoice</th></tr></thead><tbody id="coursePaymentRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelAthletes" role="tabpanel" aria-labelledby="salesTabAthletes" data-sales-panel="athletes" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee</th><th>Athlete</th><th>Period</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Actions</th><th>Invoice</th></tr></thead><tbody id="athletePaymentRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee</th><th>Athlete</th><th>Period</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Updated</th><th>Invoice</th></tr></thead><tbody id="athletePaymentRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelFees" role="tabpanel" aria-labelledby="salesTabFees" data-sales-panel="fees" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee name</th><th>Description</th><th>Amount</th><th>Billing</th><th>Status</th><th>Actions</th></tr></thead><tbody id="athleteFeeRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Fee name</th><th>Description</th><th>Amount</th><th>Billing</th><th>Status</th></tr></thead><tbody id="athleteFeeRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelLogs" role="tabpanel" aria-labelledby="salesTabLogs" data-sales-panel="logs" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th><th>Invoice</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Quantity</th><th>Price</th><th>To pay</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Date</th><th>Invoice</th></tr></thead><tbody id="itemLogRows"></tbody></table></div>
     </section>
     <section class="sales-panel" id="salesPanelItems" role="tabpanel" aria-labelledby="salesTabItems" data-sales-panel="items" hidden>
-        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="itemCatalogRows"></tbody></table></div>
+        <div class="sales-table-wrap"><table class="table sales-table"><thead><tr><th>Item name</th><th>Description</th><th>Price</th><th>Stock</th></tr></thead><tbody id="itemCatalogRows"></tbody></table></div>
     </section>
+
+    <nav class="sales-pager" id="salesPager" aria-label="Pagination" hidden>
+        <span id="salesPagerInfo"></span>
+        <div class="sales-pager-controls">
+            <button class="btn btn-outline-primary btn-sm" id="salesPagerPrev" type="button" aria-label="Previous page"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+            <span id="salesPagerPage"></span>
+            <button class="btn btn-outline-primary btn-sm" id="salesPagerNext" type="button" aria-label="Next page"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+        </div>
+    </nav>
 </section>
 
 <dialog class="sales-dialog" id="coursePaymentDialog" aria-labelledby="coursePaymentTitle">
@@ -796,6 +917,18 @@
     let athleteRows = [];
     let athleteFees = [];
     let activeTab = 'course';
+    let pageNo = 1;   // current page of the active tab
+    const pageSize = () => (window.matchMedia('(max-width: 700px)').matches ? 6 : 8)   // 8 = the table's visible-rows cap, so no inner scrollbar;
+    const pageTotals = {};   // rows matching the filters, per tab (before paging)
+    // Returns just the current page of `list` and remembers the total for the pager.
+    function paged(key, list) {
+        pageTotals[key] = list.length;
+        if (key === activeTab) pageNo = Math.min(pageNo, Math.max(Math.ceil(list.length / pageSize()), 1));
+        const start = (pageNo - 1) * pageSize();
+        return list.slice(start, start + pageSize());
+    }
+    let selectedRowId = null;   // the row picked in the active tab (as a string); the toolbar buttons act on it
+    const rowAttrs = id => `class="sales-row${String(selectedRowId) === String(id) ? ' selectedRow' : ''}" data-select="${id}"`;
     let pendingRemoval = null;
     let pendingOptions = {};
     const money = value => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
@@ -1016,46 +1149,50 @@
 
     function renderArchivedCourseRows() {
         const { text } = currentFilter();
-        const visible = archivedCourseRows.filter(row =>
+        const allVisible = archivedCourseRows.filter(row =>
             !text || `${row.course} ${row.name} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
+        const visible = paged('course', allVisible);
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>${archivedNote(row)}</td><td>${row.replaced ? '<span class="sales-reason">Replaced by a newer entry</span>' : `<span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span>`}</td><td>--</td></tr>`
-        ).join('') : '<tr><td class="sales-empty" colspan="11">No archived course payments.</td></tr>';
+            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>${archivedNote(row)}</td><td>--</td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="10">No archived course payments.</td></tr>';
     }
 
     function renderCourseRows() {
         if (viewingArchived()) { renderArchivedCourseRows(); return; }
         const { text, status } = currentFilter();
-        const visible = courseRows.filter(row => {
+        const allVisible = courseRows.filter(row => {
             const rowStatus = row.status;
             const haystack = `${row.course} ${row.name} ${row.method} ${row.date}`.toLocaleLowerCase();
             return (!status || status === rowStatus) && (!text || haystack.includes(text));
         });
+        const visible = paged('course', allVisible);
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row => {
             const balance = Number(row.balance);
-            return `<tr><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="${Number(row.id) > 0 ? 'Edit payment' : 'Record payment'}"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-course-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
-        }).join('') : '<tr><td class="sales-empty" colspan="11">No course payments match your search.</td></tr>';
+            return `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
+        }).join('') : '<tr><td class="sales-empty" colspan="10">No course payments match your search.</td></tr>';
     }
 
     function renderLogs() {
         const { text, status } = currentFilter();
-        const visible = logs.filter(row => {
+        const allVisible = logs.filter(row => {
             const total = Number(row.price) * Number(row.quantity);
             const rowStatus = statusFor(row.paid, total);
             const haystack = `${row.item} ${row.description} ${row.client} ${row.method} ${row.date} ${row.receipt || ''}`.toLocaleLowerCase();
             return matchesItemFilters(row) && (!status || status === rowStatus) && (!text || haystack.includes(text));
         });
+        const visible = paged('logs', allVisible);
         document.getElementById('itemLogRows').innerHTML = visible.length ? visible.map(row => {
             const total = Number(row.price) * Number(row.quantity);
             const balance = Math.max(total - Number(row.paid), 0);
-            return `<tr><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-edit="${row.id}" aria-label="Edit ${escapeHtml(row.item)} sale" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-log-delete="${row.id}" aria-label="Remove ${escapeHtml(row.item)} sale" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.item)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
-        }).join('') : '<tr><td class="sales-empty" colspan="12">No item logs match your search or filters.</td></tr>';
+            return `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.item)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
+        }).join('') : '<tr><td class="sales-empty" colspan="11">No item logs match your search or filters.</td></tr>';
     }
 
     function renderItems() {
         const text = search.value.trim().toLocaleLowerCase();
-        const visible = items.filter(item => `${item.name} ${item.description}`.toLocaleLowerCase().includes(text));
-        document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-item-edit="${item.id}" aria-label="Edit ${escapeHtml(item.name)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-item-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td></tr>`).join('') : '<tr><td class="sales-empty" colspan="5">No items match your search.</td></tr>';
+        const allVisible = items.filter(item => `${item.name} ${item.description}`.toLocaleLowerCase().includes(text));
+        const visible = paged('items', allVisible);
+        document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr ${rowAttrs(item.id)}><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td></tr>`).join('') : '<tr><td class="sales-empty" colspan="4">No items match your search.</td></tr>';
     }
 
     // "All": course payments and item sales merged, newest first. Read-only; edit from their own tab.
@@ -1078,16 +1215,165 @@
             method: row.method, status: row.status, date: row.date, sortAt: row.sortAt || ''
         }))).sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
 
-        const visible = rows.filter(row => {
+        const allVisible = rows.filter(row => {
             const haystack = `${row.type} ${row.name} ${row.client} ${row.method} ${row.date}`.toLocaleLowerCase();
             return (!status || status === row.status) && (!text || haystack.includes(text));
         });
+        const visible = paged('all', allVisible);
         document.getElementById('allRows').innerHTML = visible.length ? visible.map(row =>
             `<tr><td>${row.type}</td><td class="sales-name">${escapeHtml(row.name)}</td><td>${escapeHtml(row.client)}</td><td>${money(row.total)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-all-receipt="${row.id}" data-all-kind="${row.kind}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="10">No records match your search.</td></tr>';
     }
 
-    function render() { refreshItemFilterOptions(); itemFilterClear.hidden = !itemFiltersActive(); renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); }
+    /* =========================================================
+       ROW SELECTION + TOOLBAR BUTTONS (same idea as the Registers page)
+       Click a row, then use the buttons above the table. The buttons carry the
+       same data-* hooks the old per-row icons had, so the click handler is unchanged.
+    ========================================================= */
+    const toolbarActions = document.getElementById('salesToolbarActions');
+    const actionHint = document.getElementById('salesActionHint');
+    const actEdit = document.getElementById('salesActEdit');
+    const actRemove = document.getElementById('salesActRemove');
+    const actRelog = document.getElementById('salesActRelog');
+    const toolbarEl = document.querySelector('.sales-toolbar');
+    const mobileQuery = window.matchMedia('(max-width: 700px)');   // phones: rows become cards, fewer rows per page
+    const compactQuery = window.matchMedia('(max-width: 1100px), (max-height: 800px)');   // page scrolls as a whole
+    // Full-size window: the buttons sit in the toolbar. Compact: they move to the bottom of the page and stay on screen.
+    function placeToolbarActions() { (compactQuery.matches ? page : toolbarEl).append(toolbarActions); }
+    placeToolbarActions();
+    compactQuery.addEventListener('change', placeToolbarActions);
+    mobileQuery.addEventListener('change', () => { pageNo = 1; render(); });
+    const actionKeys = ['courseEdit', 'courseArchive', 'courseRelog', 'athleteEdit', 'athleteArchive', 'athleteRelog', 'logEdit', 'logDelete', 'itemEdit', 'itemDelete', 'feeEdit', 'feeDelete'];
+    const toolbarConfig = {
+        course:   { edit: 'courseEdit',  remove: 'courseArchive',  relog: 'courseRelog',  removeLabel: 'Archive', pay: true },
+        athletes: { edit: 'athleteEdit', remove: 'athleteArchive', relog: 'athleteRelog', removeLabel: 'Archive', pay: true },
+        logs:     { edit: 'logEdit',     remove: 'logDelete',      removeLabel: 'Remove', noun: 'sale' },
+        items:    { edit: 'itemEdit',    remove: 'itemDelete',     removeLabel: 'Remove', noun: 'item' },
+        fees:     { edit: 'feeEdit',     remove: 'feeDelete',      removeLabel: 'Remove', noun: 'fee' }
+    };
+
+    function selectedRecord() {
+        if (selectedRowId === null) return null;
+        const archived = viewingArchived();
+        const list = activeTab === 'course' ? (archived ? archivedCourseRows : courseRows)
+            : activeTab === 'athletes' ? (archived ? archivedAthleteRows : athleteRows)
+            : activeTab === 'logs' ? logs
+            : activeTab === 'items' ? items
+            : activeTab === 'fees' ? athleteFees : [];
+        return byId(list, selectedRowId) || null;
+    }
+
+    function updateToolbar() {
+        const config = toolbarConfig[activeTab];
+        toolbarActions.hidden = !config;
+        if (!config) { actionHint.hidden = true; return; }   // "All" is read-only
+
+        const archived = viewingArchived() && Boolean(config.relog);
+        const record = selectedRecord();
+        const has = record !== null;
+        const unpaid = has && !archived && Boolean(config.pay) && Number(record.id) <= 0;   // no payment logged yet
+        toolbarActions.classList.toggle('isIdle', !has);   // phones hide the bar until a card is selected
+
+        [actEdit, actRemove, actRelog].forEach(button => actionKeys.forEach(key => { delete button.dataset[key]; }));
+
+        actEdit.hidden = archived;
+        actRemove.hidden = archived;
+        actRelog.hidden = !archived;
+
+        actEdit.textContent = config.pay ? (unpaid ? 'Record payment' : 'Edit payment') : (activeTab === 'fees' ? 'Edit fee' : 'Edit');
+        actEdit.disabled = !has;
+        if (has) actEdit.dataset[config.edit] = record.id;
+
+        actRemove.textContent = config.removeLabel;
+        actRemove.disabled = !has || unpaid;
+        actRemove.title = unpaid ? 'Nothing to archive yet: no payment has been recorded.' : '';
+        if (has && !unpaid) actRemove.dataset[config.remove] = record.id;
+
+        const replaced = has && archived && Boolean(record.replaced);
+        actRelog.disabled = !has || replaced;
+        actRelog.title = replaced ? 'This entry was already replaced by a newer one.' : '';
+        if (has && archived && !replaced) actRelog.dataset[config.relog] = record.id;
+
+        const name = has ? (record.name ?? record.item) : '';
+        let text, warning = false;
+        if (!has) {
+            text = archived ? 'Select an archived payment to re-log it.'
+                : config.pay ? 'Select a payment to edit or archive it. Anyone who has not paid yet can be selected to record their first payment.'
+                : `Select a ${config.noun} to edit or remove it.`;
+        } else if (archived) {
+            warning = replaced;
+            text = replaced ? `${name}: already replaced by a newer entry, so it can't be re-logged.` : `${name}: can be re-logged as a new payment.`;
+        } else if (unpaid) {
+            text = `${name}: no payment yet. Record the first one.`;
+        } else if (config.pay) {
+            text = `${name}: edit this payment, or archive it (the original stays on file).`;
+        } else {
+            text = `${name}: can be edited or removed.`;
+        }
+        actionHint.textContent = text;
+        actionHint.hidden = false;
+        actionHint.classList.toggle('isWarning', warning);
+    }
+
+    // A selected row that was filtered out, archived or removed is no longer selected.
+    function syncSelection() {
+        if (selectedRowId !== null && !document.querySelector(`[data-sales-panel="${activeTab}"] tr[data-select="${selectedRowId}"]`)) selectedRowId = null;
+        updateToolbar();
+    }
+
+    /* =========================================================
+       PAGINATION, CARD LABELS, FILTER BUTTON
+    ========================================================= */
+    const pager = document.getElementById('salesPager');
+    const pagerInfo = document.getElementById('salesPagerInfo');
+    const pagerPage = document.getElementById('salesPagerPage');
+    const pagerPrev = document.getElementById('salesPagerPrev');
+    const pagerNext = document.getElementById('salesPagerNext');
+    const filtersToggle = document.getElementById('salesFiltersToggle');
+    const filterCount = document.getElementById('salesFilterCount');
+
+    function updatePager() {
+        const total = pageTotals[activeTab] || 0;
+        const pages = Math.max(Math.ceil(total / pageSize()), 1);
+        pager.hidden = total <= pageSize();
+        if (pager.hidden) return;
+        pagerInfo.textContent = `Showing ${(pageNo - 1) * pageSize() + 1}–${Math.min(pageNo * pageSize(), total)} of ${total}`;
+        pagerPage.textContent = `Page ${pageNo} of ${pages}`;
+        pagerPrev.disabled = pageNo <= 1;
+        pagerNext.disabled = pageNo >= pages;
+    }
+
+    function goToPage(next) {
+        pageNo = next;
+        render();
+        if (compactQuery.matches) toolbarEl.scrollIntoView({ behavior: 'smooth', block: 'start' });   // back to the top of the list
+    }
+
+    // Phones show each row as a card: tell every cell which column it belongs to.
+    function applyLabels() {
+        document.querySelectorAll('.sales-table').forEach(table => {
+            const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+            table.querySelectorAll('tbody tr').forEach(row => {
+                [...row.children].forEach((cell, index) => {
+                    if (cell.classList.contains('sales-empty')) return;
+                    cell.dataset.label = heads[index] || '';
+                    if (heads[index] === 'Invoice') {
+                        cell.classList.add('sales-cell-invoice');
+                        cell.classList.toggle('isBlank', !cell.querySelector('button'));
+                    }
+                });
+            });
+        });
+    }
+
+    // Small number on the Filters button (phones) = how many filters are on.
+    function updateFilterBadge() {
+        const count = [statusFilter.value, itemMonthFilter.value, itemNameFilter.value, itemMethodFilter.value].filter(Boolean).length + (viewingArchived() ? 1 : 0);
+        filterCount.textContent = count;
+        filterCount.hidden = count === 0;
+    }
+
+    function render() { refreshItemFilterOptions(); itemFilterClear.hidden = !itemFiltersActive(); renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); syncSelection(); applyLabels(); updatePager(); updateFilterBadge(); }
 
     function setTab(tab) {
         activeTab = tab;
@@ -1107,6 +1393,11 @@
         statusFilterRoot.hidden = tab === 'items' || tab === 'fees';
         clearItemFilters();
         itemFiltersRoot.hidden = tab !== 'logs';
+        selectedRowId = null;
+        pageNo = 1;
+        toolbarEl.classList.remove('filtersOpen');
+        filtersToggle.setAttribute('aria-expanded', 'false');
+        filtersToggle.hidden = tab === 'items' || tab === 'fees';
         render();   // new tab: re-apply the (now cleared) search/filter and refresh the totals
     }
 
@@ -1389,31 +1680,34 @@
 
     function renderArchivedAthleteRows() {
         const { text } = currentFilter();
-        const visible = archivedAthleteRows.filter(row =>
+        const allVisible = archivedAthleteRows.filter(row =>
             !text || `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
+        const visible = paged('athletes', allVisible);
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>${archivedNote(row)}</td><td>${row.replaced ? '<span class="sales-reason">Replaced by a newer entry</span>' : `<span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-relog="${row.id}" aria-label="Re-log payment of ${escapeHtml(row.name)}" title="Re-log payment"><i class="bi bi-arrow-counterclockwise"></i></button></span>`}</td><td>--</td></tr>`
-        ).join('') : '<tr><td class="sales-empty" colspan="12">No archived athlete payments.</td></tr>';
+            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>${archivedNote(row)}</td><td>--</td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="11">No archived athlete payments.</td></tr>';
     }
 
     function renderAthleteRows() {
         if (viewingArchived()) { renderArchivedAthleteRows(); return; }
         const { text, status } = currentFilter();
-        const visible = athleteRows.filter(row => {
+        const allVisible = athleteRows.filter(row => {
             const haystack = `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date}`.toLocaleLowerCase();
             return (!status || status === row.status) && (!text || haystack.includes(text));
         });
+        const visible = paged('athletes', allVisible);
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-edit="${row.id}" aria-label="Record payment for ${escapeHtml(row.name)}" title="${Number(row.id) > 0 ? 'Edit payment' : 'Record payment'}"><i class="bi bi-pencil"></i></button>${Number(row.id) > 0 ? `<button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-athlete-archive="${row.id}" aria-label="Archive payment of ${escapeHtml(row.name)}" title="Archive"><i class="bi bi-archive"></i></button>` : ''}</span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
-        ).join('') : '<tr><td class="sales-empty" colspan="12">No athlete payments match your search.</td></tr>';
+            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="11">No athlete payments match your search.</td></tr>';
     }
 
     function renderFees() {
         const text = search.value.trim().toLocaleLowerCase();
-        const visible = athleteFees.filter(fee => `${fee.name} ${fee.description} ${cycleLabel(fee.cycle)}`.toLocaleLowerCase().includes(text));
+        const allVisible = athleteFees.filter(fee => `${fee.name} ${fee.description} ${cycleLabel(fee.cycle)}`.toLocaleLowerCase().includes(text));
+        const visible = paged('fees', allVisible);
         document.getElementById('athleteFeeRows').innerHTML = visible.length ? visible.map(fee =>
-            `<tr><td class="sales-name">${escapeHtml(fee.name)}</td><td>${escapeHtml(fee.description || '--')}</td><td>${money(fee.amount)}</td><td>${cycleLabel(fee.cycle)}</td><td><span class="sales-badge sales-badge--${fee.active ? 'paid' : 'unpaid'}">${fee.active ? 'Active' : 'Archived'}</span></td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-fee-edit="${fee.id}" aria-label="Edit ${escapeHtml(fee.name)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-fee-delete="${fee.id}" aria-label="Remove ${escapeHtml(fee.name)}" title="Remove"><i class="bi bi-trash3"></i></button></span></td></tr>`
-        ).join('') : '<tr><td class="sales-empty" colspan="6">No athlete fees yet. Add one to start billing athletes.</td></tr>';
+            `<tr ${rowAttrs(fee.id)}><td class="sales-name">${escapeHtml(fee.name)}</td><td>${escapeHtml(fee.description || '--')}</td><td>${money(fee.amount)}</td><td>${cycleLabel(fee.cycle)}</td><td><span class="sales-badge sales-badge--${fee.active ? 'paid' : 'unpaid'}">${fee.active ? 'Active' : 'Archived'}</span></td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="5">No athlete fees yet. Add one to start billing athletes.</td></tr>';
     }
 
     // Same idea as the course dialog: `others` = paid on this due EXCLUDING the
@@ -1602,15 +1896,24 @@
     }
 
     document.querySelectorAll('[data-sales-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.salesTab)));
-    search.addEventListener('input', render);
-    statusFilterRoot.addEventListener('dropdown:change', render);
-    [itemMonthRoot, itemNameRoot, itemMethodRoot].forEach(root => root.addEventListener('dropdown:change', render));
-    itemFilterClear.addEventListener('click', () => { clearItemFilters(); render(); });
+    const filterChanged = () => { pageNo = 1; render(); };
+    search.addEventListener('input', filterChanged);
+    statusFilterRoot.addEventListener('dropdown:change', filterChanged);
+    [itemMonthRoot, itemNameRoot, itemMethodRoot].forEach(root => root.addEventListener('dropdown:change', filterChanged));
+    itemFilterClear.addEventListener('click', () => { clearItemFilters(); filterChanged(); });
+    filtersToggle.addEventListener('click', () => {
+        const open = toolbarEl.classList.toggle('filtersOpen');
+        filtersToggle.setAttribute('aria-expanded', String(open));
+    });
+    pagerPrev.addEventListener('click', () => goToPage(pageNo - 1));
+    pagerNext.addEventListener('click', () => goToPage(pageNo + 1));
     recordFilterRoot.addEventListener('dropdown:change', () => {
         // Paid / Unpaid / Partial mean nothing for archived rows.
         const archived = viewingArchived();
         if (archived) setDropdown(statusFilterRoot, '');
         statusFilterRoot.hidden = archived;
+        selectedRowId = null;
+        pageNo = 1;
         render();
     });
     addButton.addEventListener('click', () => activeTab === 'items' ? showItem() : activeTab === 'logs' ? showPurchase() : activeTab === 'athletes' ? showRecordAthletePayment() : activeTab === 'fees' ? showFee() : showRecordPayment());
@@ -1618,6 +1921,16 @@
     document.getElementById('purchaseQuantity').addEventListener('input', refreshPurchasePrice);
 
     page.addEventListener('click', event => {
+        // Clicking a row (not a button / link inside it) selects it; clicking it again un-selects.
+        const rowEl = event.target.closest('tr[data-select]');
+        if (rowEl && !event.target.closest('button, a, input, select, label')) {
+            const same = String(selectedRowId) === rowEl.dataset.select;
+            rowEl.closest('tbody').querySelectorAll('tr.selectedRow').forEach(row => row.classList.remove('selectedRow'));
+            selectedRowId = same ? null : rowEl.dataset.select;
+            if (!same) rowEl.classList.add('selectedRow');
+            updateToolbar();
+            return;
+        }
         const target = event.target.closest('button');
         if (!target) return;
         if (target.matches('[data-course-edit]')) showCoursePayment(byId(courseRows, target.dataset.courseEdit));
