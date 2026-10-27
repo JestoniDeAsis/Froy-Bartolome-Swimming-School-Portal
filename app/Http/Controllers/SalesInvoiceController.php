@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class SalesInvoiceController extends Controller
@@ -19,6 +20,15 @@ class SalesInvoiceController extends Controller
 
     // role_id that athletes have in tbl_users.
     private const ATHLETE_ROLE_ID = 4;
+
+    // Payment methods the page offers. Cash is the only one that may go
+    // without a reference number.
+    private const PAYMENT_METHODS = ['Cash', 'GCash', 'Bank Transfer', 'Other'];
+
+    private const CASH_METHOD = 'Cash';
+
+    // An athlete is retired once athlete_until (tbl_users) is in the past.
+    private const RETIRED_SQL = '(u.athlete_until IS NOT NULL AND u.athlete_until < CURDATE())';
 
     private const PERSON_NAME_SQL = "COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.name_suffix)), ''), u.username, '')";
 
@@ -50,12 +60,48 @@ class SalesInvoiceController extends Controller
     }
 
     /**
+     * Validation shared by every payment endpoint (course + athlete, record /
+     * edit / re-log), so they can't drift apart.
+     *   - payment_method must be one of PAYMENT_METHODS
+     *   - reference_number is free text. GCash, bank and other references
+     *     differ in length and format, so only the varchar limit (100) is
+     *     enforced. It is required for every method except Cash.
+     */
+    private function paymentRules(array $extra = []): array
+    {
+        return array_merge([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', Rule::in(self::PAYMENT_METHODS)],
+            'reference_number' => ['required_unless:payment_method,' . self::CASH_METHOD, 'nullable', 'string', 'max:100'],
+        ], $extra);
+    }
+
+    private function paymentMessages(): array
+    {
+        return [
+            'payment_method.in' => 'Choose Cash, GCash, Bank Transfer or Other as the payment method.',
+            'reference_number.required_unless' => 'Enter the reference number. Only cash payments can go without one.',
+        ];
+    }
+
+    /**
+     * The reference exactly as it should be stored: trimmed, and NULL when
+     * nothing was typed (a cash payment without one).
+     */
+    private function cleanReference(array $validated): ?string
+    {
+        $reference = trim((string) ($validated['reference_number'] ?? ''));
+
+        return $reference === '' ? null : $reference;
+    }
+
+    /**
      * POST /sales/enrollments/{enrollment}/payments
      * "Record Course Payment": logs ONE new payment row for an enrollment.
      * It never edits a past payment, so balance/status are always
      * (price - sum of payments). Same rules the Registers page used to have:
      *   - admin only
-     *   - amount > 0, method required, reference optional
+     *   - amount > 0, method required, reference required unless the method is Cash
      *   - a fully paid enrollment can't take another payment
      *   - a payment larger than the remaining balance is rejected (422)
      */
@@ -65,11 +111,7 @@ class SalesInvoiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Only the admin can do this.'], 403);
         }
 
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
-        ]);
+        $validated = $request->validate($this->paymentRules(), $this->paymentMessages());
 
         $amount = round((float) $validated['amount'], 2);
 
@@ -78,7 +120,7 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($enrollment, $validated, $amount) {
             $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
 
-            // A dropped student can't take new payments.
+            // A dropped student stays in the records, but can't take new payments.
             if ($locked->dropped_at !== null) {
                 throw ValidationException::withMessages([
                     'amount' => ['This student has been dropped, so no new payment can be recorded.'],
@@ -108,7 +150,7 @@ class SalesInvoiceController extends Controller
                 'enrollment_id' => $locked->enrollment_id,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
+                'reference_number' => $this->cleanReference($validated),
                 'paid_at' => now(),
                 'received_by' => Auth::id(),
             ]);
@@ -140,12 +182,9 @@ class SalesInvoiceController extends Controller
             return response()->json(['success' => false, 'message' => 'This payment is archived. Re-log it from the Archived filter instead.'], 422);
         }
 
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
+        $validated = $request->validate($this->paymentRules([
             'reason' => ['required', 'string', 'min:3', 'max:255'],
-        ]);
+        ]), $this->paymentMessages());
 
         $amount = round((float) $validated['amount'], 2);
         $enrollmentId = $payment->enrollment_id;
@@ -193,7 +232,7 @@ class SalesInvoiceController extends Controller
                 'enrollment_id' => $enrollmentId,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
+                'reference_number' => $this->cleanReference($validated),
                 'paid_at' => $payment->paid_at,
                 'received_by' => Auth::id(),
                 'replaces_payment_id' => $payment->getKey(),
@@ -253,7 +292,7 @@ class SalesInvoiceController extends Controller
      * reference while doing it, and it goes through the same checks as a new
      * payment, measured against ACTIVE payments only:
      *   - admin only, and the row must really be archived
-     *   - amount > 0, method required, reference optional
+     *   - amount > 0, method required, reference required unless the method is Cash
      *   - the enrollment can't already be fully paid
      *   - amount can't exceed  course price - active payments of that enrollment
      * The archived row is left untouched as history; the re-logged payment is a
@@ -265,11 +304,7 @@ class SalesInvoiceController extends Controller
             return $denied;
         }
 
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
-        ]);
+        $validated = $request->validate($this->paymentRules(), $this->paymentMessages());
 
         $amount = round((float) $validated['amount'], 2);
         $enrollmentId = $payment->enrollment_id;
@@ -316,7 +351,7 @@ class SalesInvoiceController extends Controller
                 'enrollment_id' => $enrollmentId,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
+                'reference_number' => $this->cleanReference($validated),
                 'paid_at' => $row->paid_at,
                 'received_by' => Auth::id(),
                 'replaces_payment_id' => $payment->getKey(),
@@ -357,7 +392,6 @@ class SalesInvoiceController extends Controller
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNull('cp.archived_at')
-                ->whereNull('e.dropped_at')
                 ->leftJoin('tbl_user_profile as rb_p', 'rb_p.user_id', '=', 'cp.received_by')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
@@ -379,6 +413,7 @@ class SalesInvoiceController extends Controller
                     'course' => $r->course,
                     'name' => $r->name,
                     'price' => $price,
+                    'dropped' => (bool) $r->dropped,
                     'toPay' => $price,
                     'paid' => (float) $r->amount,
                     'balance' => $balance,
@@ -401,7 +436,7 @@ class SalesInvoiceController extends Controller
                 ->select('e.enrollment_id as enrollmentId', 'e.enrollment_at as sortAt')
         )
             ->selectRaw("DATE_FORMAT(e.enrollment_at, '%b-%d-%Y') as date")
-            // Dropped students owe nothing, so they get no Unpaid row.
+            // A dropped student owes nothing more, so no placeholder Unpaid row. Their payments still show.
             ->whereNull('e.dropped_at')
             ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL)')
             ->get()
@@ -414,6 +449,7 @@ class SalesInvoiceController extends Controller
                     'course' => $r->course,
                     'name' => $r->name,
                     'price' => $price,
+                    'dropped' => false,
                     'toPay' => $price,
                     'paid' => 0.0,
                     'balance' => $price,
@@ -447,7 +483,6 @@ class SalesInvoiceController extends Controller
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNotNull('cp.archived_at')
-                ->whereNull('e.dropped_at')
                 ->leftJoin('tbl_user_profile as ab_p', 'ab_p.user_id', '=', 'cp.archived_by')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
@@ -468,6 +503,7 @@ class SalesInvoiceController extends Controller
                 'course' => $r->course,
                 'name' => $r->name,
                 'price' => (float) $r->price,
+                'dropped' => (bool) $r->dropped,
                 'toPay' => (float) $r->price,
                 'paid' => (float) $r->amount,
                 'enrollmentPaid' => round((float) $r->activePaid, 2),
@@ -497,7 +533,8 @@ class SalesInvoiceController extends Controller
             ->leftJoin('tbl_courses as c', 'c.course_id', '=', 'e.course_id')
             ->selectRaw("COALESCE(c.course_name, 'Course') as course")
             ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.name_suffix)), ''), u.username, '') as name")
-            ->selectRaw('COALESCE(e.course_price_at_enrollment, c.course_price, 0) as price');
+            ->selectRaw('COALESCE(e.course_price_at_enrollment, c.course_price, 0) as price')
+            ->selectRaw('(e.dropped_at IS NOT NULL) as dropped');
     }
 
     /**
@@ -685,14 +722,11 @@ class SalesInvoiceController extends Controller
             return $denied;
         }
 
-        $validated = $request->validate([
+        $validated = $request->validate($this->paymentRules([
             'user_id' => ['required', 'integer'],
             'athlete_fee_id' => ['required', 'integer', 'exists:tbl_athlete_fees,athlete_fee_id'],
             'period_key' => ['nullable', 'string', 'max:7'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
-        ]);
+        ]), $this->paymentMessages());
 
         $amount = round((float) $validated['amount'], 2);
         $userId = (int) $validated['user_id'];
@@ -708,6 +742,10 @@ class SalesInvoiceController extends Controller
 
             if (! $athlete) {
                 throw ValidationException::withMessages(['user_id' => ['This user is not an athlete.']]);
+            }
+
+            if ($athlete->athlete_until !== null && Carbon::parse($athlete->athlete_until)->endOfDay()->isPast()) {
+                throw ValidationException::withMessages(['user_id' => ['This athlete is retired, so no new payment can be recorded.']]);
             }
 
             $fee = DB::table('tbl_athlete_fees')->where('athlete_fee_id', $feeId)->first();
@@ -748,7 +786,7 @@ class SalesInvoiceController extends Controller
                 'amount_due' => $due,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
+                'reference_number' => $this->cleanReference($validated),
                 'paid_at' => now(),
                 'received_by' => Auth::id(),
                 'created_at' => now(),
@@ -776,12 +814,9 @@ class SalesInvoiceController extends Controller
             return $denied;
         }
 
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
+        $validated = $request->validate($this->paymentRules([
             'reason' => ['required', 'string', 'min:3', 'max:255'],
-        ]);
+        ]), $this->paymentMessages());
 
         $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
 
@@ -839,7 +874,7 @@ class SalesInvoiceController extends Controller
                 'amount_due' => $row->amount_due,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
+                'reference_number' => $this->cleanReference($validated),
                 'paid_at' => $row->paid_at,
                 'received_by' => Auth::id(),
                 'replaces_payment_id' => $payment,
@@ -900,7 +935,7 @@ class SalesInvoiceController extends Controller
      * "Re-log" an archived athlete payment (amount / method / reference may be
      * changed). Same checks as a new payment, against ACTIVE payments only:
      *   - admin only, row must really be archived, user must still be an athlete
-     *   - amount > 0, method required, reference optional
+     *   - amount > 0, method required, reference required unless the method is Cash
      *   - the due can't already be fully paid
      *   - amount can't exceed  amount_due - active payments of that due
      * amount_due is the one the due's active payments are frozen with, or this
@@ -914,11 +949,7 @@ class SalesInvoiceController extends Controller
             return $denied;
         }
 
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'string', 'max:50'],
-            'reference_number' => ['nullable', 'string', 'max:100'],
-        ]);
+        $validated = $request->validate($this->paymentRules(), $this->paymentMessages());
 
         $row = DB::table('tbl_athlete_payments')->where('athlete_payment_id', $payment)->first();
 
@@ -982,7 +1013,7 @@ class SalesInvoiceController extends Controller
                 'amount_due' => $due,
                 'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => $validated['reference_number'] ?? null,
+                'reference_number' => $this->cleanReference($validated),
                 'paid_at' => $current->paid_at,
                 'received_by' => Auth::id(),
                 'replaces_payment_id' => $payment,
@@ -1069,6 +1100,7 @@ class SalesInvoiceController extends Controller
             ->leftJoin('tbl_user_profile as rb_p', 'rb_p.user_id', '=', 'ap.received_by')
             ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as due', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
+            ->selectRaw(self::RETIRED_SQL . ' as retired')
             ->selectRaw("TRIM(CONCAT_WS(' ', rb_p.first_name, rb_p.last_name)) as receivedBy")
             ->selectRaw("CASE WHEN ap.replaces_payment_id IS NULL THEN NULL ELSE CONCAT('INV-A-', YEAR(ap.paid_at), '-', LPAD(ap.replaces_payment_id, 4, '0')) END as replacesReceipt")
             ->selectRaw('(' . $sumOfDue . ' AND x.athlete_payment_id <= ap.athlete_payment_id) as runningPaid')
@@ -1091,6 +1123,7 @@ class SalesInvoiceController extends Controller
                     'cycle' => $r->cycle,
                     'period' => $this->periodLabel($r->cycle, (string) $r->periodKey),
                     'name' => $r->name,
+                    'retired' => (bool) $r->retired,
                     'toPay' => $due,
                     'paid' => (float) $r->amount,
                     'balance' => $balance,
@@ -1115,6 +1148,8 @@ class SalesInvoiceController extends Controller
             ->crossJoin('tbl_athlete_fees as f')
             ->where('u.role_id', self::ATHLETE_ROLE_ID)
             ->where('f.is_active', 1)
+            // Retired athletes get no new Unpaid rows. Their payments still show above.
+            ->whereRaw('(u.athlete_until IS NULL OR u.athlete_until >= CURDATE())')
             ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_athlete_payments x WHERE x.archived_at IS NULL AND x.user_id = u.user_id AND x.athlete_fee_id = f.athlete_fee_id AND x.period_key = ' . $periodCase . ')', [$month, $year])
             ->select('u.user_id as userId', 'f.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'f.amount as due')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
@@ -1134,6 +1169,7 @@ class SalesInvoiceController extends Controller
                     'cycle' => $r->cycle,
                     'period' => $this->periodLabel($r->cycle, (string) $r->periodKey),
                     'name' => $r->name,
+                    'retired' => false,
                     'toPay' => $due,
                     'paid' => 0.0,
                     'balance' => $due,
@@ -1174,6 +1210,7 @@ class SalesInvoiceController extends Controller
             ->leftJoin('tbl_user_profile as ab_p', 'ab_p.user_id', '=', 'ap.archived_by')
             ->select('ap.athlete_payment_id as id', 'ap.user_id as userId', 'ap.athlete_fee_id as feeId', 'f.fee_name as fee', 'f.billing_cycle as cycle', 'ap.period_key as periodKey', 'ap.amount_due as ownDue', 'ap.amount', 'ap.payment_method as method', 'ap.reference_number as reference', 'ap.paid_at as sortAt')
             ->selectRaw(self::PERSON_NAME_SQL . ' as name')
+            ->selectRaw(self::RETIRED_SQL . ' as retired')
             ->selectRaw('(SELECT x.amount_due' . $activeOfDue . ' ORDER BY x.athlete_payment_id LIMIT 1) as activeDue')
             ->selectRaw('(SELECT COALESCE(SUM(x.amount), 0)' . $activeOfDue . ') as duePaid')
             ->selectRaw("DATE_FORMAT(ap.paid_at, '%b-%d-%Y') as date")
@@ -1195,6 +1232,7 @@ class SalesInvoiceController extends Controller
                 'cycle' => $r->cycle,
                 'period' => $this->periodLabel($r->cycle, (string) $r->periodKey),
                 'name' => $r->name,
+                'retired' => (bool) $r->retired,
                 'toPay' => (float) ($r->activeDue ?? $r->ownDue),
                 'paid' => (float) $r->amount,
                 'duePaid' => round((float) $r->duePaid, 2),

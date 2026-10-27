@@ -22,10 +22,7 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    /* scrolls when tabs + toolbar + hint + table are taller than the screen (phones) */
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     color: var(--sales-ink);
@@ -55,12 +52,6 @@
     background: #fff;
     border: 1px solid #e7ebef;
     border-radius: 12px;
-    min-width: 0;
-}
-
-.sales-stat > div {
-    min-width: 0;
-    flex: 1 1 auto;
 }
 
 .sales-stat-label { margin: 0 0 .2rem; font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #667085; }
@@ -221,9 +212,9 @@
 /* Dropdowns use the shared defaults (our_theme.css), same as every other page.
    Only the filter's minimum width is set, matching Attendance's filters. */
 .sales-filter { --dd-min-width: 160px; }
-/* Item-log filters sit inline with the other toolbar controls. */
-.sales-item-filters { display: contents; }
-.sales-item-filters[hidden] { display: none; }
+/* Month / subject / method filters sit inline with the other toolbar controls. */
+.sales-extra-filters { display: contents; }
+.sales-extra-filters[hidden] { display: none; }
 
 .sales-table .sales-name {
     font-weight: 600;
@@ -332,7 +323,8 @@
     color: var(--fbss-danger, #DC3545);
 }
 
-.sales-field .registerDropdown.isInvalid .registerDropdownToggle {
+.sales-field .registerDropdown.isInvalid .registerDropdownToggle,
+.sales-field .form-control.isInvalid {
     border-color: var(--fbss-danger, #DC3545);
 }
 
@@ -513,6 +505,69 @@
     .sales-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+}
+
+@media (max-width: 700px) {
+    .sales-page {
+        padding: 1rem;
+    }
+
+    .sales-toolbar-actions { margin-left: 0; width: 100%; }
+    .sales-toolbar-actions button { flex: 1 1 auto; }
+
+    .sales-heading {
+        align-items: flex-start;
+    }
+
+    .sales-toolbar, .sales-toolbar-start, .sales-search {
+        width: 100%;
+    }
+
+    .sales-toolbar-start {
+        align-items: stretch;
+    }
+
+    .sales-filter {
+        flex: 1;
+        --dd-width: 100%;
+    }
+
+    .sales-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+@media (max-width: 430px) {
+    .sales-stats {
+        grid-template-columns: 1fr 1fr;
+        gap: .5rem;
+    }
+
+    .sales-stat {
+        min-height: 76px;
+        padding: .7rem;
+    }
+
+    .sales-stat-value {
+        font-size: 1.25rem;
+    }
+
+    .sales-stat-label {
+        font-size: .62rem;
+    }
+
+    .sales-stat-icon {
+        width: 1.6rem;
+        height: 1.6rem;
+        flex-basis: 1.6rem;
+    }
+
+    .sales-receipt-amount {
+        padding: .4rem;
+    }
+
 }
 
 /* ---------- Pagination (all screens) ---------- */
@@ -526,193 +581,80 @@
 .sales-toolbar { scroll-margin-top: 4rem; }
 
 /* =========================================================
-   Responsive: consistent design matching Registers, Coaches, Attendance.
-   The page container scrolls vertically, tabs and filters wrap 2-per-row,
-   and the table has a minimum height with horizontal scroll.
+   Compact screens: narrow OR short windows (tablets, squarish browser
+   windows, small laptops). The page scrolls as a whole instead of being
+   locked to the window height, which is what squashed the table before.
 ========================================================= */
-@media (max-width: 767.98px), (max-height: 700px) {
-    .sales-panel {
-        flex: 0 0 auto;
-        min-height: 260px;
-    }
+@media (max-width: 1100px), (max-height: 800px) {
+    .sales-page { --sales-pad: 1.25rem; height: auto; min-height: 0; overflow: visible; padding: var(--sales-pad); }
+    .sales-table-wrap { flex: 0 0 auto; }
 
-    .sales-table-wrap {
-        flex: 0 0 auto;
-        min-height: 260px;
-        -webkit-overflow-scrolling: touch;
-    }
+    .sales-page .sales-tabs.btn-tab-group { position: sticky; top: 0; z-index: 20; display: flex; flex-direction: row; flex-wrap: nowrap; gap: .4rem; overflow-x: auto; margin: 0 calc(var(--sales-pad) * -1) .75rem; padding: .5rem var(--sales-pad); background: #fff; border-bottom: 1px solid #e7ebef; scrollbar-width: none; }
+    .sales-page .sales-tabs::-webkit-scrollbar { display: none; }
+    .sales-page .sales-tabs .btn-tab { flex: 0 0 auto; width: auto; min-width: 0; white-space: nowrap; padding: .35rem .85rem; font-size: .85rem; }
+
+    .sales-toolbar-start { flex: 1 1 100%; }
+
+    /* Row actions: a bar that stays at the bottom of the screen once a row is selected. */
+    .sales-toolbar-actions { position: sticky; bottom: 0; z-index: 15; width: auto; margin: .75rem calc(var(--sales-pad) * -1) 0; padding: .6rem var(--sales-pad) calc(.6rem + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #e7ebef; box-shadow: 0 -4px 12px rgba(16, 24, 40, .08); }
+    .sales-toolbar-actions.isIdle { display: none; }
 }
 
-@media (max-width: 575.98px) {
-    .sales-page {
-        height: auto;
-        min-height: 100vh;
-        padding: 1rem;
-    }
+/* Tablet / squarish window: keep the 4 stat cards on one row and the table tighter. */
+@media (min-width: 701px) and (max-width: 1100px) {
+    .sales-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+    .sales-stat { padding: .6rem .8rem; }
+    .sales-stat-value { font-size: 1.15rem; }
+    .sales-stat-icon { width: 1.75rem; height: 1.75rem; flex-basis: 1.75rem; }
+    .sales-table th, .sales-table td { padding: .6rem .75rem; }
+}
 
-    .sales-heading {
-        flex-direction: column;
-        align-items: stretch;
-        gap: .75rem;
-    }
+/* =========================================================
+   Phones (<= 700px): the whole page scrolls, tabs slide sideways,
+   filters fold behind a button, row actions stick to the bottom,
+   and every table row becomes a card.
+========================================================= */
+@media (max-width: 700px) {
+    .sales-page { --sales-pad: .85rem; }
 
-    #salesAddButton {
-        width: 100%;
-        justify-content: center;
-    }
+    .sales-heading { gap: .6rem; margin-bottom: .75rem; align-items: center; }
+    .sales-heading h2 { font-size: 1.25rem; }
+    .sales-heading p { display: none; }
+    #salesAddButton { flex: 0 0 auto; max-width: 52%; padding: .45rem .75rem; font-size: .8rem; line-height: 1.15; text-align: left; }
 
-    /* Tabs: 2 per row, matching the 2-column alignment */
-    .sales-tabs .btn-tab {
-        min-width: 125px;
-        flex: 1 1 calc(50% - .25rem);
-    }
+    .sales-page .sales-tabs .btn-tab { padding: .35rem .85rem; font-size: .82rem; }
 
-    /* Stats: 2 per row */
-    .sales-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .5rem;
-    }
+    .sales-stats { gap: .5rem; margin-bottom: .75rem; }
+    .sales-stat { padding: .5rem .65rem; }
+    .sales-stat-value { font-size: 1.05rem; }
+    .sales-stat-icon { display: none; }
 
-    .sales-stat {
-        padding: .65rem .7rem;
-        gap: .4rem;
-        min-width: 0;
-        overflow: hidden;
-    }
+    .sales-toolbar-start { gap: .5rem; }
+    .sales-search { flex: 1 1 calc(100% - 7rem); width: auto; min-width: 0; }
+    .sales-filters-toggle { display: inline-flex; flex: 0 0 auto; }
+    .sales-filter { flex: 1 1 calc(50% - .5rem); }
+    .sales-toolbar:not(.filtersOpen) .sales-filter,
+    .sales-toolbar:not(.filtersOpen) .sales-extra-filters { display: none; }
 
-    .sales-stat > div {
-        min-width: 0;
-        flex: 1 1 auto;
-        overflow: hidden;
-    }
+    .sales-pager { justify-content: center; text-align: center; }
+    .sales-pager > span { flex: 1 0 100%; }
 
-    .sales-stat-label {
-        font-size: .65rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        margin-bottom: .25rem;
-    }
-
-    .sales-stat-value {
-        font-size: clamp(1rem, 3.6vw, 1.15rem);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .sales-stat-icon {
-        width: 1.85rem;
-        height: 1.85rem;
-        flex: 0 0 1.85rem;
-        font-size: .95rem;
-    }
-
-    .sales-toolbar {
-        gap: .5rem;
-    }
-
-    .sales-toolbar-start {
-        width: 100%;
-        gap: .5rem;
-    }
-
-    .sales-search {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .sales-search input {
-        width: 100%;
-    }
-
-    .sales-filters-toggle {
-        display: none !important;
-    }
-
-    /* Filters: 2 per row, matching the 2-column alignment of the tab buttons */
-    .sales-filter {
-        display: block !important;
-        flex: 1 1 calc(50% - .25rem);
-        max-width: calc(50% - .25rem);
-        min-width: 0;
-        --dd-width: 100%;
-        --dd-min-width: 0;
-    }
-
-    .sales-filter .registerDropdownToggle {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-    }
-
-    .sales-item-filters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
-        width: 100%;
-    }
-
-    .sales-item-filters .sales-filter {
-        flex: 1 1 calc(50% - .25rem);
-        max-width: calc(50% - .25rem);
-        min-width: 0;
-    }
-
-    .sales-toolbar-actions {
-        margin-left: 0;
-        margin-top: .5rem;
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .5rem;
-    }
-
-    .sales-toolbar-actions button {
-        flex: 1 1 auto;
-        justify-content: center;
-    }
-
-    .sales-action-hint {
-        flex: 0 0 auto;
-        margin: .25rem 0 .75rem;
-    }
-
-    .sales-panel {
-        flex: 0 0 auto;
-        width: 100%;
-        min-height: 260px;
-    }
-
-    .sales-table-wrap {
-        flex: 0 0 auto;
-        width: 100%;
-        min-height: 260px;
-        overflow-x: auto;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .sales-pager {
-        flex: 0 0 auto;
-        width: 100%;
-        justify-content: center;
-        text-align: center;
-        margin-top: .75rem;
-    }
-
-    .sales-pager > span {
-        flex: 1 0 100%;
-    }
-
-    .sales-form-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .sales-dialog-inner {
-        padding: 1.25rem;
-        max-width: calc(100vw - 1.5rem);
-    }
+    /* Table -> cards */
+    .sales-table-wrap { max-height: none; overflow: visible; border: 0; background: transparent; }
+    .sales-table, .sales-table tbody { display: block; white-space: normal; }
+    .sales-table thead { display: none; }
+    .sales-table tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .85rem; position: relative; margin-bottom: .6rem; padding: .75rem 2.75rem .75rem .85rem; background: #fff; border: 1px solid #e7ebef; border-radius: 12px; }
+    .sales-table tbody tr:hover { background: #fff; }
+    .sales-table tbody tr.sales-row.selectedRow, .sales-table tbody tr.sales-row.selectedRow:hover { background: #e7f5ff; border-color: var(--sales-blue); }
+    .sales-table tbody td, .sales-table tbody tr.sales-row:hover > td, .sales-table tbody tr.sales-row.selectedRow > td, .sales-table tbody tr.sales-row.selectedRow:hover > td { display: block; min-width: 0; padding: 0; border: 0; background: transparent; font-size: .85rem; overflow-wrap: anywhere; }
+    .sales-table tbody td::before { content: attr(data-label); display: block; margin-bottom: .1rem; color: var(--sales-muted); font-size: .66rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+    .sales-table tbody td.sales-name { grid-column: 1 / -1; font-size: .95rem; }
+    .sales-table tbody td.sales-name::before { display: none; }
+    .sales-table tbody td.sales-cell-invoice { position: absolute; top: .55rem; right: .55rem; }
+    .sales-table tbody td.sales-cell-invoice::before { display: none; }
+    .sales-table tbody td.sales-cell-invoice.isBlank { display: none; }
+    .sales-table tbody td.sales-empty { grid-column: 1 / -1; text-align: center; }
+    .sales-table tbody td.sales-empty::before { display: none; }
 }
 </style>
 
@@ -769,38 +711,38 @@
                 </div>
                 <input id="salesRecordFilter" name="recordFilter" type="hidden" value="active">
             </div>
-            <div class="sales-item-filters" id="salesItemFilters" hidden>
-            <div class="registerDropdown sales-filter" id="itemMonthFilterDropdown" data-fbss-dropdown>
-                <button class="registerDropdownToggle" id="itemMonthFilterToggle" type="button" aria-expanded="false" aria-controls="itemMonthFilterOptions" aria-label="Filter by month">
-                    <span>All months</span>
+            <div class="sales-extra-filters" id="salesExtraFilters">
+            <div class="registerDropdown sales-filter" id="salesExtraFilterDropdown1" data-fbss-dropdown hidden>
+                <button class="registerDropdownToggle" id="salesExtraFilterToggle1" type="button" aria-expanded="false" aria-controls="salesExtraFilterOptions1" aria-label="Filter">
+                    <span>All</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
                 </button>
-                <div class="registerDropdownOptions" id="itemMonthFilterOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="">All months</button>
+                <div class="registerDropdownOptions" id="salesExtraFilterOptions1" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All</button>
                 </div>
-                <input id="itemMonthFilter" name="monthFilter" type="hidden" value="">
+                <input id="salesExtraFilter1" name="extraFilter1" type="hidden" value="">
             </div>
-            <div class="registerDropdown sales-filter" id="itemNameFilterDropdown" data-fbss-dropdown>
-                <button class="registerDropdownToggle" id="itemNameFilterToggle" type="button" aria-expanded="false" aria-controls="itemNameFilterOptions" aria-label="Filter by item">
-                    <span>All items</span>
+            <div class="registerDropdown sales-filter" id="salesExtraFilterDropdown2" data-fbss-dropdown hidden>
+                <button class="registerDropdownToggle" id="salesExtraFilterToggle2" type="button" aria-expanded="false" aria-controls="salesExtraFilterOptions2" aria-label="Filter">
+                    <span>All</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
                 </button>
-                <div class="registerDropdownOptions" id="itemNameFilterOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="">All items</button>
+                <div class="registerDropdownOptions" id="salesExtraFilterOptions2" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All</button>
                 </div>
-                <input id="itemNameFilter" name="itemFilter" type="hidden" value="">
+                <input id="salesExtraFilter2" name="extraFilter2" type="hidden" value="">
             </div>
-            <div class="registerDropdown sales-filter" id="itemMethodFilterDropdown" data-fbss-dropdown>
-                <button class="registerDropdownToggle" id="itemMethodFilterToggle" type="button" aria-expanded="false" aria-controls="itemMethodFilterOptions" aria-label="Filter by payment method">
-                    <span>All methods</span>
+            <div class="registerDropdown sales-filter" id="salesExtraFilterDropdown3" data-fbss-dropdown hidden>
+                <button class="registerDropdownToggle" id="salesExtraFilterToggle3" type="button" aria-expanded="false" aria-controls="salesExtraFilterOptions3" aria-label="Filter">
+                    <span>All</span>
                     <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
                 </button>
-                <div class="registerDropdownOptions" id="itemMethodFilterOptions" hidden>
-                    <button class="registerDropdownOption active" type="button" data-value="">All methods</button>
+                <div class="registerDropdownOptions" id="salesExtraFilterOptions3" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All</button>
                 </div>
-                <input id="itemMethodFilter" name="methodFilter" type="hidden" value="">
+                <input id="salesExtraFilter3" name="extraFilter3" type="hidden" value="">
             </div>
-            <button class="btn btn-outline-primary" id="itemFilterClear" type="button" hidden>Clear filters</button>
+            <button class="btn btn-outline-primary" id="salesFilterClear" type="button" hidden>Clear filters</button>
             </div>
         </div>
 
@@ -861,7 +803,7 @@
                     <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
                     <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
                 </div><input id="coursePaymentMethod" name="method" type="hidden" value=""></div></div>
-            <div class="sales-field"><label for="coursePaymentReference">Reference Number</label><input class="form-control" id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
+            <div class="sales-field"><label for="coursePaymentReference">Reference / Transaction No. <span class="sales-required" id="coursePaymentReferenceStar" hidden>*</span></label><input class="form-control" id="coursePaymentReference" name="reference" type="text" maxlength="100" placeholder="Reference / transaction no." autocomplete="off" aria-describedby="coursePaymentReferenceHint"><small id="coursePaymentReferenceHint"></small></div>
             <div class="sales-field" id="coursePaymentReasonGroup" hidden><label for="coursePaymentReason">Reason for change <span class="sales-required">*</span></label><input class="form-control" id="coursePaymentReason" name="reason" type="text" maxlength="255" placeholder="e.g. Wrong amount typed"><small>Saving archives the original entry (it stays on file) and records a corrected one.</small></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="coursePaymentStatus"></span></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="coursePaymentSubmit">Update</button></div>
@@ -922,7 +864,7 @@
                     <button class="registerDropdownOption" type="button" data-value="Bank Transfer">Bank Transfer</button>
                     <button class="registerDropdownOption" type="button" data-value="Other">Other</button>
                 </div><input id="athletePaymentMethod" name="method" type="hidden" value=""></div></div>
-            <div class="sales-field"><label for="athletePaymentReference">Reference Number</label><input class="form-control" id="athletePaymentReference" name="reference" type="text" maxlength="100" placeholder="e.g. GCash reference number"></div>
+            <div class="sales-field"><label for="athletePaymentReference">Reference / Transaction No. <span class="sales-required" id="athletePaymentReferenceStar" hidden>*</span></label><input class="form-control" id="athletePaymentReference" name="reference" type="text" maxlength="100" placeholder="Reference / transaction no." autocomplete="off" aria-describedby="athletePaymentReferenceHint"><small id="athletePaymentReferenceHint"></small></div>
             <div class="sales-field" id="athletePaymentReasonGroup" hidden><label for="athletePaymentReason">Reason for change <span class="sales-required">*</span></label><input class="form-control" id="athletePaymentReason" name="reason" type="text" maxlength="255" placeholder="e.g. Wrong amount typed"><small>Saving archives the original entry (it stays on file) and records a corrected one.</small></div>
             <div class="sales-balance-line"><strong>New payment status</strong><span class="sales-badge" id="athletePaymentStatus"></span></div>
             <div class="sales-dialog-actions"><button class="btn btn-outline-primary" type="button" data-dialog-close>Cancel</button><button class="btn btn-primary" type="submit" id="athletePaymentSubmit">Record</button></div>
@@ -1001,6 +943,7 @@
     const statusFor = (paid, total) => Number(paid) <= 0 ? 'unpaid' : Number(paid) >= Number(total) ? 'paid' : 'partial';
     const statusLabel = status => ({ paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', archived: 'Archived' }[status] || 'Unpaid');
     const archivedNote = row => `Archived ${escapeHtml(row.archivedAt || '--')}${row.archivedBy ? ` by ${escapeHtml(row.archivedBy)}` : ''}${row.archiveReason ? `<span class="sales-reason" title="${escapeHtml(row.archiveReason)}">${escapeHtml(row.archiveReason)}</span>` : ''}`;
+    const statusTag = row => row.dropped ? ' <span class="sales-badge sales-badge--archived">Dropped</span>' : row.retired ? ' <span class="sales-badge sales-badge--archived">Retired</span>' : '';
     const badge = status => `<span class="sales-badge sales-badge--${status}">${statusLabel(status)}</span>`;
     const byId = (list, id) => list.find(row => Number(row.id) === Number(id));
     const search = document.getElementById('salesSearch');
@@ -1008,39 +951,103 @@
     const statusFilterRoot = document.getElementById('salesStatusFilterDropdown'); // the shared dropdown
     const recordFilter = document.getElementById('salesRecordFilter');             // 'active' | 'archived' (course + athlete payment tabs)
     const recordFilterRoot = document.getElementById('salesRecordFilterDropdown');
-    // Item logs tab filters (month / item / payment method). Month is read from sortAt ("YYYY-MM-DD hh:mm:ss").
-    const itemFiltersRoot = document.getElementById('salesItemFilters');
-    const itemMonthRoot = document.getElementById('itemMonthFilterDropdown');
-    const itemNameRoot = document.getElementById('itemNameFilterDropdown');
-    const itemMethodRoot = document.getElementById('itemMethodFilterDropdown');
-    const itemMonthFilter = document.getElementById('itemMonthFilter');
-    const itemNameFilter = document.getElementById('itemNameFilter');
-    const itemMethodFilter = document.getElementById('itemMethodFilter');
-    const itemFilterClear = document.getElementById('itemFilterClear');
+    // Extra filters on every tab (month / subject / payment method). Three shared dropdown slots; filterDefs says
+    // which filters each tab puts in them. Month is read from sortAt ("YYYY-MM-DD hh:mm:ss").
+    const extraFiltersRoot = document.getElementById('salesExtraFilters');
+    const filterSlots = [1, 2, 3].map(n => ({
+        root: document.getElementById(`salesExtraFilterDropdown${n}`),
+        toggle: document.getElementById(`salesExtraFilterToggle${n}`),
+        input: document.getElementById(`salesExtraFilter${n}`)
+    }));
+    const filterClear = document.getElementById('salesFilterClear');
+    const PAYMENT_METHODS = ['Cash', 'GCash', 'Bank Transfer', 'Other'];
     const monthKey = row => String(row.sortAt || '').slice(0, 7);
     const monthLabel = key => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }); };
-    const itemFiltersActive = () => Boolean(itemMonthFilter.value || itemNameFilter.value || itemMethodFilter.value);
-    const matchesItemFilters = row =>
-        (!itemMonthFilter.value || monthKey(row) === itemMonthFilter.value)
-        && (!itemNameFilter.value || String(row.itemId) === itemNameFilter.value)
-        && (!itemMethodFilter.value || (row.method || '') === itemMethodFilter.value);
-    // Totals on the Item logs tab follow the month / item / method filters (not search or status).
-    const itemScope = () => activeTab === 'logs' ? logs.filter(matchesItemFilters) : logs;
-    let itemFilterSignature = '';
-    // Rebuilds the three dropdowns from what actually exists in the logs (silent). Only touches the DOM when the lists change.
-    function refreshItemFilterOptions() {
-        const months = [...new Set(logs.map(monthKey).filter(Boolean))].sort().reverse();
-        const names = new Map(); logs.forEach(row => names.set(String(row.itemId), row.item));
-        const nameList = [...names].sort((a, b) => a[1].localeCompare(b[1]));
-        const methods = [...new Set(['Cash', 'GCash', 'Bank Transfer', 'Other'].concat(logs.map(row => row.method).filter(Boolean)))];
-        const signature = JSON.stringify([months, nameList, methods]);
-        if (signature === itemFilterSignature) return;
-        itemFilterSignature = signature;
-        window.FBSSDropdown.setOptions(itemMonthRoot, [{ value: '', label: 'All months' }].concat(months.map(k => ({ value: k, label: monthLabel(k) }))), itemMonthFilter.value);
-        window.FBSSDropdown.setOptions(itemNameRoot, [{ value: '', label: 'All items' }].concat(nameList.map(([id, name]) => ({ value: id, label: name }))), itemNameFilter.value);
-        window.FBSSDropdown.setOptions(itemMethodRoot, [{ value: '', label: 'All methods' }].concat(methods.map(m => ({ value: m, label: m }))), itemMethodFilter.value);
+
+    // A filter = { all: first option's label, label: aria-label, options(rows), match(row, kind, value) }.
+    // `kind` is the dataset a row comes from ('course' | 'item' | 'athlete'); only the All tab filters on it.
+    const monthFilter = {
+        all: 'All months', label: 'Filter by month',
+        options: rows => [...new Set(rows.map(monthKey).filter(Boolean))].sort().reverse().map(key => ({ value: key, label: monthLabel(key) })),
+        match: (row, kind, value) => monthKey(row) === value
+    };
+    const methodFilter = {
+        all: 'All methods', label: 'Filter by payment method',
+        options: rows => [...new Set(PAYMENT_METHODS.concat(rows.map(row => row.method).filter(Boolean)))].map(method => ({ value: method, label: method })),
+        match: (row, kind, value) => (row.method || '') === value
+    };
+    // Picks one value per distinct row[idField], labelled with row[nameField].
+    const namedFilter = (all, label, idField, nameField) => ({
+        all, label,
+        options: rows => {
+            const names = new Map();
+            rows.forEach(row => names.set(String(row[idField]), row[nameField]));
+            return [...names].filter(([, name]) => name).sort((a, b) => String(a[1]).localeCompare(String(b[1]))).map(([value, name]) => ({ value, label: name }));
+        },
+        match: (row, kind, value) => String(row[idField]) === value
+    });
+    const typeFilter = {
+        all: 'All types', label: 'Filter by type',
+        options: () => [{ value: 'course', label: 'Course' }, { value: 'item', label: 'Item' }, { value: 'athlete', label: 'Athlete' }],
+        match: (row, kind, value) => kind === value
+    };
+    const billingFilter = {
+        all: 'All billing', label: 'Filter by billing',
+        options: () => ['one_time', 'monthly', 'yearly'].map(value => ({ value, label: cycleLabel(value) })),
+        match: (row, kind, value) => row.cycle === value
+    };
+    const feeStateFilter = {
+        all: 'All statuses', label: 'Filter by fee status',
+        options: () => [{ value: 'active', label: 'Active' }, { value: 'archived', label: 'Archived' }],
+        match: (row, kind, value) => Boolean(row.active) === (value === 'active')
+    };
+    const stockFilter = {
+        all: 'All stock', label: 'Filter by stock',
+        options: () => [{ value: 'in', label: 'In stock' }, { value: 'out', label: 'Out of stock' }],
+        match: (row, kind, value) => (Number(row.stock) > 0) === (value === 'in')
+    };
+    const filterDefs = {
+        all: [monthFilter, typeFilter, methodFilter],
+        course: [monthFilter, namedFilter('All courses', 'Filter by course', 'course', 'course'), methodFilter],
+        athletes: [monthFilter, namedFilter('All fees', 'Filter by fee', 'feeId', 'fee'), methodFilter],
+        logs: [monthFilter, namedFilter('All items', 'Filter by item', 'itemId', 'item'), methodFilter],
+        fees: [billingFilter, feeStateFilter],
+        items: [stockFilter]
+    };
+    const activeFilterDefs = () => filterDefs[activeTab] || [];
+    const filterValue = index => filterSlots[index].input.value || '';
+    const filtersActive = () => activeFilterDefs().some((def, index) => Boolean(filterValue(index)));
+    const passesFilters = (row, kind) => activeFilterDefs().every((def, index) => !filterValue(index) || def.match(row, kind, filterValue(index)));
+    // Totals follow these filters (not search or status), as the Item logs tab always did.
+    const scoped = (rows, kind) => ['all', 'course', 'athletes', 'logs'].includes(activeTab) ? rows.filter(row => passesFilters(row, kind)) : rows;
+
+    // The rows the active tab's option lists are built from (so a filter only offers values that exist).
+    function filterSourceRows() {
+        const archived = viewingArchived();
+        if (activeTab === 'all') return courseRows.concat(logs, athleteRows);
+        if (activeTab === 'course') return archived ? archivedCourseRows : courseRows;
+        if (activeTab === 'athletes') return archived ? archivedAthleteRows : athleteRows;
+        if (activeTab === 'logs') return logs;
+        if (activeTab === 'fees') return athleteFees;
+        return items;
     }
-    const clearItemFilters = () => { [itemMonthRoot, itemNameRoot, itemMethodRoot].forEach(root => setDropdown(root, '')); };
+    let filterSignature = '';
+    // Shows the slots the tab uses and rebuilds their options (silent). Only touches the DOM when something changed.
+    function refreshFilterOptions() {
+        const defs = activeFilterDefs();
+        const built = defs.map(def => def.options(filterSourceRows()));
+        filterSlots.forEach((slot, index) => { slot.root.hidden = !defs[index]; });
+        const signature = JSON.stringify([activeTab, viewingArchived(), built]);
+        if (signature === filterSignature) return;
+        filterSignature = signature;
+        defs.forEach((def, index) => {
+            const slot = filterSlots[index];
+            slot.toggle.setAttribute('aria-label', def.label);
+            window.FBSSDropdown.setOptions(slot.root, [{ value: '', label: def.all }].concat(built[index]), slot.input.value);
+            setDropdown(slot.root, slot.input.value);   // makes sure the button shows the new label
+        });
+    }
+    const clearFilters = () => { filterSlots.forEach(slot => setDropdown(slot.root, '')); };
     const viewingArchived = () => (activeTab === 'course' || activeTab === 'athletes') && recordFilter.value === 'archived';
 
     // Selects `value` on a shared dropdown (silent). Resets to the first option
@@ -1147,23 +1154,23 @@
     // Each box means the same thing on every tab:
     //   Total collected = money received      Outstanding = still owed
     //   Paid            = value of fully paid  Unpaid      = value of untouched (nothing paid yet)
-    function courseStats() {
+    function courseStats(rows) {
         // Course rows are one per payment, so the balance-based totals are
         // taken once per enrollment (not once per payment row).
         const enrollments = new Map();
-        courseRows.forEach(row => enrollments.set(row.enrollmentId, { toPay: Number(row.toPay), paid: Number(row.enrollmentPaid) }));
+        rows.forEach(row => enrollments.set(row.enrollmentId, { toPay: Number(row.toPay), paid: Number(row.enrollmentPaid), inactive: Boolean(row.dropped) }));
         const list = [...enrollments.values()];
         return {
-            collected: courseRows.reduce((total, row) => total + Number(row.paid), 0),
-            outstanding: list.reduce((total, e) => total + Math.max(e.toPay - e.paid, 0), 0),
+            collected: rows.reduce((total, row) => total + Number(row.paid), 0),
+            outstanding: list.reduce((total, e) => total + (e.inactive ? 0 : Math.max(e.toPay - e.paid, 0)), 0),
             paid: list.reduce((total, e) => total + (e.paid > 0 && e.paid >= e.toPay ? e.paid : 0), 0),
             unpaid: list.reduce((total, e) => total + (e.paid <= 0 ? e.toPay : 0), 0)
         };
     }
 
-    function itemStats() {
+    function itemStats(rows) {
         // One item log = one sale: to pay = unit price x quantity.
-        const sales = itemScope().map(row => ({ total: Number(row.price) * Number(row.quantity), paid: Number(row.paid) }));
+        const sales = rows.map(row => ({ total: Number(row.price) * Number(row.quantity), paid: Number(row.paid) }));
         return {
             collected: sales.reduce((total, s) => total + s.paid, 0),
             outstanding: sales.reduce((total, s) => total + Math.max(s.total - s.paid, 0), 0),
@@ -1172,15 +1179,15 @@
         };
     }
 
-    function athleteStats() {
+    function athleteStats(rows) {
         // Rows are one per payment; balance-based totals are taken once per due
         // (athlete + fee + period), not once per payment row.
         const dues = new Map();
-        athleteRows.forEach(row => dues.set(row.dueKey, { toPay: Number(row.toPay), paid: Number(row.duePaid) }));
+        rows.forEach(row => dues.set(row.dueKey, { toPay: Number(row.toPay), paid: Number(row.duePaid), inactive: Boolean(row.retired) }));
         const list = [...dues.values()];
         return {
-            collected: athleteRows.reduce((total, row) => total + Number(row.paid), 0),
-            outstanding: list.reduce((total, d) => total + Math.max(d.toPay - d.paid, 0), 0),
+            collected: rows.reduce((total, row) => total + Number(row.paid), 0),
+            outstanding: list.reduce((total, d) => total + (d.inactive ? 0 : Math.max(d.toPay - d.paid, 0)), 0),
             paid: list.reduce((total, d) => total + (d.paid > 0 && d.paid >= d.toPay ? d.paid : 0), 0),
             unpaid: list.reduce((total, d) => total + (d.paid <= 0 ? d.toPay : 0), 0)
         };
@@ -1188,18 +1195,19 @@
 
     function updateStats() {
         document.getElementById('salesStats').hidden = activeTab === 'items' || activeTab === 'fees' || viewingArchived();
-        const course = courseStats();
-        const item = itemStats();
-        const athlete = athleteStats();
-        const stats = activeTab === 'course' ? course
-            : activeTab === 'logs' ? item
-            : activeTab === 'athletes' ? athlete
-            : {
-                collected: course.collected + item.collected + athlete.collected,
-                outstanding: course.outstanding + item.outstanding + athlete.outstanding,
-                paid: course.paid + item.paid + athlete.paid,
-                unpaid: course.unpaid + item.unpaid + athlete.unpaid
-            };
+        const course = () => courseStats(scoped(courseRows, 'course'));
+        const item = () => itemStats(scoped(logs, 'item'));
+        const athlete = () => athleteStats(scoped(athleteRows, 'athlete'));
+        const sum = list => ({
+            collected: list.reduce((total, s) => total + s.collected, 0),
+            outstanding: list.reduce((total, s) => total + s.outstanding, 0),
+            paid: list.reduce((total, s) => total + s.paid, 0),
+            unpaid: list.reduce((total, s) => total + s.unpaid, 0)
+        });
+        const stats = activeTab === 'course' ? course()
+            : activeTab === 'logs' ? item()
+            : activeTab === 'athletes' ? athlete()
+            : sum([course(), item(), athlete()]);
         document.getElementById('salesTotalCollected').textContent = money(stats.collected);
         document.getElementById('salesOutstanding').textContent = money(stats.outstanding);
         document.getElementById('salesPaid').textContent = money(stats.paid);
@@ -1208,11 +1216,11 @@
 
     function renderArchivedCourseRows() {
         const { text } = currentFilter();
-        const allVisible = archivedCourseRows.filter(row =>
-            !text || `${row.course} ${row.name} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
+        const allVisible = archivedCourseRows.filter(row => passesFilters(row, 'course') &&
+            (!text || `${row.course} ${row.name} ${row.method} ${row.reference} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text)));
         const visible = paged('course', allVisible);
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>${archivedNote(row)}</td><td>--</td></tr>`
+            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}${statusTag(row)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date)}</td><td>${archivedNote(row)}</td><td>--</td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="10">No archived course payments.</td></tr>';
     }
 
@@ -1221,14 +1229,14 @@
         const { text, status } = currentFilter();
         const allVisible = courseRows.filter(row => {
             const rowStatus = row.status;
-            const haystack = `${row.course} ${row.name} ${row.method} ${row.date}`.toLocaleLowerCase();
-            return (!status || status === rowStatus) && (!text || haystack.includes(text));
+            const haystack = `${row.course} ${row.name} ${row.method} ${row.reference} ${row.date}`.toLocaleLowerCase();
+            return passesFilters(row, 'course') && (!status || status === rowStatus) && (!text || haystack.includes(text));
         });
         const visible = paged('course', allVisible);
         document.getElementById('coursePaymentRows').innerHTML = visible.length ? visible.map(row => {
             const balance = Number(row.balance);
-            return `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
-        }).join('') : '<tr><td class="sales-empty" colspan="10">No course payments match your search.</td></tr>';
+            return `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.course)}</td><td>${escapeHtml(row.name)}${statusTag(row)}</td><td>${money(row.price)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-course-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
+        }).join('') : '<tr><td class="sales-empty" colspan="10">No course payments match your search or filters.</td></tr>';
     }
 
     function renderLogs() {
@@ -1237,7 +1245,7 @@
             const total = Number(row.price) * Number(row.quantity);
             const rowStatus = statusFor(row.paid, total);
             const haystack = `${row.item} ${row.description} ${row.client} ${row.method} ${row.date} ${row.receipt || ''}`.toLocaleLowerCase();
-            return matchesItemFilters(row) && (!status || status === rowStatus) && (!text || haystack.includes(text));
+            return passesFilters(row, 'item') && (!status || status === rowStatus) && (!text || haystack.includes(text));
         });
         const visible = paged('logs', allVisible);
         document.getElementById('itemLogRows').innerHTML = visible.length ? visible.map(row => {
@@ -1249,9 +1257,9 @@
 
     function renderItems() {
         const text = search.value.trim().toLocaleLowerCase();
-        const allVisible = items.filter(item => `${item.name} ${item.description}`.toLocaleLowerCase().includes(text));
+        const allVisible = items.filter(item => passesFilters(item, 'item') && `${item.name} ${item.description}`.toLocaleLowerCase().includes(text));
         const visible = paged('items', allVisible);
-        document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr ${rowAttrs(item.id)}><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td></tr>`).join('') : '<tr><td class="sales-empty" colspan="4">No items match your search.</td></tr>';
+        document.getElementById('itemCatalogRows').innerHTML = visible.length ? visible.map(item => `<tr ${rowAttrs(item.id)}><td class="sales-name">${escapeHtml(item.name)}</td><td>${escapeHtml(item.description || '--')}</td><td>${money(item.price)}</td><td>${Number(item.stock)}</td></tr>`).join('') : '<tr><td class="sales-empty" colspan="4">No items match your search or filters.</td></tr>';
     }
 
     // "All": course payments and item sales merged, newest first. Read-only; edit from their own tab.
@@ -1276,7 +1284,7 @@
 
         const allVisible = rows.filter(row => {
             const haystack = `${row.type} ${row.name} ${row.client} ${row.method} ${row.date}`.toLocaleLowerCase();
-            return (!status || status === row.status) && (!text || haystack.includes(text));
+            return passesFilters(row, row.kind) && (!status || status === row.status) && (!text || haystack.includes(text));
         });
         const visible = paged('all', allVisible);
         document.getElementById('allRows').innerHTML = visible.length ? visible.map(row =>
@@ -1297,9 +1305,10 @@
     const toolbarEl = document.querySelector('.sales-toolbar');
     const mobileQuery = window.matchMedia('(max-width: 700px)');   // phones: rows become cards, fewer rows per page
     const compactQuery = window.matchMedia('(max-width: 1100px), (max-height: 800px)');   // page scrolls as a whole
-    // Row action buttons remain in the toolbar for consistent alignment across devices
-    function placeToolbarActions() { toolbarEl.append(toolbarActions); }
+    // Full-size window: the buttons sit in the toolbar. Compact: they move to the bottom of the page and stay on screen.
+    function placeToolbarActions() { (compactQuery.matches ? page : toolbarEl).append(toolbarActions); }
     placeToolbarActions();
+    compactQuery.addEventListener('change', placeToolbarActions);
     mobileQuery.addEventListener('change', () => { pageNo = 1; render(); });
     const actionKeys = ['courseEdit', 'courseArchive', 'courseRelog', 'athleteEdit', 'athleteArchive', 'athleteRelog', 'logEdit', 'logDelete', 'itemEdit', 'itemDelete', 'feeEdit', 'feeDelete'];
     const toolbarConfig = {
@@ -1426,12 +1435,12 @@
 
     // Small number on the Filters button (phones) = how many filters are on.
     function updateFilterBadge() {
-        const count = [statusFilter.value, itemMonthFilter.value, itemNameFilter.value, itemMethodFilter.value].filter(Boolean).length + (viewingArchived() ? 1 : 0);
+        const count = [statusFilter.value].concat(activeFilterDefs().map((def, index) => filterValue(index))).filter(Boolean).length + (viewingArchived() ? 1 : 0);
         filterCount.textContent = count;
         filterCount.hidden = count === 0;
     }
 
-    function render() { refreshItemFilterOptions(); itemFilterClear.hidden = !itemFiltersActive(); renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); syncSelection(); applyLabels(); updatePager(); updateFilterBadge(); }
+    function render() { refreshFilterOptions(); filterClear.hidden = !filtersActive(); renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); syncSelection(); applyLabels(); updatePager(); updateFilterBadge(); }
 
     function setTab(tab) {
         activeTab = tab;
@@ -1449,13 +1458,12 @@
         setDropdown(recordFilterRoot, '');   // back to "Active"
         recordFilterRoot.hidden = tab !== 'course' && tab !== 'athletes';
         statusFilterRoot.hidden = tab === 'items' || tab === 'fees';
-        clearItemFilters();
-        itemFiltersRoot.hidden = tab !== 'logs';
+        clearFilters();
         selectedRowId = null;
         pageNo = 1;
         toolbarEl.classList.remove('filtersOpen');
         filtersToggle.setAttribute('aria-expanded', 'false');
-        filtersToggle.hidden = tab === 'items' || tab === 'fees';
+        filtersToggle.hidden = false;   // every tab has filters now
         render();   // new tab: re-apply the (now cleared) search/filter and refresh the totals
     }
 
@@ -1465,6 +1473,38 @@
     let paymentDialog = { toPay: 0, others: 0, available: 0 };
     let paymentSubmitLabel = 'Update';
     const round2 = value => Math.round(Number(value) * 100) / 100;
+
+    // Payment reference: free text (GCash, bank and other references differ in length and format), required for
+    // every method except Cash. Mirrors SalesInvoiceController::paymentRules(), which is what really enforces it.
+    const REFERENCE_RULES = {
+        '':              { required: false, placeholder: 'Reference / transaction no.', hint: 'Required unless the payment is in cash.' },
+        'Cash':          { required: false, placeholder: 'Optional', hint: 'Optional for cash payments.' },
+        'GCash':         { required: true,  placeholder: 'GCash reference no.', hint: 'Required. Copy it from the GCash receipt.' },
+        'Bank Transfer': { required: true,  placeholder: 'Bank transaction / reference no.', hint: 'Required. Copy it from the transfer confirmation.' },
+        'Other':         { required: true,  placeholder: 'Reference no. or short note', hint: 'Required. Type whatever identifies this payment.' }
+    };
+    const referenceRule = method => REFERENCE_RULES[method] || REFERENCE_RULES.Other;
+    // prefix: 'course' | 'athlete'. Updates the label star, placeholder and hint to match the chosen method.
+    function syncReferenceField(prefix) {
+        const rule = referenceRule(document.getElementById(`${prefix}PaymentMethod`).value);
+        const input = document.getElementById(`${prefix}PaymentReference`);
+        input.placeholder = rule.placeholder;
+        input.setAttribute('aria-required', String(rule.required));
+        document.getElementById(`${prefix}PaymentReferenceStar`).hidden = !rule.required;
+        document.getElementById(`${prefix}PaymentReferenceHint`).textContent = rule.hint;
+        if (!rule.required) input.classList.remove('isInvalid');
+    }
+    function checkReference(prefix) {
+        const method = document.getElementById(`${prefix}PaymentMethod`).value;
+        const input = document.getElementById(`${prefix}PaymentReference`);
+        if (referenceRule(method).required && !input.value.trim()) {
+            input.classList.add('isInvalid');
+            input.focus();
+            notify(`Enter the reference number for this ${method} payment.`, 'danger');
+            return false;
+        }
+        return true;
+    }
 
     function showCoursePayment(row) {
         const form = document.getElementById('coursePaymentForm');
@@ -1541,13 +1581,14 @@
         return [...seen.values()]
             .map(row => ({
                 enrollmentId: row.enrollmentId,
+                dropped: Boolean(row.dropped),
                 name: row.name,
                 course: row.course,
                 toPay: Number(row.toPay),
                 paid: Number(row.enrollmentPaid),
                 remaining: Math.max(round2(Number(row.toPay) - Number(row.enrollmentPaid)), 0)
             }))
-            .filter(e => e.remaining > 0)
+            .filter(e => e.remaining > 0 && !e.dropped)
             .sort((a, b) => a.name.localeCompare(b.name));
     }
 
@@ -1611,6 +1652,7 @@
         const status = statusFor(paymentDialog.others + Math.min(amount, paymentDialog.available), paymentDialog.toPay);
 
         document.getElementById('coursePaymentBalance').textContent = money(remaining);
+        syncReferenceField('course');
 
         const badgeElement = document.getElementById('coursePaymentStatus');
         badgeElement.className = `sales-badge sales-badge--${status}`;
@@ -1738,11 +1780,11 @@
 
     function renderArchivedAthleteRows() {
         const { text } = currentFilter();
-        const allVisible = archivedAthleteRows.filter(row =>
-            !text || `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text));
+        const allVisible = archivedAthleteRows.filter(row => passesFilters(row, 'athlete') &&
+            (!text || `${row.fee} ${row.name} ${row.period} ${row.method} ${row.reference} ${row.date} ${row.archivedAt} ${row.receipt}`.toLocaleLowerCase().includes(text)));
         const visible = paged('athletes', allVisible);
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>${archivedNote(row)}</td><td>--</td></tr>`
+            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}${statusTag(row)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>--</td><td>${escapeHtml(row.method || '--')}</td><td>${badge('archived')}</td><td>${escapeHtml(row.date || '--')}</td><td>${archivedNote(row)}</td><td>--</td></tr>`
         ).join('') : '<tr><td class="sales-empty" colspan="11">No archived athlete payments.</td></tr>';
     }
 
@@ -1750,22 +1792,22 @@
         if (viewingArchived()) { renderArchivedAthleteRows(); return; }
         const { text, status } = currentFilter();
         const allVisible = athleteRows.filter(row => {
-            const haystack = `${row.fee} ${row.name} ${row.period} ${row.method} ${row.date}`.toLocaleLowerCase();
-            return (!status || status === row.status) && (!text || haystack.includes(text));
+            const haystack = `${row.fee} ${row.name} ${row.period} ${row.method} ${row.reference} ${row.date}`.toLocaleLowerCase();
+            return passesFilters(row, 'athlete') && (!status || status === row.status) && (!text || haystack.includes(text));
         });
         const visible = paged('athletes', allVisible);
         document.getElementById('athletePaymentRows').innerHTML = visible.length ? visible.map(row =>
-            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
-        ).join('') : '<tr><td class="sales-empty" colspan="11">No athlete payments match your search.</td></tr>';
+            `<tr ${rowAttrs(row.id)}><td class="sales-name">${escapeHtml(row.fee)}</td><td>${escapeHtml(row.name)}${statusTag(row)}</td><td>${escapeHtml(row.period)}</td><td>${money(row.toPay)}</td><td>${money(row.paid)}</td><td>${money(row.balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.date || '--')}</td><td>${escapeHtml(row.updatedAt || '--')}</td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-athlete-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.name)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`
+        ).join('') : '<tr><td class="sales-empty" colspan="11">No athlete payments match your search or filters.</td></tr>';
     }
 
     function renderFees() {
         const text = search.value.trim().toLocaleLowerCase();
-        const allVisible = athleteFees.filter(fee => `${fee.name} ${fee.description} ${cycleLabel(fee.cycle)}`.toLocaleLowerCase().includes(text));
+        const allVisible = athleteFees.filter(fee => passesFilters(fee, 'fee') && `${fee.name} ${fee.description} ${cycleLabel(fee.cycle)}`.toLocaleLowerCase().includes(text));
         const visible = paged('fees', allVisible);
         document.getElementById('athleteFeeRows').innerHTML = visible.length ? visible.map(fee =>
             `<tr ${rowAttrs(fee.id)}><td class="sales-name">${escapeHtml(fee.name)}</td><td>${escapeHtml(fee.description || '--')}</td><td>${money(fee.amount)}</td><td>${cycleLabel(fee.cycle)}</td><td><span class="sales-badge sales-badge--${fee.active ? 'paid' : 'unpaid'}">${fee.active ? 'Active' : 'Archived'}</span></td></tr>`
-        ).join('') : '<tr><td class="sales-empty" colspan="5">No athlete fees yet. Add one to start billing athletes.</td></tr>';
+        ).join('') : `<tr><td class="sales-empty" colspan="5">${text || filtersActive() ? 'No athlete fees match your search or filters.' : 'No athlete fees yet. Add one to start billing athletes.'}</td></tr>`;
     }
 
     // Same idea as the course dialog: `others` = paid on this due EXCLUDING the
@@ -1850,12 +1892,12 @@
         athleteRows.forEach(row => { if (!seen.has(row.dueKey)) seen.set(row.dueKey, row); });
         return [...seen.values()]
             .map(row => ({
-                dueKey: row.dueKey, userId: row.userId, feeId: row.feeId, periodKey: row.periodKey,
+                dueKey: row.dueKey, retired: Boolean(row.retired), userId: row.userId, feeId: row.feeId, periodKey: row.periodKey,
                 name: row.name, fee: row.fee, period: row.period,
                 toPay: Number(row.toPay), paid: Number(row.duePaid),
                 remaining: Math.max(round2(Number(row.toPay) - Number(row.duePaid)), 0)
             }))
-            .filter(d => d.remaining > 0)
+            .filter(d => d.remaining > 0 && !d.retired)
             .sort((a, b) => a.name.localeCompare(b.name) || a.fee.localeCompare(b.fee));
     }
 
@@ -1914,6 +1956,7 @@
         const status = statusFor(athleteDialog.others + Math.min(amount, athleteDialog.available), athleteDialog.toPay);
 
         document.getElementById('athletePaymentBalance').textContent = money(remaining);
+        syncReferenceField('athlete');
 
         const badgeElement = document.getElementById('athletePaymentStatus');
         badgeElement.className = `sales-badge sales-badge--${status}`;
@@ -1957,8 +2000,8 @@
     const filterChanged = () => { pageNo = 1; render(); };
     search.addEventListener('input', filterChanged);
     statusFilterRoot.addEventListener('dropdown:change', filterChanged);
-    [itemMonthRoot, itemNameRoot, itemMethodRoot].forEach(root => root.addEventListener('dropdown:change', filterChanged));
-    itemFilterClear.addEventListener('click', () => { clearItemFilters(); filterChanged(); });
+    filterSlots.forEach(slot => slot.root.addEventListener('dropdown:change', filterChanged));
+    filterClear.addEventListener('click', () => { clearFilters(); filterChanged(); });
     filtersToggle.addEventListener('click', () => {
         const open = toolbarEl.classList.toggle('filtersOpen');
         filtersToggle.setAttribute('aria-expanded', String(open));
@@ -1968,6 +2011,7 @@
     recordFilterRoot.addEventListener('dropdown:change', () => {
         // Paid / Unpaid / Partial mean nothing for archived rows.
         const archived = viewingArchived();
+        clearFilters();   // the month / course / method lists differ between active and archived rows
         if (archived) setDropdown(statusFilterRoot, '');
         statusFilterRoot.hidden = archived;
         selectedRowId = null;
@@ -2092,6 +2136,7 @@
             notify('Select a payment method.', 'danger');
             return;
         }
+        if (!checkReference('course')) return;
 
         const amount = Math.max(Number(form.elements.amount.value) || 0, 0);
         if (amount <= 0) { notify('Enter a payment amount greater than zero.', 'danger'); return; }
@@ -2147,7 +2192,8 @@
         event.currentTarget.classList.remove('isInvalid');
         applyPickedEnrollment();
     });
-    document.getElementById('coursePaymentMethodDropdown').addEventListener('dropdown:change', event => event.currentTarget.classList.remove('isInvalid'));
+    document.getElementById('coursePaymentMethodDropdown').addEventListener('dropdown:change', event => { event.currentTarget.classList.remove('isInvalid'); syncReferenceField('course'); });
+    document.getElementById('coursePaymentReference').addEventListener('input', event => event.currentTarget.classList.remove('isInvalid'));
 
     document.getElementById('purchaseForm').addEventListener('submit', event => {
         event.preventDefault();
@@ -2212,6 +2258,7 @@
             notify('Select a payment method.', 'danger');
             return;
         }
+        if (!checkReference('athlete')) return;
 
         const amount = Math.max(Number(form.elements.amount.value) || 0, 0);
         if (amount <= 0) { notify('Enter a payment amount greater than zero.', 'danger'); return; }
@@ -2261,7 +2308,8 @@
         event.currentTarget.classList.remove('isInvalid');
         applyPickedDue();
     });
-    document.getElementById('athletePaymentMethodDropdown').addEventListener('dropdown:change', event => event.currentTarget.classList.remove('isInvalid'));
+    document.getElementById('athletePaymentMethodDropdown').addEventListener('dropdown:change', event => { event.currentTarget.classList.remove('isInvalid'); syncReferenceField('athlete'); });
+    document.getElementById('athletePaymentReference').addEventListener('input', event => event.currentTarget.classList.remove('isInvalid'));
 
     document.getElementById('feeForm').addEventListener('submit', async event => {
         event.preventDefault();
