@@ -188,8 +188,7 @@
 
 @media (max-width: 768px) {
     .attendanceContainer {
-        height: auto;
-        min-height: calc(100vh - var(--topbar-height) - 2.5rem);
+        height: 100vh;
         padding: 1rem;
         overflow-x: hidden;
         overflow-y: auto;
@@ -212,6 +211,76 @@
 
     .attendanceToolbar {
         gap: .75rem;
+    }
+
+    .attendanceFilterGroup {
+        width: 100%;
+    }
+
+    .attendanceClassFilter,
+    .attendanceLoggedFilter {
+        --dd-min-width: 0;
+        --dd-width: 100%;
+        width: 100%;
+    }
+
+    .attendanceClassFilter .registerDropdownToggle,
+    .attendanceLoggedFilter .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceDatePicker {
+        width: 100%;
+    }
+
+    .attendanceDateButton {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceSearchContainer {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .attendanceSearchInput {
+        width: 100%;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    #monthGroup input {
+        width: 100%;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceToolbarActions {
+        margin-left: 0;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+    }
+
+    .attendanceToolbarActions button {
+        min-height: 44px;
+        font-size: .8125rem;
+        padding: .45rem .4rem;
+        white-space: nowrap;
+        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .attendanceToolbarActions button:only-child {
+        grid-column: 1 / -1;
     }
 
     .attendanceTableContainer {
@@ -278,110 +347,14 @@
         background: #e7f5ff;
     }
 
+    .attendanceModal {
+        max-width: calc(100vw - 1.5rem);
+    }
+
     .attendanceModal.isWide {
         max-width: 100%;
         max-height: 92vh;
         margin: 0.5rem;
-    }
-
-    .attendanceLogToolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: .5rem;
-    }
-
-    .attendanceLogFilter {
-        --dd-min-width: 0;
-        --dd-width: 100%;
-        width: 100%;
-    }
-
-    .attendanceLogFilter .registerDropdownToggle {
-        width: 100%;
-        min-width: 0;
-        min-height: 44px;
-        font-size: 16px;
-    }
-
-    .attendanceLogTableContainer {
-        min-height: 180px;
-    }
-}
-
-@media (max-width: 575.98px) {
-    .attendanceContainer {
-        padding: .85rem;
-    }
-
-    .attendanceFilterGroup {
-        width: 100%;
-    }
-
-    .attendanceClassFilter,
-    .attendanceLoggedFilter {
-        --dd-min-width: 0;
-        --dd-width: 100%;
-        width: 100%;
-    }
-
-    .attendanceClassFilter .registerDropdownToggle,
-    .attendanceLoggedFilter .registerDropdownToggle {
-        width: 100%;
-        min-width: 0;
-        min-height: 44px;
-        font-size: 16px;
-    }
-
-    .attendanceDatePicker,
-    .attendanceDateButton {
-        width: 100%;
-        min-width: 0;
-        min-height: 44px;
-        font-size: 16px;
-    }
-
-    .attendanceSearchContainer {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .attendanceSearchInput {
-        width: 100%;
-        min-height: 44px;
-        font-size: 16px;
-    }
-
-    #monthGroup input {
-        width: 100%;
-        min-height: 44px;
-        font-size: 16px;
-    }
-
-    .attendanceToolbarActions {
-        margin-left: 0;
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .5rem;
-    }
-
-    .attendanceToolbarActions button {
-        min-height: 44px;
-        font-size: .8125rem;
-        padding: .45rem .4rem;
-        white-space: nowrap;
-        text-align: center;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .attendanceToolbarActions button:only-child {
-        grid-column: 1 / -1;
-    }
-
-    .attendanceModal {
-        max-width: calc(100vw - 1.5rem);
     }
 
     .attendanceModalBody {
@@ -421,6 +394,29 @@
     .attendanceModalFooter button {
         min-height: 44px;
         min-width: 80px;
+    }
+
+    .attendanceLogToolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .5rem;
+    }
+
+    .attendanceLogFilter {
+        --dd-min-width: 0;
+        --dd-width: 100%;
+        width: 100%;
+    }
+
+    .attendanceLogFilter .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .attendanceLogTableContainer {
+        min-height: 180px;
     }
 }
 
