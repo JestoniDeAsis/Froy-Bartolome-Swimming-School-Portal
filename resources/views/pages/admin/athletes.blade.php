@@ -600,6 +600,9 @@
         <button class="btn btn-outline-primary btn-tab athletesTab active" type="button" data-athlete-tab="athletes" aria-selected="true">
             Athletes
         </button>
+        <button class="btn btn-outline-primary btn-tab athletesTab" type="button" data-athlete-tab="former" aria-selected="false">
+            Former Athletes
+        </button>
         <button class="btn btn-outline-primary btn-tab athletesTab" type="button" data-athlete-tab="leaderboards" aria-selected="false">
             Leaderboards
         </button>
@@ -759,6 +762,7 @@
 
     let athletes = @json($athletes);
     let candidates = @json($candidates);
+    let former = @json($former ?? []);
 
     const selectedAthleteCandidateIds = new Set();
 
@@ -772,6 +776,12 @@
         { label: 'Email Address', key: 'email' },
         { label: 'Birthdate', key: 'birthdate' },
         { label: 'Age', key: 'age' }
+    ];
+
+    const FORMER_COLUMNS = [
+        ...COLUMNS,
+        { label: 'Athlete Since', key: 'athleteSince' },
+        { label: 'Retired On', key: 'retiredOn' }
     ];
 
     const elements = {
@@ -878,10 +888,13 @@
     ========================================================= */
 
     function renderAthletes() {
+        const isFormerTab = activeTab === 'former';
+        const columns = isFormerTab ? FORMER_COLUMNS : COLUMNS;
+        const source = isFormerTab ? former : athletes;
         const searchTerm = elements.search.value.trim().toLowerCase();
 
-        const rows = athletes.filter(person =>
-            COLUMNS.map(col => person[col.key] ?? '').join(' ').toLowerCase().includes(searchTerm)
+        const rows = source.filter(person =>
+            columns.map(col => person[col.key] ?? '').join(' ').toLowerCase().includes(searchTerm)
         );
 
         elements.tableHead.replaceChildren();
@@ -889,7 +902,7 @@
 
         const headerRow = createElement('tr', { id: 'athletesHeaderRow' });
 
-        COLUMNS.forEach((col, index) => {
+        columns.forEach((col, index) => {
             headerRow.append(createElement('th', {
                 id: `athleteColumn${index}`,
                 text: col.label,
@@ -911,8 +924,8 @@
             emptyRow.append(createElement('td', {
                 id: 'athletesEmptyCell',
                 className: 'athletesEmptyState',
-                text: 'No matching athletes found.',
-                attributes: { colSpan: COLUMNS.length + 1 }
+                text: isFormerTab ? 'No former athletes found.' : 'No matching athletes found.',
+                attributes: { colSpan: columns.length + 1 }
             }));
 
             elements.tableBody.append(emptyRow);
@@ -923,7 +936,7 @@
             const tableRow = createElement('tr', { id: `athleteRow${rowIndex}` });
             tableRow.dataset.id = person.id;
 
-            COLUMNS.forEach((col, colIndex) => {
+            columns.forEach((col, colIndex) => {
                 tableRow.append(createElement('td', {
                     id: `athleteCell${rowIndex}_${colIndex}`,
                     text: person[col.key] ?? ''
@@ -931,39 +944,61 @@
             });
 
             const actionCell = createElement('td', { id: `athleteAction${rowIndex}` });
-            const revokeButton = createElement('button', {
-                id: `athleteActionButton${rowIndex}Revoke`,
-                className: 'btn btn-outline-danger btn-sm me-1',
-                text: 'Revoke',
-                attributes: { type: 'button' }
-            });
 
-            revokeButton.addEventListener('click', () => {
-                openConfirmModal({
-                    title: 'Revoke athlete status?',
-                    message: `Revoke ${getPersonName(person)}'s athlete status? They go back to Applicants, or to Graduates if they graduated before.`,
-                    confirmLabel: 'Revoke',
-                    onConfirm: () => revokeAthlete(person)
+            if (isFormerTab) {
+                const restoreButton = createElement('button', {
+                    id: `athleteActionButton${rowIndex}Restore`,
+                    className: 'btn btn-outline-primary btn-sm',
+                    text: 'Restore',
+                    attributes: { type: 'button' }
                 });
-            });
 
-            const retireButton = createElement('button', {
-                id: `athleteActionButton${rowIndex}Retire`,
-                className: 'btn btn-outline-secondary btn-sm me-1',
-                text: 'Retire',
-                attributes: { type: 'button' }
-            });
-
-            retireButton.addEventListener('click', () => {
-                openConfirmModal({
-                    title: 'Retire this athlete?',
-                    message: `Retire ${getPersonName(person)}? They become a Former Athlete. Their attendance and records are kept, and you can add them back as an athlete later.`,
-                    confirmLabel: 'Retire',
-                    onConfirm: () => retireAthlete(person)
+                restoreButton.addEventListener('click', () => {
+                    openConfirmModal({
+                        title: 'Restore this athlete?',
+                        message: `Restore ${getPersonName(person)} as an athlete? Use this if they were retired by mistake. They go back to the Athletes tab and keep their original start date.`,
+                        confirmLabel: 'Restore',
+                        onConfirm: () => restoreAthlete(person)
+                    });
                 });
-            });
 
-            actionCell.append(retireButton, revokeButton);
+                actionCell.append(restoreButton);
+            } else {
+                const revokeButton = createElement('button', {
+                    id: `athleteActionButton${rowIndex}Revoke`,
+                    className: 'btn btn-outline-danger btn-sm me-1',
+                    text: 'Revoke',
+                    attributes: { type: 'button' }
+                });
+
+                revokeButton.addEventListener('click', () => {
+                    openConfirmModal({
+                        title: 'Revoke athlete status?',
+                        message: `Revoke ${getPersonName(person)}'s athlete status? They go back to Applicants, or to Graduates if they graduated before.`,
+                        confirmLabel: 'Revoke',
+                        onConfirm: () => revokeAthlete(person)
+                    });
+                });
+
+                const retireButton = createElement('button', {
+                    id: `athleteActionButton${rowIndex}Retire`,
+                    className: 'btn btn-outline-secondary btn-sm me-1',
+                    text: 'Retire',
+                    attributes: { type: 'button' }
+                });
+
+                retireButton.addEventListener('click', () => {
+                    openConfirmModal({
+                        title: 'Retire this athlete?',
+                        message: `Retire ${getPersonName(person)}? They become a Former Athlete. Their attendance and records are kept, and you can restore them from the Former Athletes tab.`,
+                        confirmLabel: 'Retire',
+                        onConfirm: () => retireAthlete(person)
+                    });
+                });
+
+                actionCell.append(retireButton, revokeButton);
+            }
+
             tableRow.append(actionCell);
             elements.tableBody.append(tableRow);
         });
@@ -984,9 +1019,15 @@
             button.setAttribute('aria-selected', String(isActive));
         });
 
-        elements.athletesPanel.hidden = tabName !== 'athletes';
+        const showTable = tabName === 'athletes' || tabName === 'former';
+
+        elements.athletesPanel.hidden = !showTable;
         elements.leaderboardsPanel.hidden = tabName !== 'leaderboards';
         elements.addAthleteButton.hidden = tabName !== 'athletes';
+
+        if (showTable) {
+            renderAthletes();
+        }
 
         if (tabName === 'leaderboards') {
             loadAdminLeaderboard();
@@ -1028,6 +1069,7 @@
     function applyLists(data) {
         athletes = data.athletes || [];
         candidates = data.candidates || [];
+        former = data.former || [];
     }
 
     async function revokeAthlete(person) {
@@ -1070,6 +1112,23 @@
         } catch (error) {
             console.error(error);
             showToast('Something went wrong while retiring the athlete.', 'danger');
+        }
+    }
+
+    async function restoreAthlete(person) {
+        try {
+            const result = await sendJson(`{{ url('/athletes') }}/${person.id}/restore`, 'POST');
+
+            if (result.ok) {
+                applyLists(result.data);
+                renderAthletes();
+                showToast(`${getPersonName(person)} is an athlete again.`, 'success');
+            } else {
+                showToast(firstError(result.data, 'Something went wrong while restoring the athlete.'), 'danger');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Something went wrong while restoring the athlete.', 'danger');
         }
     }
 

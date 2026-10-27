@@ -30,7 +30,8 @@ use Illuminate\Validation\Rule;
  *   - revoking (a mistake) sends the person back to Graduates (role 3) if they
  *     were ever enrolled, otherwise back to Applicants (role 5)
  *   - retiring keeps their history: role 6 and athlete_until = today. A former
- *     athlete can be added back as an athlete later
+ *     athlete can be added back as an athlete later, or restored (undo a
+ *     retire mistake) which keeps the original athlete_since
  */
 class AdminAthleteController extends Controller
 {
@@ -175,6 +176,47 @@ class AdminAthleteController extends Controller
         return response()->json(array_merge(['success' => true], $this->lists()));
     }
 
+    /**
+     * POST /athletes/{user}/restore
+     * Undoes a retire (for a mistake). Former Athlete goes back to Athlete.
+     * athlete_since is kept so attendance has no gap; athlete_until is cleared.
+     * Not allowed while the person is enrolled in a course.
+     */
+    public function restore(Request $request, int $user): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin()) {
+            return $denied;
+        }
+
+        $row = DB::table('tbl_users')
+            ->where('user_id', $user)
+            ->first(['role_id', 'athlete_since']);
+
+        if ($row === null) {
+            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+        }
+
+        if ((int) $row->role_id !== self::FORMER_ATHLETE_ROLE_ID) {
+            return $this->fail('This person is not a former athlete.');
+        }
+
+        $enrolledNow = Enrollment::where('user_id', $user)
+            ->whereNull('graduation_at')
+            ->exists();
+
+        if ($enrolledNow) {
+            return $this->fail('This person is enrolled in a course right now. Only people who are not enrolled can be athletes.');
+        }
+
+        DB::table('tbl_users')->where('user_id', $user)->update([
+            'role_id' => self::ATHLETE_ROLE_ID,
+            'athlete_since' => $row->athlete_since ?? Carbon::today()->toDateString(),
+            'athlete_until' => null,
+        ]);
+
+        return response()->json(array_merge(['success' => true], $this->lists()));
+    }
+
     /* ---------------------------------------------------------
      * Lists
      * --------------------------------------------------------- */
@@ -184,6 +226,7 @@ class AdminAthleteController extends Controller
         return [
             'athletes' => $this->athleteRows(),
             'candidates' => $this->candidateRows(),
+            'former' => $this->formerRows(),
         ];
     }
 
@@ -193,6 +236,21 @@ class AdminAthleteController extends Controller
             ->where('role_id', self::ATHLETE_ROLE_ID)
             ->get()
             ->map(fn ($user) => $this->personRow($user))
+            ->sortBy('lastName', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+    }
+
+    private function formerRows(): Collection
+    {
+        return User::with('profile')
+            ->where('role_id', self::FORMER_ATHLETE_ROLE_ID)
+            ->get()
+            ->map(fn ($user) => array_merge($this->personRow($user), [
+                'athleteSince' => $user->athlete_since
+                    ? Carbon::parse($user->athlete_since)->format('M-d-Y') : '',
+                'retiredOn' => $user->athlete_until
+                    ? Carbon::parse($user->athlete_until)->format('M-d-Y') : '',
+            ]))
             ->sortBy('lastName', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
     }
