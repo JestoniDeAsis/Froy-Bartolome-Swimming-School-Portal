@@ -297,7 +297,7 @@
         padding: .65rem .75rem;
     }
 
-    /* Keep key columns (No. and Name) visible while scrolling horizontally on mobile */
+    /* Keep the No. column visible while scrolling horizontally on mobile */
     .attendanceTable thead th:first-child,
     .attendanceTable tbody td:first-child {
         position: sticky;
@@ -316,34 +316,15 @@
 
     .attendanceTable tbody td:first-child {
         background: #fff;
-    }
-
-    .attendanceTable thead th:nth-child(2),
-    .attendanceTable tbody td:nth-child(2) {
-        position: sticky;
-        left: 38px;
-        z-index: 2;
         box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.15);
     }
 
-    .attendanceTable thead th:nth-child(2) {
-        z-index: 7;
-        background: #f8fafb;
-    }
-
-    .attendanceTable tbody td:nth-child(2) {
-        background: #fff;
-    }
-
-    .attendanceRow:hover > td:first-child,
-    .attendanceRow:hover > td:nth-child(2) {
+    .attendanceRow:hover > td:first-child {
         background: #f8fafb;
     }
 
     .attendanceRow.selectedRow > td:first-child,
-    .attendanceRow.selectedRow > td:nth-child(2),
-    .attendanceRow.selectedRow:hover > td:first-child,
-    .attendanceRow.selectedRow:hover > td:nth-child(2) {
+    .attendanceRow.selectedRow:hover > td:first-child {
         background: #e7f5ff;
     }
 
