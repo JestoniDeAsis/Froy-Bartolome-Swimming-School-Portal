@@ -250,76 +250,111 @@
     .graduationCard { grid-template-columns: 1fr; gap: .6rem; }
 }
 
-@media (max-width: 575.98px) {
+@media (max-width: 767.98px) {
     .graduationContainer {
-        height: auto;
-        min-height: 100vh;
-        padding: 1rem;
+        height: 100vh !important;
+        padding: 1rem !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     .graduationTabs {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: .5rem !important;
+        width: 100% !important;
+        margin-bottom: 1rem !important;
     }
 
-    .graduationTabs .btn-tab {
-        flex: 1 1 calc(50% - .25rem);
-        min-width: 0;
-        font-size: .82rem;
-        padding: .45rem .35rem;
-        text-align: center;
-        white-space: normal;
-        line-height: 1.2;
+    .graduationTabs .btn-tab,
+    .graduationTab {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: .5rem .3rem !important;
+        font-size: .8rem !important;
+        line-height: 1.2 !important;
+        white-space: normal !important;
+        word-break: normal !important;
+        text-align: center !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        --bs-btn-padding-x: .3rem !important;
+        --bs-btn-padding-y: .5rem !important;
+        --bs-btn-font-size: .8rem !important;
     }
 
     .graduationStats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .5rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: .5rem !important;
     }
 
     .graduationStat {
-        padding: .7rem;
+        padding: .7rem !important;
     }
 
     .graduationToolbar {
-        gap: .5rem;
+        gap: .5rem !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        width: 100% !important;
     }
 
     .graduationSearchContainer {
-        width: 100%;
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+
+    .graduationSearchInput {
+        width: 100% !important;
     }
 
     .graduationFilter {
         display: block !important;
-        flex: 1 1 calc(50% - .25rem);
-        max-width: calc(50% - .25rem);
-        min-width: 0;
-        --dd-width: 100%;
-        --dd-min-width: 0;
+        flex: 1 1 calc(50% - .25rem) !important;
+        max-width: calc(50% - .25rem) !important;
+        min-width: 0 !important;
+        --dd-width: 100% !important;
+        --dd-min-width: 0 !important;
     }
 
     .graduationFilter .registerDropdownToggle {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
     }
 
     .graduationResultCount {
-        margin-left: 0;
-        width: 100%;
+        margin-left: 0 !important;
+        width: 100% !important;
+        margin-top: .25rem !important;
     }
 
     .graduationRealView,
     .graduationSample {
-        flex: 0 0 auto;
-        width: 100%;
-        min-height: 260px;
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 260px !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
 
     .graduationList {
-        flex: 0 0 auto;
-        overflow-y: visible;
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 200px !important;
+        overflow-y: visible !important;
+        display: grid !important;
+        gap: .65rem !important;
+    }
+
+    .graduationCard {
+        grid-template-columns: 1fr !important;
+        gap: .6rem !important;
+        width: 100% !important;
     }
 }
 
@@ -493,10 +528,10 @@
     </header>
 
     <nav class="btn-tab-group graduationTabs" id="graduationTabs" role="tablist" aria-label="Graduation student groups">
-        <button class="btn btn-outline-primary btn-tab active" type="button" role="tab" data-graduation-tab="active" aria-selected="true">In Training <span data-tab-count="active"></span></button>
-        <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="ready" aria-selected="false">Ready for Graduation <span data-tab-count="ready"></span></button>
-        <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="graduating" aria-selected="false">Graduating <span data-tab-count="graduating"></span></button>
-        <button class="btn btn-outline-primary btn-tab" type="button" role="tab" data-graduation-tab="graduated" aria-selected="false">Graduates <span data-tab-count="graduated"></span></button>
+        <button class="btn btn-outline-primary btn-tab graduationTab active" type="button" role="tab" data-graduation-tab="active" aria-selected="true">In Training <span data-tab-count="active"></span></button>
+        <button class="btn btn-outline-primary btn-tab graduationTab" type="button" role="tab" data-graduation-tab="ready" aria-selected="false">Ready for Graduation <span data-tab-count="ready"></span></button>
+        <button class="btn btn-outline-primary btn-tab graduationTab" type="button" role="tab" data-graduation-tab="graduating" aria-selected="false">Graduating <span data-tab-count="graduating"></span></button>
+        <button class="btn btn-outline-primary btn-tab graduationTab" type="button" role="tab" data-graduation-tab="graduated" aria-selected="false">Graduates <span data-tab-count="graduated"></span></button>
     </nav>
 
     <div class="graduationRealView" id="graduationRealView">
