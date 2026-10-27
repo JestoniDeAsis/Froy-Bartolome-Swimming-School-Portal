@@ -55,6 +55,12 @@
     background: #fff;
     border: 1px solid #e7ebef;
     border-radius: 12px;
+    min-width: 0;
+}
+
+.sales-stat > div {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .sales-stat-label { margin: 0 0 .2rem; font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #667085; }
@@ -568,7 +574,38 @@
     }
 
     .sales-stat {
-        padding: .7rem;
+        padding: .65rem .7rem;
+        gap: .4rem;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .sales-stat > div {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+
+    .sales-stat-label {
+        font-size: .65rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: .25rem;
+    }
+
+    .sales-stat-value {
+        font-size: clamp(1rem, 3.6vw, 1.15rem);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sales-stat-icon {
+        width: 1.85rem;
+        height: 1.85rem;
+        flex: 0 0 1.85rem;
+        font-size: .95rem;
     }
 
     .sales-toolbar {
