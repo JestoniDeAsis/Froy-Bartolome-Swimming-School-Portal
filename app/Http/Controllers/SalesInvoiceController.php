@@ -78,6 +78,13 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($enrollment, $validated, $amount) {
             $locked = Enrollment::whereKey($enrollment->getKey())->lockForUpdate()->firstOrFail();
 
+            // A dropped student can't take new payments.
+            if ($locked->dropped_at !== null) {
+                throw ValidationException::withMessages([
+                    'amount' => ['This student has been dropped, so no new payment can be recorded.'],
+                ]);
+            }
+
             $alreadyPaid = (float) CoursePayment::whereNull('archived_at')
                 ->whereRaw('enrollment_id = ?', [$locked->enrollment_id])
                 ->sum('amount');
@@ -350,6 +357,7 @@ class SalesInvoiceController extends Controller
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNull('cp.archived_at')
+                ->whereNull('e.dropped_at')
                 ->leftJoin('tbl_user_profile as rb_p', 'rb_p.user_id', '=', 'cp.received_by')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )
@@ -393,6 +401,8 @@ class SalesInvoiceController extends Controller
                 ->select('e.enrollment_id as enrollmentId', 'e.enrollment_at as sortAt')
         )
             ->selectRaw("DATE_FORMAT(e.enrollment_at, '%b-%d-%Y') as date")
+            // Dropped students owe nothing, so they get no Unpaid row.
+            ->whereNull('e.dropped_at')
             ->whereRaw('NOT EXISTS (SELECT 1 FROM tbl_course_payments x WHERE x.enrollment_id = e.enrollment_id AND x.archived_at IS NULL)')
             ->get()
             ->map(function ($r) {
@@ -437,6 +447,7 @@ class SalesInvoiceController extends Controller
             DB::table('tbl_course_payments as cp')
                 ->join('tbl_enrollments as e', DB::raw('e.enrollment_id'), '=', DB::raw('cp.enrollment_id'))
                 ->whereNotNull('cp.archived_at')
+                ->whereNull('e.dropped_at')
                 ->leftJoin('tbl_user_profile as ab_p', 'ab_p.user_id', '=', 'cp.archived_by')
                 ->select('cp.course_payment_id as id', 'e.enrollment_id as enrollmentId', 'cp.amount', 'cp.payment_method as method', 'cp.reference_number as reference', 'cp.paid_at as sortAt')
         )

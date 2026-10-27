@@ -72,6 +72,9 @@ trait HandlesAttendanceData
             })->orWhereIn('e.enrollment_id', $loggedThatDay);
         });
 
+        // Dropped students are never listed, even if something was logged for them that day.
+        $query->whereNull('e.dropped_at');
+
         if ($limitToCourseIds !== null) {
             $query->whereIn('e.course_id', $limitToCourseIds);
         }
@@ -156,7 +159,8 @@ trait HandlesAttendanceData
     {
         $anchorQuery = DB::table(Attendance::ENROLLMENTS_TABLE . ' as e')
             ->join('tbl_user_profile as p', 'p.user_id', '=', 'e.user_id')
-            ->where('e.enrollment_id', $enrollmentId);
+            ->where('e.enrollment_id', $enrollmentId)
+            ->whereNull('e.dropped_at');
 
         if ($limitToCourseIds !== null) {
             $anchorQuery->whereIn('e.course_id', $limitToCourseIds);
