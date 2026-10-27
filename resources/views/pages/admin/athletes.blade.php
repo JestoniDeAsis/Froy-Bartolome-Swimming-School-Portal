@@ -515,12 +515,7 @@
     }
 }
 
-@media (max-width: 575.98px) {
-    .athletesContainer {
-        height: 100vh;
-        padding: 1rem;
-    }
-
+@media (max-width: 767.98px) {
     .athletesHeader {
         display: flex;
         flex-direction: column !important;
@@ -528,11 +523,24 @@
         gap: .75rem !important;
     }
 
+    #athletesHeaderText {
+        width: 100% !important;
+    }
+
     #addAthleteButton {
         width: 100% !important;
         display: inline-flex !important;
         justify-content: center !important;
+        align-items: center !important;
         flex: 0 0 auto !important;
+        margin-top: .25rem !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .athletesContainer {
+        height: 100vh;
+        padding: 1rem;
     }
 
     #athletesTabs .athletesTab {
@@ -579,7 +587,7 @@
             </p>
         </div>
 
-        <button class="btn btn-primary athletesTab" id="addAthleteButton" type="button">
+        <button class="btn btn-primary" id="addAthleteButton" type="button">
             <i class="bi bi-plus-lg" id="addAthleteIcon"></i>
             Add New Athlete
         </button>

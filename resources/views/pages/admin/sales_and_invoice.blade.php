@@ -525,7 +525,13 @@
    and the table has a minimum height with horizontal scroll.
 ========================================================= */
 @media (max-width: 767.98px), (max-height: 700px) {
+    .sales-panel {
+        flex: 0 0 auto;
+        min-height: 260px;
+    }
+
     .sales-table-wrap {
+        flex: 0 0 auto;
         min-height: 260px;
         -webkit-overflow-scrolling: touch;
     }
@@ -533,6 +539,8 @@
 
 @media (max-width: 575.98px) {
     .sales-page {
+        height: auto;
+        min-height: 100vh;
         padding: 1rem;
     }
 
@@ -616,6 +624,7 @@
 
     .sales-toolbar-actions {
         margin-left: 0;
+        margin-top: .5rem;
         width: 100%;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -624,11 +633,35 @@
 
     .sales-toolbar-actions button {
         flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .sales-action-hint {
+        flex: 0 0 auto;
+        margin: .25rem 0 .75rem;
+    }
+
+    .sales-panel {
+        flex: 0 0 auto;
+        width: 100%;
+        min-height: 260px;
+    }
+
+    .sales-table-wrap {
+        flex: 0 0 auto;
+        width: 100%;
+        min-height: 260px;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .sales-pager {
+        flex: 0 0 auto;
+        width: 100%;
         justify-content: center;
         text-align: center;
+        margin-top: .75rem;
     }
 
     .sales-pager > span {
@@ -1227,10 +1260,9 @@
     const toolbarEl = document.querySelector('.sales-toolbar');
     const mobileQuery = window.matchMedia('(max-width: 700px)');   // phones: rows become cards, fewer rows per page
     const compactQuery = window.matchMedia('(max-width: 1100px), (max-height: 800px)');   // page scrolls as a whole
-    // Full-size window: the buttons sit in the toolbar. Compact: they move to the bottom of the page and stay on screen.
-    function placeToolbarActions() { (compactQuery.matches ? page : toolbarEl).append(toolbarActions); }
+    // Row action buttons remain in the toolbar for consistent alignment across devices
+    function placeToolbarActions() { toolbarEl.append(toolbarActions); }
     placeToolbarActions();
-    compactQuery.addEventListener('change', placeToolbarActions);
     mobileQuery.addEventListener('change', () => { pageNo = 1; render(); });
     const actionKeys = ['courseEdit', 'courseArchive', 'courseRelog', 'athleteEdit', 'athleteArchive', 'athleteRelog', 'logEdit', 'logDelete', 'itemEdit', 'itemDelete', 'feeEdit', 'feeDelete'];
     const toolbarConfig = {
