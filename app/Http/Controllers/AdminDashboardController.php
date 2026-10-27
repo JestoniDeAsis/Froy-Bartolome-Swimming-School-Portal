@@ -60,7 +60,8 @@ class AdminDashboardController extends Controller
         $activeState = $this->idByName('tbl_status', 'status_id', 'status_name', self::STATUS_ACTIVE);
 
         $enrollments = $this->enrollments();
-        $active      = $enrollments->filter(fn ($e) => $e->graduation_at === null)->values();
+        // Active = not graduated and not dropped (a dropped enrollment is not current).
+        $active      = $enrollments->filter(fn ($e) => $e->graduation_at === null && $e->dropped_at === null)->values();
 
         $attendanceToday = $this->attendanceToday($today);
         $revenue         = $this->revenue($now);
@@ -182,7 +183,7 @@ class AdminDashboardController extends Controller
             ->leftJoinSub($sessions, 'att', 'att.enrollment_id', '=', 'e.enrollment_id')
             ->select([
                 'e.enrollment_id', 'e.user_id', 'e.course_id', 'e.enrollment_at',
-                'e.graduation_at', 'e.cleared_for_graduation_at',
+                'e.graduation_at', 'e.dropped_at', 'e.cleared_for_graduation_at',
                 'c.course_name', 'c.course_session_count', 'c.course_price',
                 'e.course_price_at_enrollment',
                 'sa.ready_to_graduate',
@@ -234,7 +235,9 @@ class AdminDashboardController extends Controller
             ->leftJoin('tbl_users as u', 'u.user_id', '=', 'a.user_id')
             ->leftJoin('tbl_user_profile as pr', 'pr.user_id', '=', 'a.user_id')
             ->leftJoin('tbl_roles as r', 'r.role_id', '=', DB::raw('COALESCE(a.role_id, u.role_id)'))
+            ->leftJoin('tbl_enrollments as e', 'e.enrollment_id', '=', 'a.enrollment_id')
             ->whereDate('a.attendance_at', $today->toDateString())
+            ->whereNull('e.dropped_at')   // coach rows have no enrollment, so they always pass
             ->orderByDesc('a.time_in')
             ->select(['a.user_id', 'a.time_in', 'a.time_out', 'a.attendance_state', 'r.role_name'])
             ->selectRaw($this->nameSql() . ' AS person_name')

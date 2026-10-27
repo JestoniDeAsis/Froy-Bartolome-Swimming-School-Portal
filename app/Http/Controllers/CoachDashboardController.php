@@ -164,6 +164,7 @@ class CoachDashboardController extends Controller
             ->leftJoinSub($sessions, 'att', 'att.enrollment_id', '=', 'e.enrollment_id')
             ->whereIn('e.course_id', $courseIds)
             ->whereNull('e.graduation_at')
+            ->whereNull('e.dropped_at')   // a dropped student is no longer in the class
             ->select([
                 'e.enrollment_id', 'e.user_id', 'e.course_id', 'e.enrollment_at',
                 'e.scheduled_time', 'e.cleared_for_graduation_at',
@@ -199,6 +200,7 @@ class CoachDashboardController extends Controller
             ->whereIn('e.course_id', $courseIds)
             ->whereDate('a.attendance_at', $today->toDateString())
             ->whereNotNull('a.time_in')
+            ->whereNull('e.dropped_at')   // checked in earlier today, dropped since
             ->orderByDesc('a.time_in')
             ->select(['a.enrollment_id', 'a.time_in', 'a.time_out', 'c.course_name'])
             ->selectRaw($this->nameSql() . ' AS student_name')
@@ -239,6 +241,7 @@ class CoachDashboardController extends Controller
             ->leftJoin('tbl_user_profile as pr', 'pr.user_id', '=', 'e.user_id')
             ->leftJoinSub($results, 'r', 'r.skill_assessment_id', '=', 'sa.skill_assessment_id')
             ->where('sa.assessed_by', $coachId)
+            ->whereNull('e.dropped_at')   // a dropped student's assessment is no longer shown
             ->orderByRaw('COALESCE(sa.updated_at, sa.assessed_at) DESC')
             ->limit(self::LIST_LIMIT)
             ->select(['sa.ready_to_graduate', 'sa.assessed_at', 'sa.updated_at', 'c.course_name', 'r.marked', 'r.passed'])
