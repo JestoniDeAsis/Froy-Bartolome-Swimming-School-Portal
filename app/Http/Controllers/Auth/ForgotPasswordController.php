@@ -67,6 +67,16 @@ class ForgotPasswordController extends Controller
 
         $email = $request->session()->get('password-reset_email');
 
+        // Too many wrong codes: tell the user how long to wait.
+        if ($email && $this->codes->isLockedOut($email, 'password_reset')) {
+            $minutes = max(1, (int) ceil($this->codes->lockoutSeconds($email, 'password_reset') / 60));
+
+            return response()->json([
+                'success' => false,
+                'message' => "Too many incorrect codes. Please try again in {$minutes} minute" . ($minutes === 1 ? '' : 's') . '.',
+            ]);
+        }
+
         if (!$email || !$this->codes->verify($email, 'password_reset', $request->verification_code)) {
             return response()->json(['success' => false, 'message' => 'Invalid or expired verification code.']);
         }

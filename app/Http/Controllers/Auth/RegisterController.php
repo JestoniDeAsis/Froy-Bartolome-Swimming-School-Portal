@@ -69,6 +69,16 @@ class RegisterController extends Controller
 
         $email = $request->session()->get('registration_email');
 
+        // Too many wrong codes: tell the user how long to wait.
+        if ($email && $this->codes->isLockedOut($email, 'registration')) {
+            $minutes = max(1, (int) ceil($this->codes->lockoutSeconds($email, 'registration') / 60));
+
+            return response()->json([
+                'success' => false,
+                'message' => "Too many incorrect codes. Please try again in {$minutes} minute" . ($minutes === 1 ? '' : 's') . '.',
+            ]);
+        }
+
         if (!$email || !$this->codes->verify($email, 'registration', $request->verification_code)) {
             return response()->json(['success' => false, 'message' => 'Invalid or expired verification code.']);
         }

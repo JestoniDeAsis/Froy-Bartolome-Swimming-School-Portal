@@ -4,11 +4,16 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 
 class VerificationCodeService
 {
     protected int $expiryMinutes = 10;
     protected int $dailyLimit = 5;
+
+    // Wrong-code limit: after this many wrong tries, verifying is locked.
+    protected int $maxVerifyAttempts = 5;
+    protected int $verifyLockSeconds = 600; // 10 minutes
 
     // Escalating wait time required before the next send is allowed.
     // Index 0 = wait required after the 1st send, before the 2nd.
@@ -66,24 +71,55 @@ class VerificationCodeService
             'created_at' => now(),
         ]);
 
+        // A fresh code starts with a fresh wrong-attempt counter.
+        RateLimiter::clear($this->attemptKey($email, $purpose));
+
         return $code; // plaintext returned once, only to be emailed — never stored
+    }
+
+    /* =========================================================
+     * Wrong-code lockout
+     * ========================================================= */
+
+    protected function attemptKey(string $email, string $purpose): string
+    {
+        return 'verify-code|' . $purpose . '|' . sha1(mb_strtolower($email));
+    }
+
+    public function isLockedOut(string $email, string $purpose): bool
+    {
+        return RateLimiter::tooManyAttempts($this->attemptKey($email, $purpose), $this->maxVerifyAttempts);
+    }
+
+    public function lockoutSeconds(string $email, string $purpose): int
+    {
+        return RateLimiter::availableIn($this->attemptKey($email, $purpose));
     }
 
     public function verify(string $email, string $purpose, string $code): bool
     {
+        $key = $this->attemptKey($email, $purpose);
+
+        // Locked out: reject even a correct code until the lock expires.
+        if (RateLimiter::tooManyAttempts($key, $this->maxVerifyAttempts)) {
+            return false;
+        }
+
         $record = DB::table('tbl_verification_codes')
             ->where('email_address', $email)
             ->where('purpose', $purpose)
             ->latest('created_at')
             ->first();
 
-        if (!$record || now()->greaterThan($record->expires_at)) {
+        if (!$record
+            || now()->greaterThan($record->expires_at)
+            || !Hash::check($code, $record->code_hash)) {
+            RateLimiter::hit($key, $this->verifyLockSeconds);
+
             return false;
         }
 
-        if (!Hash::check($code, $record->code_hash)) {
-            return false;
-        }
+        RateLimiter::clear($key);
 
         DB::table('tbl_verification_codes')
             ->where('id', $record->id)
@@ -109,6 +145,8 @@ class VerificationCodeService
             ->where('email_address', $email)
             ->where('purpose', $purpose)
             ->delete();
+
+        RateLimiter::clear($this->attemptKey($email, $purpose));
     }
 
     public function nextCooldownSeconds(string $email, string $purpose): int
