@@ -71,13 +71,25 @@
 .sales-panel[hidden] { display: none; }
 .sales-field[hidden] { display: none; }
 
-/* Long student names must not push the dropdown out of the dialog. */
-#coursePaymentEnrollmentDropdown .registerDropdownToggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-#coursePaymentEnrollmentDropdown .registerDropdownOptions { max-height: 220px; overflow-y: auto; }
-#coursePaymentEnrollmentDropdown .registerDropdownOption { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#athletePaymentDueDropdown .registerDropdownToggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-#athletePaymentDueDropdown .registerDropdownOptions { max-height: 220px; overflow-y: auto; }
-#athletePaymentDueDropdown .registerDropdownOption { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Searchable picker (student / athlete): type to filter, click or press Enter to choose.
+   The list opens inline under the box so the dialog never clips it. */
+.sales-picker { position: relative; }
+.sales-picker.isInvalid .sales-picker-input { border-color: var(--fbss-danger, #DC3545); }
+.sales-picker-box { position: relative; }
+.sales-picker-input { padding-right: 2.4rem; }
+.sales-picker-clear { position: absolute; right: .35rem; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--sales-muted); }
+.sales-picker-clear:hover { background: var(--sales-canvas); color: var(--sales-ink); }
+.sales-picker-clear[hidden] { display: none; }
+.sales-picker-list { margin-top: .35rem; max-height: min(232px, 38dvh); overflow-y: auto; border: 1px solid var(--sales-line); border-radius: 10px; background: #fff; padding: .25rem; }
+.sales-picker-list[hidden] { display: none; }
+.sales-picker-option { display: flex; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; padding: .5rem .65rem; border: 0; border-radius: 8px; background: transparent; text-align: left; color: var(--sales-ink); }
+@media (pointer: coarse) { .sales-picker-option { min-height: 48px; } .sales-picker-input { font-size: 16px; } }  /* 16px stops iOS zooming on focus */
+.sales-picker-option:hover, .sales-picker-option.active { background: var(--sales-canvas); }
+.sales-picker-main { display: flex; flex-direction: column; min-width: 0; }
+.sales-picker-main strong, .sales-picker-main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sales-picker-main small { color: var(--sales-muted); font-size: .75rem; }
+.sales-picker-right { flex: 0 0 auto; font-size: .78rem; font-weight: 600; color: var(--sales-muted); }
+.sales-picker-empty, .sales-picker-more { margin: 0; padding: .6rem .65rem; font-size: .78rem; color: var(--sales-muted); }
 .sales-check { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 600; }
 
 .sales-table-wrap {
@@ -189,6 +201,9 @@
 /* Dropdowns use the shared defaults (our_theme.css), same as every other page.
    Only the filter's minimum width is set, matching Attendance's filters. */
 .sales-filter { --dd-min-width: 160px; }
+/* Item-log filters sit inline with the other toolbar controls. */
+.sales-item-filters { display: contents; }
+.sales-item-filters[hidden] { display: none; }
 
 .sales-table .sales-name {
     font-weight: 600;
@@ -593,6 +608,39 @@
                 </div>
                 <input id="salesRecordFilter" name="recordFilter" type="hidden" value="active">
             </div>
+            <div class="sales-item-filters" id="salesItemFilters" hidden>
+            <div class="registerDropdown sales-filter" id="itemMonthFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="itemMonthFilterToggle" type="button" aria-expanded="false" aria-controls="itemMonthFilterOptions" aria-label="Filter by month">
+                    <span>All months</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+                <div class="registerDropdownOptions" id="itemMonthFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All months</button>
+                </div>
+                <input id="itemMonthFilter" name="monthFilter" type="hidden" value="">
+            </div>
+            <div class="registerDropdown sales-filter" id="itemNameFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="itemNameFilterToggle" type="button" aria-expanded="false" aria-controls="itemNameFilterOptions" aria-label="Filter by item">
+                    <span>All items</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+                <div class="registerDropdownOptions" id="itemNameFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All items</button>
+                </div>
+                <input id="itemNameFilter" name="itemFilter" type="hidden" value="">
+            </div>
+            <div class="registerDropdown sales-filter" id="itemMethodFilterDropdown" data-fbss-dropdown>
+                <button class="registerDropdownToggle" id="itemMethodFilterToggle" type="button" aria-expanded="false" aria-controls="itemMethodFilterOptions" aria-label="Filter by payment method">
+                    <span>All methods</span>
+                    <i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i>
+                </button>
+                <div class="registerDropdownOptions" id="itemMethodFilterOptions" hidden>
+                    <button class="registerDropdownOption active" type="button" data-value="">All methods</button>
+                </div>
+                <input id="itemMethodFilter" name="methodFilter" type="hidden" value="">
+            </div>
+            <button class="btn btn-outline-primary" id="itemFilterClear" type="button" hidden>Clear filters</button>
+            </div>
         </div>
     </div>
 
@@ -623,7 +671,7 @@
             <input type="hidden" name="id">
             <input type="hidden" name="paymentId">
             <input type="hidden" name="relog" value="">
-            <div class="sales-field" id="coursePaymentEnrollmentGroup" hidden><label for="coursePaymentEnrollmentToggle">Student <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="coursePaymentEnrollmentDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="coursePaymentEnrollmentToggle" type="button" aria-expanded="false" aria-controls="coursePaymentEnrollmentOptions"><span>Select student</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="coursePaymentEnrollmentOptions" hidden></div><input id="coursePaymentEnrollment" type="hidden" value=""></div></div>
+            <div class="sales-field" id="coursePaymentEnrollmentGroup" hidden><label for="coursePaymentEnrollmentToggle">Student <span class="sales-required">*</span></label><div class="sales-picker ddBlock" id="coursePaymentEnrollmentDropdown"><div class="sales-picker-box"><input class="form-control sales-picker-input" id="coursePaymentEnrollmentToggle" type="text" role="combobox" aria-expanded="false" aria-controls="coursePaymentEnrollmentOptions" aria-label="Search student" placeholder="Search student or course" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search"><button class="sales-picker-clear" type="button" aria-label="Clear selection" title="Clear" hidden><i class="bi bi-x-lg" aria-hidden="true"></i></button></div><div class="sales-picker-list" id="coursePaymentEnrollmentOptions" role="listbox" hidden></div><input id="coursePaymentEnrollment" type="hidden" value=""></div></div>
             <div class="sales-balance-line"><strong>Balance</strong><strong id="coursePaymentBalance">₱0</strong></div>
             <div class="sales-field"><label for="coursePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="coursePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱2,000" required><small id="coursePaymentLimit"></small><small class="sales-field-error" id="coursePaymentError" hidden></small></div>
             <div class="sales-field"><label for="coursePaymentMethodToggle">Payment Method <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="coursePaymentMethodDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="coursePaymentMethodToggle" type="button" aria-expanded="false" aria-controls="coursePaymentMethodOptions"><span>Select method</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="coursePaymentMethodOptions" hidden>
@@ -684,7 +732,7 @@
             <input type="hidden" name="feeId">
             <input type="hidden" name="periodKey">
             <input type="hidden" name="relog" value="">
-            <div class="sales-field" id="athletePaymentDueGroup" hidden><label for="athletePaymentDueToggle">Athlete &amp; fee <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="athletePaymentDueDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="athletePaymentDueToggle" type="button" aria-expanded="false" aria-controls="athletePaymentDueOptions"><span>Select athlete</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="athletePaymentDueOptions" hidden></div><input id="athletePaymentDue" type="hidden" value=""></div></div>
+            <div class="sales-field" id="athletePaymentDueGroup" hidden><label for="athletePaymentDueToggle">Athlete &amp; fee <span class="sales-required">*</span></label><div class="sales-picker ddBlock" id="athletePaymentDueDropdown"><div class="sales-picker-box"><input class="form-control sales-picker-input" id="athletePaymentDueToggle" type="text" role="combobox" aria-expanded="false" aria-controls="athletePaymentDueOptions" aria-label="Search athlete" placeholder="Search athlete or fee" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search"><button class="sales-picker-clear" type="button" aria-label="Clear selection" title="Clear" hidden><i class="bi bi-x-lg" aria-hidden="true"></i></button></div><div class="sales-picker-list" id="athletePaymentDueOptions" role="listbox" hidden></div><input id="athletePaymentDue" type="hidden" value=""></div></div>
             <div class="sales-balance-line"><strong>Balance</strong><strong id="athletePaymentBalance">₱0</strong></div>
             <div class="sales-field"><label for="athletePaymentAmount">Payment <span class="sales-required">*</span></label><input class="form-control" id="athletePaymentAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="₱500" required><small id="athletePaymentLimit"></small><small class="sales-field-error" id="athletePaymentError" hidden></small></div>
             <div class="sales-field"><label for="athletePaymentMethodToggle">Payment Method <span class="sales-required">*</span></label><div class="registerDropdown ddBlock" id="athletePaymentMethodDropdown" data-fbss-dropdown><button class="registerDropdownToggle" id="athletePaymentMethodToggle" type="button" aria-expanded="false" aria-controls="athletePaymentMethodOptions"><span>Select method</span><i class="bi bi-chevron-down biChevronDown" aria-hidden="true"></i></button><div class="registerDropdownOptions" id="athletePaymentMethodOptions" hidden>
@@ -768,6 +816,39 @@
     const statusFilterRoot = document.getElementById('salesStatusFilterDropdown'); // the shared dropdown
     const recordFilter = document.getElementById('salesRecordFilter');             // 'active' | 'archived' (course + athlete payment tabs)
     const recordFilterRoot = document.getElementById('salesRecordFilterDropdown');
+    // Item logs tab filters (month / item / payment method). Month is read from sortAt ("YYYY-MM-DD hh:mm:ss").
+    const itemFiltersRoot = document.getElementById('salesItemFilters');
+    const itemMonthRoot = document.getElementById('itemMonthFilterDropdown');
+    const itemNameRoot = document.getElementById('itemNameFilterDropdown');
+    const itemMethodRoot = document.getElementById('itemMethodFilterDropdown');
+    const itemMonthFilter = document.getElementById('itemMonthFilter');
+    const itemNameFilter = document.getElementById('itemNameFilter');
+    const itemMethodFilter = document.getElementById('itemMethodFilter');
+    const itemFilterClear = document.getElementById('itemFilterClear');
+    const monthKey = row => String(row.sortAt || '').slice(0, 7);
+    const monthLabel = key => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }); };
+    const itemFiltersActive = () => Boolean(itemMonthFilter.value || itemNameFilter.value || itemMethodFilter.value);
+    const matchesItemFilters = row =>
+        (!itemMonthFilter.value || monthKey(row) === itemMonthFilter.value)
+        && (!itemNameFilter.value || String(row.itemId) === itemNameFilter.value)
+        && (!itemMethodFilter.value || (row.method || '') === itemMethodFilter.value);
+    // Totals on the Item logs tab follow the month / item / method filters (not search or status).
+    const itemScope = () => activeTab === 'logs' ? logs.filter(matchesItemFilters) : logs;
+    let itemFilterSignature = '';
+    // Rebuilds the three dropdowns from what actually exists in the logs (silent). Only touches the DOM when the lists change.
+    function refreshItemFilterOptions() {
+        const months = [...new Set(logs.map(monthKey).filter(Boolean))].sort().reverse();
+        const names = new Map(); logs.forEach(row => names.set(String(row.itemId), row.item));
+        const nameList = [...names].sort((a, b) => a[1].localeCompare(b[1]));
+        const methods = [...new Set(['Cash', 'GCash', 'Bank Transfer', 'Other'].concat(logs.map(row => row.method).filter(Boolean)))];
+        const signature = JSON.stringify([months, nameList, methods]);
+        if (signature === itemFilterSignature) return;
+        itemFilterSignature = signature;
+        window.FBSSDropdown.setOptions(itemMonthRoot, [{ value: '', label: 'All months' }].concat(months.map(k => ({ value: k, label: monthLabel(k) }))), itemMonthFilter.value);
+        window.FBSSDropdown.setOptions(itemNameRoot, [{ value: '', label: 'All items' }].concat(nameList.map(([id, name]) => ({ value: id, label: name }))), itemNameFilter.value);
+        window.FBSSDropdown.setOptions(itemMethodRoot, [{ value: '', label: 'All methods' }].concat(methods.map(m => ({ value: m, label: m }))), itemMethodFilter.value);
+    }
+    const clearItemFilters = () => { [itemMonthRoot, itemNameRoot, itemMethodRoot].forEach(root => setDropdown(root, '')); };
     const viewingArchived = () => (activeTab === 'course' || activeTab === 'athletes') && recordFilter.value === 'archived';
 
     // Selects `value` on a shared dropdown (silent). Resets to the first option
@@ -776,6 +857,86 @@
         const first = root.querySelector('.registerDropdownOption');
         if (first) window.FBSSDropdown.set(root, first.dataset.value ?? '');
         if (value !== '' && value != null) window.FBSSDropdown.set(root, value);
+    }
+    // Searchable single-choice picker. Keeps the same ids / 'dropdown:change' event as the old dropdown,
+    // so the dialogs' existing handlers keep working. Items: { value, inputLabel, label, sub, right }.
+    function makePicker(root, emptyText) {
+        const input = root.querySelector('.sales-picker-input');
+        const list = root.querySelector('.sales-picker-list');
+        const hidden = root.querySelector('input[type="hidden"]');
+        const clearButton = root.querySelector('.sales-picker-clear');
+        let tapping = false;   // a finger / mouse is on the list: don't treat the input's blur as 'closed'
+        const syncClear = () => { clearButton.hidden = !input.value; };
+        const MAX = 50;   // render cap, so a long roster stays fast
+        let items = [], shown = [], active = -1;
+        const emit = () => root.dispatchEvent(new CustomEvent('dropdown:change', { bubbles: true }));
+        const open = () => { list.hidden = false; input.setAttribute('aria-expanded', 'true'); };
+        const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; };
+        function paint(showAll = false) {
+            const tokens = showAll ? [] : input.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+            const matches = items.filter(item => tokens.every(token => item.search.includes(token)));
+            shown = matches.slice(0, MAX);
+            active = shown.length ? 0 : -1;
+            list.innerHTML = shown.length
+                ? shown.map((item, n) => `<button class="sales-picker-option${n === active ? ' active' : ''}" type="button" role="option" data-index="${n}"><span class="sales-picker-main"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.sub || '')}</small></span><span class="sales-picker-right">${escapeHtml(item.right || '')}</span></button>`).join('')
+                    + (matches.length > MAX ? `<p class="sales-picker-more">Showing ${MAX} of ${matches.length}. Keep typing to narrow it down.</p>` : '')
+                : `<p class="sales-picker-empty">${escapeHtml(emptyText)}</p>`;
+        }
+        function highlight(next) {
+            if (!shown.length) return;
+            active = (next + shown.length) % shown.length;
+            [...list.querySelectorAll('.sales-picker-option')].forEach((el, n) => el.classList.toggle('active', n === active));
+            list.querySelectorAll('.sales-picker-option')[active].scrollIntoView({ block: 'nearest' });
+        }
+        function pick(item) {
+            hidden.value = item.value;
+            input.value = item.inputLabel;
+            root.classList.remove('isInvalid');
+            close(); syncClear();
+            emit();
+        }
+        input.addEventListener('input', () => {
+            if (hidden.value) { hidden.value = ''; emit(); }   // editing the text drops the earlier choice
+            paint(); open(); syncClear();
+        });
+        input.addEventListener('focus', () => {
+            if (hidden.value) input.select();
+            paint(Boolean(hidden.value)); open();
+            // On a phone the keyboard covers the lower half: bring the box into view once it has opened.
+            setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 250);
+        });
+        input.addEventListener('blur', () => { if (tapping) return; close(); if (!hidden.value) input.value = ''; syncClear(); });
+        // X: forget the choice (or the half-typed text) and go straight back to the full list.
+        clearButton.addEventListener('mousedown', event => event.preventDefault());
+        clearButton.addEventListener('click', () => {
+            const had = Boolean(hidden.value);
+            hidden.value = ''; input.value = ''; syncClear();
+            if (had) emit();
+            input.focus(); paint(true); open();
+        });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'ArrowDown') { event.preventDefault(); if (list.hidden) { paint(Boolean(hidden.value)); open(); } else highlight(active + 1); }
+            else if (event.key === 'ArrowUp') { event.preventDefault(); highlight(active - 1); }
+            else if (event.key === 'Enter') { event.preventDefault(); if (!list.hidden && shown[active]) pick(shown[active]); }
+            else if (event.key === 'Escape' && !list.hidden) { event.preventDefault(); event.stopPropagation(); close(); }
+        });
+        // Choose on click/tap (so scrolling the list with a finger never picks by accident).
+        // mousedown is cancelled so the input keeps focus; `tapping` covers touch screens, where blur can come first.
+        list.addEventListener('pointerdown', () => { tapping = true; });
+        document.addEventListener('pointerup', () => setTimeout(() => { tapping = false; }, 300));
+        list.addEventListener('mousedown', event => event.preventDefault());
+        list.addEventListener('click', event => {
+            const option = event.target.closest('.sales-picker-option');
+            if (option) pick(shown[Number(option.dataset.index)]);
+        });
+        return {
+            setItems(next) {   // silent, like the old setOptions: clears any earlier choice
+                items = next.map(item => ({ ...item, search: `${item.label} ${item.sub || ''} ${item.inputLabel}`.toLocaleLowerCase() }));
+                hidden.value = ''; input.value = '';
+                root.classList.remove('isInvalid');
+                close(); syncClear();
+            }
+        };
     }
     const addButton = document.getElementById('salesAddButton');
     // Uses the app-wide toast (layouts.toast), same as every other page.
@@ -810,7 +971,7 @@
 
     function itemStats() {
         // One item log = one sale: to pay = unit price x quantity.
-        const sales = logs.map(row => ({ total: Number(row.price) * Number(row.quantity), paid: Number(row.paid) }));
+        const sales = itemScope().map(row => ({ total: Number(row.price) * Number(row.quantity), paid: Number(row.paid) }));
         return {
             collected: sales.reduce((total, s) => total + s.paid, 0),
             outstanding: sales.reduce((total, s) => total + Math.max(s.total - s.paid, 0), 0),
@@ -881,14 +1042,14 @@
         const visible = logs.filter(row => {
             const total = Number(row.price) * Number(row.quantity);
             const rowStatus = statusFor(row.paid, total);
-            const haystack = `${row.item} ${row.description} ${row.client} ${row.method} ${row.date}`.toLocaleLowerCase();
-            return (!status || status === rowStatus) && (!text || haystack.includes(text));
+            const haystack = `${row.item} ${row.description} ${row.client} ${row.method} ${row.date} ${row.receipt || ''}`.toLocaleLowerCase();
+            return matchesItemFilters(row) && (!status || status === rowStatus) && (!text || haystack.includes(text));
         });
         document.getElementById('itemLogRows').innerHTML = visible.length ? visible.map(row => {
             const total = Number(row.price) * Number(row.quantity);
             const balance = Math.max(total - Number(row.paid), 0);
             return `<tr><td class="sales-name">${escapeHtml(row.item)}</td><td>${escapeHtml(row.description || '--')}</td><td>${Number(row.quantity)}</td><td>${money(row.price)}</td><td>${money(total)}</td><td>${money(row.paid)}</td><td>${money(balance)}</td><td>${escapeHtml(row.method || '--')}</td><td>${badge(statusFor(row.paid, total))}</td><td>${escapeHtml(row.date)}</td><td><span class="btn-row-actions"><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-edit="${row.id}" aria-label="Edit ${escapeHtml(row.item)} sale" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-icon btn-icon-sm btn-outline-danger" type="button" data-log-delete="${row.id}" aria-label="Remove ${escapeHtml(row.item)} sale" title="Remove"><i class="bi bi-trash3"></i></button></span></td><td><button class="btn btn-icon btn-icon-sm btn-outline-primary" type="button" data-log-receipt="${row.id}" aria-label="View invoice for ${escapeHtml(row.item)}" title="View invoice"><i class="bi bi-eye"></i></button></td></tr>`;
-        }).join('') : '<tr><td class="sales-empty" colspan="12">No item logs match your search.</td></tr>';
+        }).join('') : '<tr><td class="sales-empty" colspan="12">No item logs match your search or filters.</td></tr>';
     }
 
     function renderItems() {
@@ -926,7 +1087,7 @@
         ).join('') : '<tr><td class="sales-empty" colspan="10">No records match your search.</td></tr>';
     }
 
-    function render() { renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); }
+    function render() { refreshItemFilterOptions(); itemFilterClear.hidden = !itemFiltersActive(); renderAll(); renderCourseRows(); renderLogs(); renderItems(); renderAthleteRows(); renderFees(); updateStats(); }
 
     function setTab(tab) {
         activeTab = tab;
@@ -944,6 +1105,8 @@
         setDropdown(recordFilterRoot, '');   // back to "Active"
         recordFilterRoot.hidden = tab !== 'course' && tab !== 'athletes';
         statusFilterRoot.hidden = tab === 'items' || tab === 'fees';
+        clearItemFilters();
+        itemFiltersRoot.hidden = tab !== 'logs';
         render();   // new tab: re-apply the (now cleared) search/filter and refresh the totals
     }
 
@@ -983,6 +1146,7 @@
 
         refreshPaymentPreview();
         document.getElementById('coursePaymentDialog').showModal();
+        if (matchMedia('(pointer: coarse)').matches) document.activeElement?.blur();   // phones: tap the field to open the keyboard
     }
 
     // "Re-log" an archived payment: same dialog, prefilled, and checked against
@@ -1021,6 +1185,7 @@
 
     // Enrollments that still owe something. Course rows are one per payment,
     // so take each enrollment once (every row of it carries the same totals).
+    const studentPicker = makePicker(document.getElementById('coursePaymentEnrollmentDropdown'), 'No student with a balance matches.');
     function outstandingEnrollments() {
         const seen = new Map();
         courseRows.forEach(row => { if (!seen.has(row.enrollmentId)) seen.set(row.enrollmentId, row); });
@@ -1056,15 +1221,10 @@
 
         document.getElementById('coursePaymentEnrollmentGroup').hidden = false;
         document.getElementById('coursePaymentEnrollmentDropdown').classList.remove('isInvalid');
-        window.FBSSDropdown.setOptions(
-            document.getElementById('coursePaymentEnrollmentDropdown'),
-            [{ value: '', label: 'Select student' }].concat(owing.map(e => ({
-                value: e.enrollmentId,
-                // Just the name. Only when two people share a name, add the course to tell them apart.
-                label: owing.filter(o => o.name === e.name).length > 1 ? `${e.name} (${e.course})` : e.name
-            }))),
-            ''
-        );
+        studentPicker.setItems(owing.map(e => ({
+            value: e.enrollmentId, label: e.name, sub: e.course, inputLabel: `${e.name} - ${e.course}`,
+            right: `${money(e.remaining)} left`
+        })));
 
         document.getElementById('coursePaymentReasonGroup').hidden = true;
         document.getElementById('coursePaymentTitle').textContent = 'Recording course payment';
@@ -1292,6 +1452,7 @@
 
         refreshAthletePreview();
         document.getElementById('athletePaymentDialog').showModal();
+        if (matchMedia('(pointer: coarse)').matches) document.activeElement?.blur();
     }
 
     // "Re-log" an archived athlete payment: same dialog, prefilled, checked
@@ -1331,6 +1492,7 @@
     }
 
     // Dues that still owe something (one entry per athlete + fee + period).
+    const athletePicker = makePicker(document.getElementById('athletePaymentDueDropdown'), 'No athlete with a balance matches.');
     function outstandingDues() {
         const seen = new Map();
         athleteRows.forEach(row => { if (!seen.has(row.dueKey)) seen.set(row.dueKey, row); });
@@ -1361,11 +1523,10 @@
 
         document.getElementById('athletePaymentDueGroup').hidden = false;
         document.getElementById('athletePaymentDueDropdown').classList.remove('isInvalid');
-        window.FBSSDropdown.setOptions(
-            document.getElementById('athletePaymentDueDropdown'),
-            [{ value: '', label: 'Select athlete' }].concat(owing.map(d => ({ value: d.dueKey, label: `${d.name} - ${d.fee} (${d.period})` }))),
-            ''
-        );
+        athletePicker.setItems(owing.map(d => ({
+            value: d.dueKey, label: d.name, sub: `${d.fee} (${d.period})`, inputLabel: `${d.name} - ${d.fee} (${d.period})`,
+            right: `${money(d.remaining)} left`
+        })));
 
         document.getElementById('athletePaymentReasonGroup').hidden = true;
         document.getElementById('athletePaymentTitle').textContent = 'Recording athlete payment';
@@ -1443,6 +1604,8 @@
     document.querySelectorAll('[data-sales-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.salesTab)));
     search.addEventListener('input', render);
     statusFilterRoot.addEventListener('dropdown:change', render);
+    [itemMonthRoot, itemNameRoot, itemMethodRoot].forEach(root => root.addEventListener('dropdown:change', render));
+    itemFilterClear.addEventListener('click', () => { clearItemFilters(); render(); });
     recordFilterRoot.addEventListener('dropdown:change', () => {
         // Paid / Unpaid / Partial mean nothing for archived rows.
         const archived = viewingArchived();
