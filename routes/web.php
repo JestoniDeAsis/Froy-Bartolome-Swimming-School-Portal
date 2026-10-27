@@ -182,6 +182,7 @@ Route::post('/graduation/{enrollment}/certificate', [AdminGraduationController::
 Route::post('/graduation/{enrollment}/graduate', [AdminGraduationController::class, 'graduate'])->middleware('auth')->whereNumber('enrollment');
 Route::post('/graduation/{enrollment}/ready', [AdminGraduationController::class, 'moveBackToReady'])->middleware('auth')->whereNumber('enrollment');
 Route::get('/graduation/data', [AdminGraduationController::class, 'data'])->middleware('auth');
+Route::post('/graduation/{enrollment}/mark-ready', [AdminGraduationController::class, 'markReady']);
 
 use App\Http\Controllers\CertificateController;
 Route::get('/certificates/{enrollment}', [CertificateController::class, 'show'])->middleware('auth')->whereNumber('enrollment');

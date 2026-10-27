@@ -161,7 +161,17 @@ class AdminGraduationController extends Controller
         $graduating  = [];
 
         foreach ($active as $row) {
-            $eligible = ($assessments[$row['id']]['status'] ?? null) === 'eligible';
+            $detail   = $assessments[$row['id']] ?? [];
+            $eligible = ($detail['status'] ?? null) === 'eligible';
+
+            // The coach did not approve, but the student did every session and passed
+            // enough skills. The admin can mark them ready (see markReady()).
+            $row['canMarkReady'] = ! $eligible && $this->meetsReadyRule(
+                $row['done'],
+                $row['total'],
+                (int) ($detail['passed'] ?? 0),
+                (int) ($detail['total'] ?? 0)
+            );
 
             if ($row['graduating']) {
                 $graduating[] = $row;
@@ -296,6 +306,92 @@ class AdminGraduationController extends Controller
         $row->forceFill(['graduation_at' => now()])->save();
 
         return response()->json(['success' => true, 'message' => 'Student marked as graduated.']);
+    }
+
+    /**
+     * POST /graduation/{enrollment}/mark-ready
+     * The admin marks a student as ready when the coach forgot. Allowed only when
+     * the student attended at least all the course sessions AND passed at least
+     * PASSING_PERCENT % of the course's active skills (same grade as the coach page).
+     */
+    public function markReady(Request $request, int $enrollment): JsonResponse
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) {
+            return $denied;
+        }
+
+        $row = Enrollment::with('course')->find($enrollment);
+
+        if (! $row) {
+            return response()->json(['success' => false, 'message' => 'Enrollment not found.'], 404);
+        }
+
+        if ($row->graduation_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student has already graduated.'], 422);
+        }
+
+        if ($row->dropped_at !== null) {
+            return response()->json(['success' => false, 'message' => 'This student has been dropped.'], 422);
+        }
+
+        $assessment = SkillAssessment::query()
+            ->with('results')
+            ->where('enrollment_id', $row->enrollment_id)
+            ->first();
+
+        if (! $assessment) {
+            return response()->json(['success' => false, 'message' => 'This student has no skills assessment yet.'], 422);
+        }
+
+        if ($this->isEligible($row)) {
+            return response()->json(['success' => false, 'message' => 'This student is already marked as ready.'], 422);
+        }
+
+        // Sessions: attendance rows with a Time In (same rule as the page).
+        $done         = DB::table('tbl_attendances')
+            ->where('enrollment_id', $row->enrollment_id)
+            ->whereNotNull('time_in')
+            ->count();
+        $sessionTotal = (int) ($row->course->course_session_count ?? 0);
+
+        // Skills: active skills of the course only.
+        $course   = Course::query()
+            ->where('course_id', $row->course_id)
+            ->with('activeCategories.skills')
+            ->first();
+        $skillIds = collect($course?->activeCategories ?? [])
+            ->flatMap(fn ($category) => $category->skills->pluck('course_skill_id'));
+        $total    = $skillIds->count();
+        $passed   = $assessment->results
+            ->where('result', SkillAssessmentResult::PASS)
+            ->pluck('course_skill_id')
+            ->intersect($skillIds)
+            ->count();
+
+        if (! $this->meetsReadyRule($done, $sessionTotal, $passed, $total)) {
+            $percent = $total > 0 ? round($passed / $total * 100, 1) : 0;
+
+            return response()->json([
+                'success' => false,
+                'message' => "Not allowed yet. Sessions: {$done} of {$sessionTotal}. Skills passed: {$passed} of {$total} ({$percent}%). "
+                    . 'The student needs all sessions and at least ' . CoachSkillsAssessmentController::PASSING_PERCENT . '% of the skills.',
+            ], 422);
+        }
+
+        $assessment->forceFill(['ready_to_graduate' => true])->save();
+
+        return response()->json(['success' => true, 'message' => 'Student marked as ready for graduation.']);
+    }
+
+    /** Sessions done >= course sessions AND skills passed >= the passing percent of all skills. */
+    private function meetsReadyRule(int $done, int $sessionTotal, int $passed, int $skillTotal): bool
+    {
+        if ($sessionTotal <= 0 || $skillTotal <= 0) {
+            return false;
+        }
+
+        return $done >= $sessionTotal
+            && $passed * 100 >= CoachSkillsAssessmentController::PASSING_PERCENT * $skillTotal;
     }
 
     /**

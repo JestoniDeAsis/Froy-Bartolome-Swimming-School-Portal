@@ -917,6 +917,17 @@
         viewButton.dataset.assessmentMode = 'view';
         side.append(make('span', `graduationBadge is-${key}`, PROGRESS_LABELS[key]), viewButton);
 
+        // The coach did not mark this student, but they finished every session and passed enough skills.
+        if (s.canMarkReady) {
+            const readyButton = make('button', 'btn btn-primary btn-sm', 'Mark as Ready');
+            readyButton.type = 'button';
+            readyButton.setAttribute('data-mark-ready', '');
+            readyButton.dataset.enrollmentId = String(s.id);
+            readyButton.dataset.student = s.name;
+            readyButton.title = 'Finished all sessions and passed enough skills, but the coach has not marked this student.';
+            side.append(readyButton);
+        }
+
         card.append(info, progress, side);
         return card;
     }
@@ -1226,7 +1237,7 @@
             eligibility.textContent = status.text;
 
             if (detail.status === 'eligible' && detail.ready_to_graduate && detail.passed < detail.total) {
-                note.textContent = 'The coach marked this student as eligible even though not every skill was passed.';
+                note.textContent = 'This student was marked as eligible even though not every skill was passed.';
                 note.hidden = false;
             } else {
                 note.hidden = true;
@@ -1449,6 +1460,38 @@
                 input.value = '';
                 input.disabled = false;
             });
+        });
+
+        // "Mark as Ready" on the In Training cards. One listener on the page,
+        // because those cards are rebuilt by render() and the auto-refresh.
+        document.addEventListener('click', async event => {
+            const button = event.target.closest('[data-mark-ready]');
+            if (!button || button.disabled) return;
+
+            if (!await askConfirm({
+                title: 'Mark as Ready',
+                message: `Mark ${friendlyName(button.dataset.student)} as ready for graduation? They finished all sessions and passed enough skills.`,
+                confirmText: 'Mark as Ready'
+            })) return;
+
+            button.disabled = true;
+
+            try {
+                const result = await send(`/graduation/${button.dataset.enrollmentId}/mark-ready`);
+
+                if (result.ok) {
+                    showToast(result.data.message || 'Student marked as ready.', 'success');
+                    reloadOnTab('ready');
+                    return;
+                }
+
+                showToast(errorText(result, 'Unable to mark the student as ready.'), 'danger');
+            } catch (error) {
+                console.error(error);
+                showToast('Something went wrong while marking the student as ready.', 'danger');
+            }
+
+            button.disabled = false;
         });
 
         confirmGraduationButton.addEventListener('click', async () => {
