@@ -297,37 +297,6 @@
         padding: .65rem .75rem;
     }
 
-    /* Keep the No. column visible while scrolling horizontally on mobile */
-    .attendanceTable thead th:first-child,
-    .attendanceTable tbody td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 2;
-        width: 38px;
-        min-width: 38px;
-        max-width: 38px;
-        text-align: center;
-    }
-
-    .attendanceTable thead th:first-child {
-        z-index: 7;
-        background: #f8fafb;
-    }
-
-    .attendanceTable tbody td:first-child {
-        background: #fff;
-        box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.15);
-    }
-
-    .attendanceRow:hover > td:first-child {
-        background: #f8fafb;
-    }
-
-    .attendanceRow.selectedRow > td:first-child,
-    .attendanceRow.selectedRow:hover > td:first-child {
-        background: #e7f5ff;
-    }
-
     .attendanceModal {
         max-width: calc(100vw - 1.5rem);
     }

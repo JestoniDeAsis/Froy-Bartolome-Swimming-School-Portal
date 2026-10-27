@@ -11,7 +11,10 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    overflow: hidden;
+    /* scrolls when tabs + toolbar + hint + table are taller than the screen (phones) */
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
 }
@@ -325,8 +328,21 @@
 .userInfoList a { font-weight: 600; text-decoration: none; }
 .userInfoEmpty { color: #adb5bd; }
 
+/* On phones / short screens the toolbar can eat the whole height, so keep the
+   table from being squeezed to nothing (the page scrolls instead). */
+@media (max-width: 767.98px), (max-height: 700px) {
+    .coachesTableContainer {
+        min-height: 260px;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
 @media (max-width: 575.98px) {
     .coachesContainer { padding: 1rem; }
+    .coachesTab {
+        min-width: 125px;
+        flex: 1 1 calc(50% - .25rem);
+    }
     .modalContentBox { padding: 1.25rem; }
     .coachesToolbarActions { margin-left: 0; width: 100%; }
     .coachesToolbarActions button { flex: 1 1 auto; }

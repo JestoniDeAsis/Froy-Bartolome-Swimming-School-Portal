@@ -434,10 +434,35 @@
 
     .registersTab {
         min-width: 125px;
+        flex: 1 1 calc(50% - .25rem);
+    }
+
+    .registersSearchContainer {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .registersSearchInput {
+        width: 100%;
+    }
+
+    .registersToolbar {
+        gap: .5rem;
+    }
+
+    /* Filters: 2 per row, matching the 2-column alignment of the tab buttons */
+    .registerCourseFilter {
+        flex: 1 1 calc(50% - .25rem);
+        max-width: calc(50% - .25rem);
+        min-width: 0;
+        --dd-width: 100%;
+        --dd-min-width: 0;
     }
 
     .registerCourseFilter .registerDropdownToggle {
-        max-width: 140px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
     }
 
     .registersToolbarActions {
