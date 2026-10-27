@@ -99,7 +99,9 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
 }
@@ -249,9 +251,76 @@
 }
 
 @media (max-width: 575.98px) {
-    .graduationContainer { padding: 1rem; }
-    .graduationFilter { --dd-min-width: 140px; flex: 1 1 140px; }
-    .graduationResultCount { margin-left: 0; width: 100%; }
+    .graduationContainer {
+        height: auto;
+        min-height: 100vh;
+        padding: 1rem;
+    }
+
+    .graduationTabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+
+    .graduationTabs .btn-tab {
+        flex: 1 1 calc(50% - .25rem);
+        min-width: 0;
+        font-size: .82rem;
+        padding: .45rem .35rem;
+        text-align: center;
+        white-space: normal;
+        line-height: 1.2;
+    }
+
+    .graduationStats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+    }
+
+    .graduationStat {
+        padding: .7rem;
+    }
+
+    .graduationToolbar {
+        gap: .5rem;
+    }
+
+    .graduationSearchContainer {
+        width: 100%;
+    }
+
+    .graduationFilter {
+        display: block !important;
+        flex: 1 1 calc(50% - .25rem);
+        max-width: calc(50% - .25rem);
+        min-width: 0;
+        --dd-width: 100%;
+        --dd-min-width: 0;
+    }
+
+    .graduationFilter .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .graduationResultCount {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .graduationRealView,
+    .graduationSample {
+        flex: 0 0 auto;
+        width: 100%;
+        min-height: 260px;
+    }
+
+    .graduationList {
+        flex: 0 0 auto;
+        overflow-y: visible;
+    }
 }
 
 /* ---------- Sample panels (Ready / Graduates) — old design ---------- */
