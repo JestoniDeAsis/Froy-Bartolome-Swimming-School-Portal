@@ -72,6 +72,9 @@ Route::post('/profile/password/verify', [ChangePasswordController::class, 'verif
     ->middleware('auth');
 Route::post('/profile/password/update', [ChangePasswordController::class, 'update'])
     ->middleware('auth');
+Route::post('/profile/password/verify', [ProfileController::class, 'verifyCurrent'])
+    ->middleware('auth');
+
 
 use App\Http\Controllers\CourseController;
 
