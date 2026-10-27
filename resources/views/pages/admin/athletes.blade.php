@@ -11,7 +11,10 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    overflow: hidden;
+    /* scrolls when tabs + toolbar + hint + table are taller than the screen (phones) */
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
 }
@@ -505,14 +508,33 @@
    Responsive
 ========================================================= */
 
+@media (max-width: 767.98px), (max-height: 700px) {
+    .athletesTableContainer:not(.isCollapsing) {
+        min-height: 260px;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
 @media (max-width: 575.98px) {
     .athletesContainer {
         height: 100vh;
         padding: 1rem;
     }
 
+    .athletesHeader {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .75rem;
+    }
+
+    #addAthleteButton {
+        width: 100%;
+        justify-content: center;
+    }
+
     .athletesTab {
         min-width: 125px;
+        flex: 1 1 calc(50% - .25rem);
     }
 
     .registerCourseFilter .registerDropdownToggle {

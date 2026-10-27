@@ -22,7 +22,10 @@
     min-height: 0;
     padding: 1.25rem;
     box-sizing: border-box;
-    overflow: hidden;
+    /* scrolls when tabs + toolbar + hint + table are taller than the screen (phones) */
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
     color: var(--sales-ink);
@@ -504,69 +507,6 @@
     .sales-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-
-}
-
-@media (max-width: 700px) {
-    .sales-page {
-        padding: 1rem;
-    }
-
-    .sales-toolbar-actions { margin-left: 0; width: 100%; }
-    .sales-toolbar-actions button { flex: 1 1 auto; }
-
-    .sales-heading {
-        align-items: flex-start;
-    }
-
-    .sales-toolbar, .sales-toolbar-start, .sales-search {
-        width: 100%;
-    }
-
-    .sales-toolbar-start {
-        align-items: stretch;
-    }
-
-    .sales-filter {
-        flex: 1;
-        --dd-width: 100%;
-    }
-
-    .sales-form-grid {
-        grid-template-columns: 1fr;
-    }
-
-}
-
-@media (max-width: 430px) {
-    .sales-stats {
-        grid-template-columns: 1fr 1fr;
-        gap: .5rem;
-    }
-
-    .sales-stat {
-        min-height: 76px;
-        padding: .7rem;
-    }
-
-    .sales-stat-value {
-        font-size: 1.25rem;
-    }
-
-    .sales-stat-label {
-        font-size: .62rem;
-    }
-
-    .sales-stat-icon {
-        width: 1.6rem;
-        height: 1.6rem;
-        flex-basis: 1.6rem;
-    }
-
-    .sales-receipt-amount {
-        padding: .4rem;
-    }
-
 }
 
 /* ---------- Pagination (all screens) ---------- */
@@ -580,80 +520,129 @@
 .sales-toolbar { scroll-margin-top: 4rem; }
 
 /* =========================================================
-   Compact screens: narrow OR short windows (tablets, squarish browser
-   windows, small laptops). The page scrolls as a whole instead of being
-   locked to the window height, which is what squashed the table before.
+   Responsive: consistent design matching Registers, Coaches, Attendance.
+   The page container scrolls vertically, tabs and filters wrap 2-per-row,
+   and the table has a minimum height with horizontal scroll.
 ========================================================= */
-@media (max-width: 1100px), (max-height: 800px) {
-    .sales-page { --sales-pad: 1.25rem; height: auto; min-height: 0; overflow: visible; padding: var(--sales-pad); }
-    .sales-table-wrap { flex: 0 0 auto; }
-
-    .sales-page .sales-tabs.btn-tab-group { position: sticky; top: 0; z-index: 20; display: flex; flex-direction: row; flex-wrap: nowrap; gap: .4rem; overflow-x: auto; margin: 0 calc(var(--sales-pad) * -1) .75rem; padding: .5rem var(--sales-pad); background: #fff; border-bottom: 1px solid #e7ebef; scrollbar-width: none; }
-    .sales-page .sales-tabs::-webkit-scrollbar { display: none; }
-    .sales-page .sales-tabs .btn-tab { flex: 0 0 auto; width: auto; min-width: 0; white-space: nowrap; padding: .35rem .85rem; font-size: .85rem; }
-
-    .sales-toolbar-start { flex: 1 1 100%; }
-
-    /* Row actions: a bar that stays at the bottom of the screen once a row is selected. */
-    .sales-toolbar-actions { position: sticky; bottom: 0; z-index: 15; width: auto; margin: .75rem calc(var(--sales-pad) * -1) 0; padding: .6rem var(--sales-pad) calc(.6rem + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #e7ebef; box-shadow: 0 -4px 12px rgba(16, 24, 40, .08); }
-    .sales-toolbar-actions.isIdle { display: none; }
+@media (max-width: 767.98px), (max-height: 700px) {
+    .sales-table-wrap {
+        min-height: 260px;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
-/* Tablet / squarish window: keep the 4 stat cards on one row and the table tighter. */
-@media (min-width: 701px) and (max-width: 1100px) {
-    .sales-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
-    .sales-stat { padding: .6rem .8rem; }
-    .sales-stat-value { font-size: 1.15rem; }
-    .sales-stat-icon { width: 1.75rem; height: 1.75rem; flex-basis: 1.75rem; }
-    .sales-table th, .sales-table td { padding: .6rem .75rem; }
-}
+@media (max-width: 575.98px) {
+    .sales-page {
+        padding: 1rem;
+    }
 
-/* =========================================================
-   Phones (<= 700px): the whole page scrolls, tabs slide sideways,
-   filters fold behind a button, row actions stick to the bottom,
-   and every table row becomes a card.
-========================================================= */
-@media (max-width: 700px) {
-    .sales-page { --sales-pad: .85rem; }
+    .sales-heading {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .75rem;
+    }
 
-    .sales-heading { gap: .6rem; margin-bottom: .75rem; align-items: center; }
-    .sales-heading h2 { font-size: 1.25rem; }
-    .sales-heading p { display: none; }
-    #salesAddButton { flex: 0 0 auto; max-width: 52%; padding: .45rem .75rem; font-size: .8rem; line-height: 1.15; text-align: left; }
+    #salesAddButton {
+        width: 100%;
+        justify-content: center;
+    }
 
-    .sales-page .sales-tabs .btn-tab { padding: .35rem .85rem; font-size: .82rem; }
+    /* Tabs: 2 per row, matching the 2-column alignment */
+    .sales-tabs .btn-tab {
+        min-width: 125px;
+        flex: 1 1 calc(50% - .25rem);
+    }
 
-    .sales-stats { gap: .5rem; margin-bottom: .75rem; }
-    .sales-stat { padding: .5rem .65rem; }
-    .sales-stat-value { font-size: 1.05rem; }
-    .sales-stat-icon { display: none; }
+    /* Stats: 2 per row */
+    .sales-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+    }
 
-    .sales-toolbar-start { gap: .5rem; }
-    .sales-search { flex: 1 1 calc(100% - 7rem); width: auto; min-width: 0; }
-    .sales-filters-toggle { display: inline-flex; flex: 0 0 auto; }
-    .sales-filter { flex: 1 1 calc(50% - .5rem); }
-    .sales-toolbar:not(.filtersOpen) .sales-filter,
-    .sales-toolbar:not(.filtersOpen) .sales-item-filters { display: none; }
+    .sales-stat {
+        padding: .7rem;
+    }
 
-    .sales-pager { justify-content: center; text-align: center; }
-    .sales-pager > span { flex: 1 0 100%; }
+    .sales-toolbar {
+        gap: .5rem;
+    }
 
-    /* Table -> cards */
-    .sales-table-wrap { max-height: none; overflow: visible; border: 0; background: transparent; }
-    .sales-table, .sales-table tbody { display: block; white-space: normal; }
-    .sales-table thead { display: none; }
-    .sales-table tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .85rem; position: relative; margin-bottom: .6rem; padding: .75rem 2.75rem .75rem .85rem; background: #fff; border: 1px solid #e7ebef; border-radius: 12px; }
-    .sales-table tbody tr:hover { background: #fff; }
-    .sales-table tbody tr.sales-row.selectedRow, .sales-table tbody tr.sales-row.selectedRow:hover { background: #e7f5ff; border-color: var(--sales-blue); }
-    .sales-table tbody td, .sales-table tbody tr.sales-row:hover > td, .sales-table tbody tr.sales-row.selectedRow > td, .sales-table tbody tr.sales-row.selectedRow:hover > td { display: block; min-width: 0; padding: 0; border: 0; background: transparent; font-size: .85rem; overflow-wrap: anywhere; }
-    .sales-table tbody td::before { content: attr(data-label); display: block; margin-bottom: .1rem; color: var(--sales-muted); font-size: .66rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
-    .sales-table tbody td.sales-name { grid-column: 1 / -1; font-size: .95rem; }
-    .sales-table tbody td.sales-name::before { display: none; }
-    .sales-table tbody td.sales-cell-invoice { position: absolute; top: .55rem; right: .55rem; }
-    .sales-table tbody td.sales-cell-invoice::before { display: none; }
-    .sales-table tbody td.sales-cell-invoice.isBlank { display: none; }
-    .sales-table tbody td.sales-empty { grid-column: 1 / -1; text-align: center; }
-    .sales-table tbody td.sales-empty::before { display: none; }
+    .sales-toolbar-start {
+        width: 100%;
+        gap: .5rem;
+    }
+
+    .sales-search {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .sales-search input {
+        width: 100%;
+    }
+
+    .sales-filters-toggle {
+        display: none !important;
+    }
+
+    /* Filters: 2 per row, matching the 2-column alignment of the tab buttons */
+    .sales-filter {
+        display: block !important;
+        flex: 1 1 calc(50% - .25rem);
+        max-width: calc(50% - .25rem);
+        min-width: 0;
+        --dd-width: 100%;
+        --dd-min-width: 0;
+    }
+
+    .sales-filter .registerDropdownToggle {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .sales-item-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        width: 100%;
+    }
+
+    .sales-item-filters .sales-filter {
+        flex: 1 1 calc(50% - .25rem);
+        max-width: calc(50% - .25rem);
+        min-width: 0;
+    }
+
+    .sales-toolbar-actions {
+        margin-left: 0;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+    }
+
+    .sales-toolbar-actions button {
+        flex: 1 1 auto;
+    }
+
+    .sales-pager {
+        justify-content: center;
+        text-align: center;
+    }
+
+    .sales-pager > span {
+        flex: 1 0 100%;
+    }
+
+    .sales-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sales-dialog-inner {
+        padding: 1.25rem;
+        max-width: calc(100vw - 1.5rem);
+    }
 }
 </style>
 

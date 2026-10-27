@@ -339,6 +339,14 @@
 
 @media (max-width: 575.98px) {
     .coachesContainer { padding: 1rem; }
+    .coachesHeader {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    #addCoachButton {
+        width: 100%;
+        justify-content: center;
+    }
     .coachesTab {
         min-width: 125px;
         flex: 1 1 calc(50% - .25rem);
