@@ -522,17 +522,20 @@
     }
 
     .athletesHeader {
-        flex-direction: column;
-        align-items: stretch;
-        gap: .75rem;
+        display: flex;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: .75rem !important;
     }
 
     #addAthleteButton {
-        width: 100%;
-        justify-content: center;
+        width: 100% !important;
+        display: inline-flex !important;
+        justify-content: center !important;
+        flex: 0 0 auto !important;
     }
 
-    .athletesTab {
+    #athletesTabs .athletesTab {
         min-width: 125px;
         flex: 1 1 calc(50% - .25rem);
     }
