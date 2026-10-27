@@ -46,7 +46,7 @@
         <div class="login-form-wrap px-4 py-4">
             <div class="card login-card p-4">
 
-                <h2 class="login-title text-center mb-1">Welcome Back</h2>
+                <h2 class="login-title text-center mb-1">Welcome Back YOOO</h2>
                 <p class="text-center text-muted mb-4">Log in to your FBSS account</p>
 
                 <form method="POST" action="{{ route('login') }}" id="loginForm">
