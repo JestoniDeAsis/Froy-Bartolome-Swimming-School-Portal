@@ -41,11 +41,9 @@
 /* Tabs (same look as Attendance) */
 .coachesTabs {
     flex: 0 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
     margin-bottom: .75rem;
 }
+.coachesTabs .btn-tab,
 .coachesTab { min-width: 150px; }
 .coachesTab[hidden],
 #addCoachButton[hidden] { display: none !important; }
@@ -347,9 +345,25 @@
         width: 100%;
         justify-content: center;
     }
+    .coachesTabs {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: .5rem !important;
+        width: 100% !important;
+        margin-bottom: 1rem !important;
+    }
+    .coachesTabs .btn-tab,
     .coachesTab {
-        min-width: 125px;
-        flex: 1 1 calc(50% - .25rem);
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: .45rem .4rem !important;
+        font-size: .8125rem !important;
     }
     .modalContentBox { padding: 1.25rem; }
     .coachesToolbarActions { margin-left: 0; width: 100%; }
@@ -375,11 +389,11 @@
     </header>
 
     <!-- TABS -->
-    <nav class="coachesTabs" id="coachesTabs" aria-label="User groups">
-        <button class="btn btn-primary coachesTab active" type="button" data-users-tab="coaches" aria-selected="true">Coaches</button>
-        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="students" aria-selected="false">Students</button>
-        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="athletes" aria-selected="false">Athletes</button>
-        <button class="btn btn-outline-primary coachesTab" type="button" data-users-tab="applicants" aria-selected="false">Applicants</button>
+    <nav class="btn-tab-group coachesTabs" id="coachesTabs" aria-label="User groups">
+        <button class="btn btn-outline-primary btn-tab coachesTab active" type="button" data-users-tab="coaches" aria-selected="true">Coaches</button>
+        <button class="btn btn-outline-primary btn-tab coachesTab" type="button" data-users-tab="students" aria-selected="false">Students</button>
+        <button class="btn btn-outline-primary btn-tab coachesTab" type="button" data-users-tab="athletes" aria-selected="false">Athletes</button>
+        <button class="btn btn-outline-primary btn-tab coachesTab" type="button" data-users-tab="applicants" aria-selected="false">Applicants</button>
     </nav>
 
     <!-- TOOLBAR -->
@@ -1054,8 +1068,6 @@
             const selected = name === activeTab;
             const count = tabCounts[name];
 
-            button.classList.toggle('btn-primary', selected);
-            button.classList.toggle('btn-outline-primary', !selected);
             button.classList.toggle('active', selected);
             button.setAttribute('aria-selected', String(selected));
             button.textContent = count === undefined ? TAB_LABELS[name] : `${TAB_LABELS[name]} (${count})`;

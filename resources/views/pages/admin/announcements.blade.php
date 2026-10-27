@@ -314,10 +314,35 @@
 
   .announcements-header {
     flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
   }
 
   #addAnnouncementButton {
     width: 100%;
+    justify-content: center;
+  }
+
+  .announcements-filter-bar {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .announcements-filter-bar .btn-tab {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    padding: 0.45rem 0.4rem !important;
+    font-size: 0.8125rem !important;
   }
 
   .announcements-scroll {
@@ -355,7 +380,7 @@
             <h2 class="mb-1" id="announcementsTitle">Announcements</h2>
             <p class="text-muted mb-0" id="announcementsDescription">Send important messages to students or coaches.</p>
         </div>
-        <button class="btn btn-outline-primary" id="addAnnouncementButton" type="button">
+        <button class="btn btn-primary" id="addAnnouncementButton" type="button">
             <i class="bi bi-plus-lg" id="addAnnouncementIcon"></i>
             New Announcement
         </button>
