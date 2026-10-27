@@ -8,6 +8,7 @@ use App\Models\Course;
 use App\Models\CourseCategory;
 use App\Models\CourseSkill;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CourseController extends Controller
@@ -54,6 +55,117 @@ class CourseController extends Controller
                 'course_session_count' => $course->course_session_count,
                 'course_price'         => $course->course_price,
                 'categories'           => $categories,
+            ],
+        ]);
+    }
+
+    /**
+     * Statistics for one course (the "Stats" modal on the Courses page).
+     *
+     * Definitions:
+     *  - dropped   = enrollment has dropped_at
+     *  - graduated = enrollment has graduation_at
+     *  - active    = neither of the above
+     *  - skill pass rate uses each enrollment's LATEST skill assessment only,
+     *    so re-assessments replace old results instead of piling up.
+     */
+    public function stats(int $course_id): JsonResponse
+    {
+        $course = Course::find($course_id);
+
+        if (!$course) {
+            return response()->json(['success' => false, 'message' => 'Course not found.'], 404);
+        }
+
+        $enrollments = DB::table('tbl_enrollments')
+            ->where('course_id', $course_id)
+            ->get(['enrollment_id', 'course_price_at_enrollment', 'enrollment_at', 'graduation_at', 'dropped_at']);
+
+        $ids = $enrollments->pluck('enrollment_id');
+
+        $dropped   = $enrollments->filter(fn ($e) => $e->dropped_at !== null);
+        $graduated = $enrollments->filter(fn ($e) => $e->graduation_at !== null && $e->dropped_at === null);
+        $active    = $enrollments->filter(fn ($e) => $e->graduation_at === null && $e->dropped_at === null);
+
+        // Of everyone who has finished one way or the other, how many graduated.
+        $finished       = $graduated->count() + $dropped->count();
+        $completionRate = $finished > 0 ? round($graduated->count() / $finished * 100, 1) : null;
+
+        $daysToGraduate = $graduated
+            ->filter(fn ($e) => $e->enrollment_at !== null)
+            ->map(fn ($e) => Carbon::parse($e->enrollment_at)->diffInDays(Carbon::parse($e->graduation_at)));
+        $avgDays = $daysToGraduate->isNotEmpty() ? (int) round($daysToGraduate->avg()) : null;
+
+        // Money. Archived payments are corrections/voids, so they don't count.
+        $paidByEnrollment = DB::table('tbl_course_payments')
+            ->whereIn('enrollment_id', $ids)
+            ->whereNull('archived_at')
+            ->groupBy('enrollment_id')
+            ->selectRaw('enrollment_id, SUM(amount) as total')
+            ->pluck('total', 'enrollment_id');
+
+        $collected   = (float) $paidByEnrollment->sum();
+        $outstanding = $enrollments->reject(fn ($e) => $e->dropped_at !== null)->sum(function ($e) use ($course, $paidByEnrollment) {
+            $price = (float) ($e->course_price_at_enrollment ?? $course->course_price ?? 0);
+            return max(0, $price - (float) $paidByEnrollment->get($e->enrollment_id, 0));
+        });
+
+        // Latest assessment per enrollment.
+        $latestIds = DB::table('tbl_skill_assessments')
+            ->whereIn('enrollment_id', $ids)
+            ->groupBy('enrollment_id')
+            ->selectRaw('MAX(skill_assessment_id) as id')
+            ->pluck('id');
+
+        $latest = DB::table('tbl_skill_assessments')
+            ->whereIn('skill_assessment_id', $latestIds)
+            ->get(['skill_assessment_id', 'enrollment_id', 'ready_to_graduate']);
+
+        $activeIds     = $active->pluck('enrollment_id')->all();
+        $readyToGrad   = $latest->filter(fn ($a) => $a->ready_to_graduate && in_array($a->enrollment_id, $activeIds))->count();
+
+        $resultsBySkill = DB::table('tbl_skill_assessment_results')
+            ->whereIn('skill_assessment_id', $latest->pluck('skill_assessment_id'))
+            ->groupBy('course_skill_id')
+            ->selectRaw("course_skill_id, SUM(result = 'pass') as passed, COUNT(*) as total")
+            ->get()
+            ->keyBy('course_skill_id');
+
+        $skills = DB::table('tbl_course_categories as c')
+            ->join('tbl_course_skills as s', 's.course_category_id', '=', 'c.course_category_id')
+            ->where('c.course_id', $course_id)
+            ->whereNull('c.deleted_at')
+            ->whereNull('s.deleted_at')
+            ->orderBy('c.course_category_id')
+            ->orderBy('s.course_skill_id')
+            ->get(['c.course_category_name', 's.course_skill_id', 's.course_skill_name'])
+            ->map(function ($skill) use ($resultsBySkill) {
+                $r     = $resultsBySkill->get($skill->course_skill_id);
+                $total = $r ? (int) $r->total : 0;
+
+                return [
+                    'category'  => $skill->course_category_name,
+                    'name'      => $skill->course_skill_name,
+                    'assessed'  => $total,
+                    'pass_rate' => $total > 0 ? round($r->passed / $total * 100) : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'stats'   => [
+                'course_name'     => $course->course_name,
+                'enrolled_total'  => $enrollments->count(),
+                'active'          => $active->count(),
+                'graduated'       => $graduated->count(),
+                'dropped'         => $dropped->count(),
+                'ready_to_grad'   => $readyToGrad,
+                'completion_rate' => $completionRate,
+                'avg_days_to_graduate' => $avgDays,
+                'collected'       => round($collected, 2),
+                'outstanding'     => round($outstanding, 2),
+                'skills'          => $skills,
             ],
         ]);
     }

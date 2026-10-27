@@ -81,6 +81,7 @@ use App\Http\Controllers\CourseController;
 Route::get('/courses/{course_id}', [CourseController::class, 'show'])->middleware('auth');
 Route::post('/courses', [CourseController::class, 'store'])->middleware('auth');
 Route::put('/courses/{course_id}', [CourseController::class, 'update'])->middleware('auth');
+Route::get('/courses/{course_id}/stats', [CourseController::class, 'stats']);
 
 use App\Http\Controllers\CoachSkillsAssessmentController;
 

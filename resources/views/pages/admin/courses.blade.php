@@ -230,7 +230,7 @@
 
 #coursesTable th:last-child,
 #coursesTable td:last-child {
-    width: 90px;
+    width: 170px;
 }
 
 /* =========================================
@@ -369,6 +369,28 @@
     .course-builder { grid-template-columns: 1fr; }
     .course-builder-panel { min-height: 220px; }
 }
+
+/* Course statistics dialog */
+.course-stats-dialog { width: min(760px, 100%); }
+.course-stats-body { padding: 1.25rem; }
+.course-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+.course-stat-tile { border: 1px solid #E7EBEF; border-radius: 10px; padding: 0.75rem 0.9rem; }
+.course-stat-tile .label { font-size: 0.75rem; color: #667085; }
+.course-stat-tile .value { font-size: 1.35rem; font-weight: 700; color: #343A40; line-height: 1.3; }
+.course-stat-tile .hint { font-size: 0.7rem; color: #9aa0a6; }
+.course-stats-section-title { font-size: 0.875rem; font-weight: 700; margin-bottom: 0.5rem; }
+.course-skill-stat { display: grid; grid-template-columns: minmax(0, 1fr) 140px 60px; gap: 0.75rem; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #EDF0F2; font-size: 0.85rem; }
+.course-skill-stat:last-child { border-bottom: 0; }
+.course-skill-stat .skill-cat { display: block; font-size: 0.7rem; color: #9aa0a6; }
+.course-skill-bar { height: 8px; background: #EDF0F2; border-radius: 99px; overflow: hidden; }
+.course-skill-bar > span { display: block; height: 100%; background: #0093E5; }
+.course-skill-pct { text-align: right; color: #667085; }
+#coursesTable .course-actions { display: flex; gap: 0.4rem; justify-content: center; }
 </style>
 
 <!-- =========================================
@@ -478,9 +500,14 @@
 
                             <td>
 
-                                <button type="button" class="btn btn-outline-primary edit-course-button" data-course-id="{{ $course->course_id }}">
-                                    Edit
-                                </button>
+                                <div class="course-actions">
+                                    <button type="button" class="btn btn-outline-secondary stats-course-button" data-course-id="{{ $course->course_id }}">
+                                        Stats
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary edit-course-button" data-course-id="{{ $course->course_id }}">
+                                        Edit
+                                    </button>
+                                </div>
                             </td>
                         </tr>
 
@@ -1046,4 +1073,126 @@
 
     render();
 }());
+</script>
+
+<!-- COURSE STATISTICS DIALOG -->
+<div class="modalOverlay" id="courseStatsModal" hidden>
+    <div class="course-modal-dialog course-stats-dialog" role="dialog" aria-modal="true" aria-labelledby="courseStatsTitle">
+        <div class="course-modal-header">
+            <h2 class="mb-1" id="courseStatsTitle">Course Statistics</h2>
+            <p class="text-muted mb-0" id="courseStatsSubtitle"></p>
+        </div>
+        <div class="course-stats-body" id="courseStatsBody"></div>
+        <div class="course-modal-footer">
+            <button class="btn btn-outline-secondary" type="button" id="closeCourseStats">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const modal = document.getElementById('courseStatsModal');
+    const body = document.getElementById('courseStatsBody');
+    const title = document.getElementById('courseStatsTitle');
+    const subtitle = document.getElementById('courseStatsSubtitle');
+    const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 });
+
+    function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    function tile(label, value, hint) {
+        const t = el('div', 'course-stat-tile');
+        t.appendChild(el('div', 'label', label));
+        t.appendChild(el('div', 'value', value));
+        if (hint) t.appendChild(el('div', 'hint', hint));
+        return t;
+    }
+
+    function render(stats) {
+        body.replaceChildren();
+
+        const grid = el('div', 'course-stats-grid');
+        grid.appendChild(tile('Currently enrolled', stats.active, 'Not graduated or dropped'));
+        grid.appendChild(tile('Ready to graduate', stats.ready_to_grad, 'Latest assessment says ready'));
+        grid.appendChild(tile('Graduates', stats.graduated));
+        grid.appendChild(tile('Dropped', stats.dropped));
+        grid.appendChild(tile('Completion rate',
+            stats.completion_rate === null ? '—' : stats.completion_rate + '%',
+            'Graduates ÷ (graduates + dropped)'));
+        grid.appendChild(tile('Avg. time to graduate',
+            stats.avg_days_to_graduate === null ? '—' : stats.avg_days_to_graduate + ' days'));
+        grid.appendChild(tile('Collected', peso.format(stats.collected), 'Excludes archived payments'));
+        grid.appendChild(tile('Outstanding', peso.format(stats.outstanding), 'Unpaid balance, excl. dropped'));
+        body.appendChild(grid);
+
+        body.appendChild(el('div', 'course-stats-section-title', 'Skill pass rates'));
+
+        if (!stats.skills.length) {
+            body.appendChild(el('div', 'course-empty-state', 'This course has no skills yet.'));
+            return;
+        }
+
+        stats.skills.forEach(function (skill) {
+            const row = el('div', 'course-skill-stat');
+
+            const name = el('div');
+            name.appendChild(el('span', '', skill.name));
+            name.appendChild(el('span', 'skill-cat', skill.category));
+            row.appendChild(name);
+
+            const bar = el('div', 'course-skill-bar');
+            const fill = el('span');
+            fill.style.width = (skill.pass_rate === null ? 0 : skill.pass_rate) + '%';
+            bar.appendChild(fill);
+            row.appendChild(bar);
+
+            row.appendChild(el('div', 'course-skill-pct',
+                skill.pass_rate === null ? 'No data' : skill.pass_rate + '%'));
+            row.title = skill.assessed + ' student(s) assessed';
+
+            body.appendChild(row);
+        });
+    }
+
+    async function openStats(button) {
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Loading...';
+
+        try {
+            const response = await fetch('{{ url('/courses') }}/' + encodeURIComponent(button.dataset.courseId) + '/stats', {
+                headers: { 'Accept': 'application/json' },
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to load statistics.');
+            }
+
+            title.textContent = result.stats.course_name;
+            subtitle.textContent = result.stats.enrolled_total + ' enrolment(s) on record, all time.';
+            render(result.stats);
+            modal.hidden = false;
+        } catch (error) {
+            console.error(error);
+            if (typeof showToast === 'function') showToast(error.message || 'Could not load statistics.', 'danger');
+        } finally {
+            button.disabled = false;
+            button.textContent = original;
+        }
+    }
+
+    document.getElementById('coursesTableBody').addEventListener('click', function (event) {
+        const button = event.target.closest('.stats-course-button');
+        if (button) openStats(button);
+    });
+
+    document.getElementById('closeCourseStats').addEventListener('click', function () { modal.hidden = true; });
+    modal.addEventListener('click', function (event) { if (event.target === modal) modal.hidden = true; });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.hidden) modal.hidden = true; });
+})();
 </script>
