@@ -91,8 +91,8 @@ class LoginController extends Controller
         $userId = (int) $user->user_id;
 
         // --- TEMPORARILY BYPASS DEVICE VERIFICATION FOR TESTING ---
-        // $cookie = $this->devices->remember($request, $userId);
-        // return $this->finishLogin($request, $user)->withCookie($cookie);
+        $cookie = $this->devices->remember($request, $userId);
+        return $this->finishLogin($request, $user)->withCookie($cookie);
         // ---------------------------------------------------------
 
         // A browser we already know: straight in.
